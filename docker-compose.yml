@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # AI Orchestrator - Main routing service
+  ai-orchestrator:
+    build:
+      context: .
+      target: ai-orchestrator
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=development
+    networks:
+      - dreamseed-network
+
+  # Backend Services
+  career-api:
+    build:
+      context: .
+      target: career-api
+    ports:
+      - "8001:8001"
+    environment:
+      - ENV=development
+    networks:
+      - dreamseed-network
+
+  learning-api:
+    build:
+      context: .
+      target: learning-api
+    ports:
+      - "8002:8002"
+    environment:
+      - ENV=development
+    networks:
+      - dreamseed-network
+
+  progress-api:
+    build:
+      context: .
+      target: progress-api
+    ports:
+      - "8003:8003"
+    environment:
+      - ENV=development
+    networks:
+      - dreamseed-network
+
+  # Frontend Applications
+  frontend:
+    build:
+      context: .
+      target: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - ai-orchestrator
+      - career-api
+      - learning-api
+      - progress-api
+    networks:
+      - dreamseed-network
+
+  # Database (optional for future use)
+  # postgres:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_DB: dreamseed
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: password
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - dreamseed-network
+
+networks:
+  dreamseed-network:
+    driver: bridge
+
+# volumes:
+#   postgres_data:
