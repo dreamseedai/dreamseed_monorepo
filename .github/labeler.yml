@@ -1,0 +1,75 @@
+# PR Labeler Configuration
+# Automatically labels PRs based on changed files
+
+# Frontend changes
+area:frontend:
+  - 'portal_front/**'
+  - 'frontend/**'
+
+# Backend changes
+area:backend:
+  - 'portal_api/**'
+  - 'backend/**'
+  - 'api/**'
+
+# Infrastructure changes
+area:infra:
+  - '.github/**'
+  - 'scripts/**'
+  - 'docs/**'
+  - 'ops/**'
+
+# Documentation changes
+area:docs:
+  - '*.md'
+  - 'docs/**'
+  - 'README*'
+
+# Configuration changes
+area:config:
+  - '*.yml'
+  - '*.yaml'
+  - '*.json'
+  - '*.toml'
+  - '*.ini'
+  - '.gitignore'
+  - '.pre-commit-config.yaml'
+
+# Repository maintenance
+area:maintenance:
+  - 'POST_RENAME.md'
+  - 'scripts/check-repo-strings.sh'
+  - 'scripts/setup-pre-commit.sh'
+
+# Dependencies
+area:dependencies:
+  - 'requirements.txt'
+  - 'package.json'
+  - 'package-lock.json'
+  - 'yarn.lock'
+  - 'poetry.lock'
+  - 'Pipfile'
+  - 'Pipfile.lock'
+
+# Security
+area:security:
+  - '**/secrets/**'
+  - '**/.env*'
+  - '**/auth/**'
+  - '**/security/**'
+
+# Testing
+area:testing:
+  - '**/test/**'
+  - '**/tests/**'
+  - '**/*_test.py'
+  - '**/*.test.js'
+  - '**/*.spec.js'
+  - '**/__tests__/**'
+
+# Database
+area:database:
+  - '**/migrations/**'
+  - '**/alembic/**'
+  - '**/*.sql'
+  - '**/schema/**'

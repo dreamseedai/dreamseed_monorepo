@@ -1,5 +1,18 @@
 ## 📋 Pull Request Checklist
 
+### 🏷️ Auto-Labeling
+This PR will be automatically labeled based on changed files:
+- `area:frontend` - Frontend changes
+- `area:backend` - Backend changes
+- `area:infra` - Infrastructure changes
+- `area:docs` - Documentation changes
+- `area:config` - Configuration changes
+- `area:maintenance` - Repository maintenance
+- `area:dependencies` - Dependency updates
+- `area:security` - Security-related changes
+- `area:testing` - Test changes
+- `area:database` - Database changes
+
 ### 🎯 General
 - [ ] Code follows project conventions
 - [ ] Tests pass locally
@@ -22,6 +35,10 @@
 - [ ] Code comments added/updated
 - [ ] README updated (if applicable)
 - [ ] API documentation updated (if applicable)
+
+### 🔄 Auto-Merge (Optional)
+- [ ] Add `automerge` label for automatic merging when CI passes and reviews are approved
+- [ ] Ensure no `do-not-merge` or `blocked` labels are present
 
 ---
 

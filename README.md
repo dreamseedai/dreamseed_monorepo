@@ -80,6 +80,27 @@ For complete protection, set up branch protection rules:
 - Enable "Repository Integrity Check" as a required status check
 - Require PR reviews and up-to-date branches
 
+### Automated Workflow Features
+
+This repository includes advanced automation:
+
+#### 🏷️ **Automatic PR Labeling**
+- PRs are automatically labeled based on changed files
+- Labels include: `area:frontend`, `area:backend`, `area:infra`, etc.
+- Helps with review routing and change tracking
+
+#### 🔄 **Auto-Merge System**
+- Add `automerge` label to automatically merge when:
+  - CI passes
+  - Required reviews are approved
+  - No blocking labels present
+- Uses squash merge and deletes feature branches
+
+#### 👥 **Code Owners**
+- Automatic reviewer assignment based on file paths
+- Defined in `CODEOWNERS` file
+- Integrates with branch protection rules
+
 ## 🤝 Contributing
 
 1. Create a feature branch from `main`

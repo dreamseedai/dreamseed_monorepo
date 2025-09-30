@@ -1,0 +1,23 @@
+name: Auto Merge
+
+on:
+  pull_request:
+    types: [labeled, synchronize, opened, reopened]
+
+jobs:
+  automerge:
+    if: contains(github.event.pull_request.labels.*.name, 'automerge')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Auto Merge
+        uses: pascalgn/automerge-action@v0.16.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_METHOD: squash
+          DELETE_BRANCH: true
+          MERGE_LABELS: 'automerge'
+          BLOCKING_LABELS: 'do-not-merge,blocked'
+          REQUIRED_STATUS_CHECKS: 'Repository Integrity Check'

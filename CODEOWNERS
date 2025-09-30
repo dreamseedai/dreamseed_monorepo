@@ -1,0 +1,55 @@
+# Code Owners Configuration
+# Automatically assigns reviewers based on file paths
+
+# Global owners (fallback for all files)
+* @mpcstudy
+
+# Frontend
+/portal_front/ @mpcstudy
+/frontend/ @mpcstudy
+
+# Backend API
+/portal_api/ @mpcstudy
+/backend/ @mpcstudy
+/api/ @mpcstudy
+
+# Infrastructure & DevOps
+/.github/ @mpcstudy
+/scripts/ @mpcstudy
+/ops/ @mpcstudy
+/docs/ @mpcstudy
+
+# Configuration files
+*.yml @mpcstudy
+*.yaml @mpcstudy
+*.json @mpcstudy
+*.toml @mpcstudy
+*.ini @mpcstudy
+.gitignore @mpcstudy
+.pre-commit-config.yaml @mpcstudy
+
+# Repository maintenance
+POST_RENAME.md @mpcstudy
+scripts/check-repo-strings.sh @mpcstudy
+scripts/setup-pre-commit.sh @mpcstudy
+
+# Security & Secrets
+**/secrets/** @mpcstudy
+**/.env* @mpcstudy
+**/auth/** @mpcstudy
+**/security/** @mpcstudy
+
+# Database & Migrations
+**/migrations/** @mpcstudy
+**/alembic/** @mpcstudy
+**/*.sql @mpcstudy
+**/schema/** @mpcstudy
+
+# Dependencies
+requirements.txt @mpcstudy
+package.json @mpcstudy
+package-lock.json @mpcstudy
+yarn.lock @mpcstudy
+poetry.lock @mpcstudy
+Pipfile @mpcstudy
+Pipfile.lock @mpcstudy
