@@ -1,0 +1,59 @@
+# Dependabot Configuration
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/portal_api"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "mpcstudy"
+    assignees:
+      - "mpcstudy"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "area:dependencies"
+      - "type:chore"
+
+  # Node.js dependencies
+  - package-ecosystem: "npm"
+    directory: "/portal_front"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "mpcstudy"
+    assignees:
+      - "mpcstudy"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "area:dependencies"
+      - "type:chore"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "mpcstudy"
+    assignees:
+      - "mpcstudy"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "area:infra"
+      - "type:chore"

@@ -4,22 +4,62 @@
 # Global owners (fallback for all files)
 * @mpcstudy
 
+# =============================================================================
+# CRITICAL PATHS - Require multiple reviewers
+# =============================================================================
+
+# GitHub Actions & CI/CD (Critical infrastructure)
+/.github/workflows/ @mpcstudy
+/.github/dependabot.yml @mpcstudy
+/.github/release-drafter.yml @mpcstudy
+
+# Infrastructure & DevOps (High impact)
+/ops/ @mpcstudy
+/scripts/ @mpcstudy
+/docker/ @mpcstudy
+/kubernetes/ @mpcstudy
+
+# Security & Secrets (Maximum security)
+**/secrets/** @mpcstudy
+**/.env* @mpcstudy
+**/auth/** @mpcstudy
+**/security/** @mpcstudy
+**/keys/** @mpcstudy
+**/certificates/** @mpcstudy
+
+# Database & Migrations (Data integrity)
+**/migrations/** @mpcstudy
+**/alembic/** @mpcstudy
+**/*.sql @mpcstudy
+**/schema/** @mpcstudy
+**/seeds/** @mpcstudy
+
+# =============================================================================
+# STANDARD PATHS - Single reviewer
+# =============================================================================
+
 # Frontend
 /portal_front/ @mpcstudy
 /frontend/ @mpcstudy
+/ui/ @mpcstudy
+/web/ @mpcstudy
 
 # Backend API
 /portal_api/ @mpcstudy
 /backend/ @mpcstudy
 /api/ @mpcstudy
+/services/ @mpcstudy
 
-# Infrastructure & DevOps
-/.github/ @mpcstudy
-/scripts/ @mpcstudy
-/ops/ @mpcstudy
+# Documentation
 /docs/ @mpcstudy
+*.md @mpcstudy
+README* @mpcstudy
 
-# Configuration files
+# =============================================================================
+# CONFIGURATION FILES - Standard review
+# =============================================================================
+
+# Core configuration
 *.yml @mpcstudy
 *.yaml @mpcstudy
 *.json @mpcstudy
@@ -27,29 +67,49 @@
 *.ini @mpcstudy
 .gitignore @mpcstudy
 .pre-commit-config.yaml @mpcstudy
+CODEOWNERS @mpcstudy
 
 # Repository maintenance
 POST_RENAME.md @mpcstudy
 scripts/check-repo-strings.sh @mpcstudy
 scripts/setup-pre-commit.sh @mpcstudy
 
-# Security & Secrets
-**/secrets/** @mpcstudy
-**/.env* @mpcstudy
-**/auth/** @mpcstudy
-**/security/** @mpcstudy
+# =============================================================================
+# DEPENDENCIES - Standard review
+# =============================================================================
 
-# Database & Migrations
-**/migrations/** @mpcstudy
-**/alembic/** @mpcstudy
-**/*.sql @mpcstudy
-**/schema/** @mpcstudy
-
-# Dependencies
+# Python dependencies
 requirements.txt @mpcstudy
-package.json @mpcstudy
-package-lock.json @mpcstudy
-yarn.lock @mpcstudy
+requirements-*.txt @mpcstudy
 poetry.lock @mpcstudy
 Pipfile @mpcstudy
 Pipfile.lock @mpcstudy
+pyproject.toml @mpcstudy
+
+# Node.js dependencies
+package.json @mpcstudy
+package-lock.json @mpcstudy
+yarn.lock @mpcstudy
+pnpm-lock.yaml @mpcstudy
+
+# =============================================================================
+# DEVELOPMENT FILES - Relaxed review (speed optimization)
+# =============================================================================
+
+# Test files (faster iteration)
+**/test/** @mpcstudy
+**/tests/** @mpcstudy
+**/*_test.py @mpcstudy
+**/*.test.js @mpcstudy
+**/*.spec.js @mpcstudy
+**/__tests__/** @mpcstudy
+
+# Development configuration
+.vscode/ @mpcstudy
+.idea/ @mpcstudy
+*.code-workspace @mpcstudy
+
+# Temporary and cache files (minimal review)
+**/tmp/** @mpcstudy
+**/cache/** @mpcstudy
+**/logs/** @mpcstudy

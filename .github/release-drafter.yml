@@ -1,0 +1,77 @@
+name-template: 'v$RESOLVED_VERSION 🌟'
+tag-template: 'v$RESOLVED_VERSION'
+categories:
+  - title: '🚀 Features'
+    labels:
+      - 'type:feature'
+      - 'type:enhancement'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'type:bug'
+  - title: '🔧 Maintenance'
+    labels:
+      - 'type:chore'
+      - 'type:refactor'
+      - 'area:maintenance'
+  - title: '📚 Documentation'
+    labels:
+      - 'type:docs'
+      - 'area:docs'
+  - title: '🔒 Security'
+    labels:
+      - 'area:security'
+      - 'type:security'
+  - title: '⚡ Performance'
+    labels:
+      - 'type:perf'
+  - title: '🧪 Testing'
+    labels:
+      - 'type:test'
+      - 'area:testing'
+  - title: '🏗️ Infrastructure'
+    labels:
+      - 'area:infra'
+      - 'area:config'
+  - title: '📦 Dependencies'
+    labels:
+      - 'area:dependencies'
+
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+
+change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
+
+version-resolver:
+  major:
+    labels:
+      - 'major'
+      - 'breaking'
+  minor:
+    labels:
+      - 'minor'
+      - 'feature'
+  patch:
+    labels:
+      - 'patch'
+      - 'fix'
+      - 'bugfix'
+
+template: |
+  ## Changes
+
+  $CHANGES
+
+  ## Repository Integrity
+
+  This release includes:
+  - ✅ Repository integrity checks
+  - ✅ Automated dependency updates
+  - ✅ Security vulnerability scanning
+  - ✅ Code quality enforcement
+
+  ## Contributors
+
+  $CONTRIBUTORS
+
+  ---
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION

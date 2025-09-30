@@ -1,0 +1,62 @@
+name: Sync Labels
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  sync-labels:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Sync Labels
+        uses: peter-evans/create-or-update-labels@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          labels: |
+            # Area Labels
+            area:frontend,Frontend changes,0D8BDD
+            area:backend,Backend changes,0E8A16
+            area:infra,Infrastructure changes,7057FF
+            area:docs,Documentation changes,0075CA
+            area:config,Configuration changes,CFD3D7
+            area:maintenance,Repository maintenance,7057FF
+            area:dependencies,Dependency updates,0366D6
+            area:security,Security-related changes,D93F0B
+            area:testing,Test changes,0E8A16
+            area:database,Database changes,FF6B35
+
+            # Priority Labels
+            priority:critical,Critical priority,FF0000
+            priority:high,High priority,FF8C00
+            priority:medium,Medium priority,FFD700
+            priority:low,Low priority,90EE90
+
+            # Type Labels
+            type:bug,Bug fix,D93F0B
+            type:feature,New feature,0E8A16
+            type:enhancement,Enhancement,7057FF
+            type:refactor,Code refactoring,0366D6
+            type:chore,Chore/maintenance,CFD3D7
+            type:docs,Documentation,0075CA
+            type:style,Code style,FF6B35
+            type:test,Testing,0E8A16
+            type:perf,Performance improvement,FF6B35
+
+            # Status Labels
+            status:ready-for-review,Ready for review,0E8A16
+            status:in-progress,In progress,FFD700
+            status:blocked,Blocked,FF0000
+            status:needs-info,Needs more information,FF8C00
+            status:automerge,Auto-merge enabled,0E8A16
+            status:do-not-merge,Do not merge,FF0000
+
+            # Size Labels
+            size:XS,Extra small,90EE90
+            size:S,Small,90EE90
+            size:M,Medium,FFD700
+            size:L,Large,FF8C00
+            size:XL,Extra large,FF0000
