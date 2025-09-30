@@ -1,0 +1,13 @@
+{
+  "slug": "exams/ap",
+  "title": "AP 대비 가이드",
+  "summary": "과목 선택, 난이도, 학습 로드맵",
+  "intro": "인기 과목과 성취 전략, 시험 일정 및 과목별 주간 계획을 정리합니다.",
+  "sections": [
+    { "id": "overview", "title": "개요", "body": "AP 제도와 성적 반영, 과목 선택 기준을 요약합니다." },
+    { "id": "timeline", "title": "권장 타임라인", "body": "월/주별 계획과 실전 문제 풀이 루틴을 제안합니다." },
+    { "id": "resources", "title": "자료", "body": "AP Classroom, Past FRQs 등 자료를 소개합니다." }
+  ]
+}
+
+

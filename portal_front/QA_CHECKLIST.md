@@ -1,0 +1,26 @@
+# Post-deploy QA Checklist
+
+- [ ] Home/Routes
+  - [ ] / (home) renders without console errors
+  - [ ] /guides/us, /guides/ca load
+  - [ ] /guides/us/exams/{sat,ap,act,ouac} return 200
+- [ ] Auth/Errors
+  - [ ] 401 refresh flow works; after logout, protected calls denied
+  - [ ] 404 pages handled; no broken nav loops
+- [ ] Service Worker/Cache
+  - [ ] No registered service workers (navigator.serviceWorker.getRegistrations())
+  - [ ] index.html Cache-Control: no-store
+  - [ ] .css/.js immutable cache headers, hashed filenames
+- [ ] API
+  - [ ] GET /api/__ok → 200 JSON
+  - [ ] GET /api/recommend/plan → 200 (or POST /api/recommend fallback)
+  - [ ] CORS/credentials ok via same-origin
+- [ ] Assets
+  - [ ] Top banner image loads with ?v=<version>
+  - [ ] Icons/images render on mobile/desktop
+- [ ] Responsive
+  - [ ] Mobile (<640px) sidebar toggles
+  - [ ] Desktop 2D grid shows G9–G12 rows
+- [ ] Content
+  - [ ] Exams badge visible, links to /guides/us/exams-admissions
+  - [ ] MyPlanPanel shows cards or retry control

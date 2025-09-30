@@ -1,0 +1,15 @@
+{
+  "folders": [
+    { "path": "portal_front" },
+    { "path": "portal_api" },
+    { "path": "shared" },
+    { "path": "infra" },
+    { "path": "apps" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/dist": true
+    }
+  }
+}

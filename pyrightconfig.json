@@ -1,0 +1,13 @@
+{
+  "exclude": ["portal_front", "**/node_modules", "**/__pycache__"],
+  "venvPath": ".",
+  "venv": "portal_api/.venv",
+  "executionEnvironments": [
+    {
+      "root": "portal_api",
+      "extraPaths": ["."]
+    }
+  ]
+}
+
+

@@ -1,0 +1,30 @@
+portal_api/alembic.ini.local
+node_modules/
+dist/
+.env
+.env.*
+.envs/
+*.log
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
+portal_api/.venv/
+
+# Cache directories
+.npm-cache/
+portal_front/.npm-cache/
+.cache/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

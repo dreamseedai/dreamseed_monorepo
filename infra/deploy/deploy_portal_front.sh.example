@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 사용법: sudo /usr/local/bin/deploy_portal_front.sh /tmp/portal_front_dist_YYYY-MM-DD_HHMMSS.tgz
+
+PKG="${1:?usage: deploy_portal_front.sh /path/to/package.tgz}"
+[ -f "$PKG" ] || { echo "package not found: $PKG" >&2; exit 1; }
+
+APP_ROOT="/srv/portal_front"
+RELEASES="${APP_ROOT}/releases"
+mkdir -p "$RELEASES"
+
+BASENAME="$(basename "$PKG")"
+# 파일명에서 타임스탬프 추출, 실패 시 현재시각 사용
+if [[ "$BASENAME" =~ ^portal_front_dist_(.+)\.tgz$ ]]; then
+  TS="${BASH_REMATCH[1]}"
+else
+  TS="$(date +%F_%H%M%S)"
+fi
+
+TARGET="${RELEASES}/${TS}"
+mkdir -p "$TARGET"
+
+# 배포물 전개
+tar -xzf "$PKG" -C "$TARGET"
+
+# 헬스 체크 파일 생성 (vhost root가 /srv/portal_front/current 라는 가정)
+printf "ok\n" > "${TARGET}/__ok"
+
+# 선택: 소유권(서버 정책에 맞게 조정). 기본 www-data:www-data
+OWNER_GROUP="${PORTAL_OWNER_GROUP:-www-data:www-data}"
+chown -R "$OWNER_GROUP" "$TARGET" || true
+
+# 심볼릭 링크 원자적 전환
+ln -sfn "$TARGET" "${APP_ROOT}/current"
+
+# 이전 릴리스 정리(최근 5개 보존)
+ls -1dt "${RELEASES}/"* 2>/dev/null | tail -n +6 | xargs -r rm -rf
+
+# nginx 안전 리로드 및 외부 헬스체크
+nxreload_safe
+DOMAIN="${DOMAIN:-dreamseedai.com}"
+curl -fsS "https://${DOMAIN}/__ok" >/dev/null && echo "ok /__ok"
+
+
