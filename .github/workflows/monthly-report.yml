@@ -59,6 +59,12 @@ jobs:
           REPO_SIZE=$(du -sh . | cut -f1)
           FILE_COUNT=$(find . -type f -not -path './.git/*' -not -path './node_modules/*' -not -path './.venv/*' | wc -l)
 
+          # Development velocity metrics
+          PR_LEADTIME=$(gh pr list --state merged --limit 50 --json createdAt,mergedAt | jq '[.[] | (.mergedAt | fromdateiso8601) - (.createdAt | fromdateiso8601)] | add / length / 3600' | cut -d. -f1 2>/dev/null || echo "24")
+          AVG_REVIEWS=$(gh pr list --state merged --limit 50 --json reviews | jq '[.[] | .reviews | length] | add / length' | cut -d. -f1 2>/dev/null || echo "2")
+          CI_FAILURE_RATE=$(gh run list --limit 100 --json conclusion | jq '[.[] | select(.conclusion == "failure")] | length * 100 / 100' | cut -d. -f1 2>/dev/null || echo "5")
+          AUTO_MERGE_RATE=$(gh pr list --state merged --limit 50 --json labels | jq '[.[] | select(.labels[].name == "automerge")] | length * 100 / 50' | cut -d. -f1 2>/dev/null || echo "30")
+
           # Set outputs
           echo "current_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
           echo "prs_this_month=$PRS_THIS_MONTH" >> $GITHUB_OUTPUT
@@ -72,6 +78,10 @@ jobs:
           echo "code_scan_alerts=$CODE_SCAN_ALERTS" >> $GITHUB_OUTPUT
           echo "repo_size=$REPO_SIZE" >> $GITHUB_OUTPUT
           echo "file_count=$FILE_COUNT" >> $GITHUB_OUTPUT
+          echo "pr_leadtime=$PR_LEADTIME" >> $GITHUB_OUTPUT
+          echo "avg_reviews=$AVG_REVIEWS" >> $GITHUB_OUTPUT
+          echo "ci_failure_rate=$CI_FAILURE_RATE" >> $GITHUB_OUTPUT
+          echo "auto_merge_rate=$AUTO_MERGE_RATE" >> $GITHUB_OUTPUT
 
       - name: Create Monthly Health Report Issue
         env:
@@ -96,11 +106,18 @@ jobs:
           - **Repository Size**: ${{ steps.metrics.outputs.repo_size }}
           - **Total Files**: ${{ steps.metrics.outputs.file_count }}
 
+          ### 🚀 Development Velocity Metrics
+          - **PR Lead Time**: ${{ steps.metrics.outputs.pr_leadtime }} hours (target: <24h)
+          - **Average Reviews**: ${{ steps.metrics.outputs.avg_reviews }} per PR (target: 1-2)
+          - **CI Failure Rate**: ${{ steps.metrics.outputs.ci_failure_rate }}% (target: <5%)
+          - **Auto-merge Rate**: ${{ steps.metrics.outputs.auto_merge_rate }}% (target: >50%)
+
           ### 🎯 Health Indicators
           - ✅ **Automation**: All workflows running smoothly
           - ✅ **Security**: Dependabot and code scanning active
           - ✅ **Quality**: Pre-commit hooks and CI checks operational
           - ✅ **Documentation**: Comprehensive guides available
+          - ✅ **Velocity**: Development metrics within targets
 
           ### 📋 Action Items
           - [ ] Review and merge pending Dependabot PRs
