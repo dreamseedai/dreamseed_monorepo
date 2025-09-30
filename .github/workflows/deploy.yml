@@ -137,25 +137,76 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-  notify:
+  health-check:
     needs: [deploy-frontend, deploy-api]
+    runs-on: ubuntu-latest
+    if: always() && (needs.deploy-frontend.result == 'success' || needs.deploy-api.result == 'success')
+    steps:
+      - name: Post-deploy health check
+        run: |
+          echo "🔍 Starting post-deployment health check..."
+
+          HEALTH_URL="${{ secrets.HEALTH_CHECK_URL || 'https://your.domain' }}"
+          MAX_ATTEMPTS=10
+          SUCCESS_THRESHOLD=8
+          ok=0
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Health check attempt $i/$MAX_ATTEMPTS"
+
+            # Check multiple endpoints
+            code=$(curl -sk -o /dev/null -w "%{http_code}" "$HEALTH_URL/__ok" || echo "000")
+            echo "Health endpoint: $code"
+
+            if [ "$code" = "200" ]; then
+              ok=$((ok+1))
+              echo "✅ Health check $i passed"
+            else
+              echo "❌ Health check $i failed (code: $code)"
+            fi
+
+            sleep 6
+          done
+
+          echo "Health check results: $ok/$MAX_ATTEMPTS successful"
+
+          if [ "$ok" -lt "$SUCCESS_THRESHOLD" ]; then
+            echo "❌ Health check failed ($ok/$MAX_ATTEMPTS) - initiating rollback"
+
+            # Trigger rollback workflow
+            gh workflow run rollback.yml \
+              -f environment="${{ github.event.inputs.environment || 'staging' }}" \
+              --repo "${{ github.repository }}"
+
+            exit 1
+          else
+            echo "✅ Health check passed ($ok/$MAX_ATTEMPTS) - deployment successful"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    needs: [deploy-frontend, deploy-api, health-check]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Notify deployment status
         run: |
-          if [ "${{ needs.deploy-frontend.result }}" = "success" ] && [ "${{ needs.deploy-api.result }}" = "success" ]; then
+          if [ "${{ needs.health-check.result }}" = "success" ]; then
             echo "✅ Deployment successful to ${{ github.event.inputs.environment || 'staging' }}"
+            STATUS="✅ SUCCESS"
+            COLOR="good"
           else
             echo "❌ Deployment failed to ${{ github.event.inputs.environment || 'staging' }}"
-            exit 1
+            STATUS="❌ FAILED"
+            COLOR="danger"
           fi
 
       - name: Create deployment notification
         if: always()
         run: |
           # Example: Send notification to Slack/Discord
-          echo "Deployment notification would be sent here"
+          echo "Deployment notification: $STATUS"
           # curl -X POST -H 'Content-type: application/json' \
-          #   --data '{"text":"Deployment to ${{ github.event.inputs.environment || 'staging' }}: ${{ needs.deploy-frontend.result }}/${{ needs.deploy-api.result }}"}' \
+          #   --data "{\"text\":\"$STATUS: Deployment to ${{ github.event.inputs.environment || 'staging' }}\", \"color\":\"$COLOR\"}" \
           #   ${{ secrets.SLACK_WEBHOOK_URL }}

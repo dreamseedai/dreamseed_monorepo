@@ -4,10 +4,78 @@ on:
   pull_request:
   push:
     branches: [main]
+  paths-ignore:
+    - 'docs/**'
+    - '*.md'
+    - '.github/ISSUE_TEMPLATE/**'
+    - '.github/PULL_REQUEST_TEMPLATE.md'
 
 jobs:
+  # Skip CI for documentation-only changes
+  skip-check:
+    runs-on: ubuntu-latest
+    outputs:
+      should-skip: ${{ steps.skip.outputs.should-skip }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if should skip CI
+        id: skip
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+
+          # Skip if only documentation files changed
+          if echo "$CHANGED_FILES" | grep -v -E '\.(md|txt)$' | grep -v '^docs/' | grep -v '^\.github/ISSUE_TEMPLATE/' | grep -v '^\.github/PULL_REQUEST_TEMPLATE\.md$' | grep -q .; then
+            echo "should-skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "should-skip=true" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping CI - only documentation changes detected"
+          fi
+
+  # Path-based filtering for selective CI
+  path-filter:
+    runs-on: ubuntu-latest
+    needs: skip-check
+    if: needs.skip-check.outputs.should-skip == 'false'
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      shared: ${{ steps.filter.outputs.shared }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Path-based filtering
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'apps/portal-front/**'
+              - 'packages/shared-ui/**'
+            backend:
+              - 'apps/portal-api/**'
+              - 'apps/portal_api/**'
+            shared:
+              - 'packages/shared-types/**'
+              - 'packages/shared-utils/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - '.changeset/**'
+
   detect:
     runs-on: ubuntu-latest
+    needs: [skip-check, path-filter]
+    if: needs.skip-check.outputs.should-skip == 'false'
     outputs:
       matrix: ${{ steps.set.outputs.matrix }}
     steps:
@@ -30,51 +98,25 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Detect changed packages
+      - name: Detect changed packages (optimized)
         id: set
         run: |
-          # Get changed files
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
-          else
-            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
-          fi
-
-          echo "Changed files: $CHANGED_FILES"
-
-          # Detect changed packages
           CHANGED_PACKAGES=()
 
-          # Check apps
-          if echo "$CHANGED_FILES" | grep -q "^apps/"; then
-            for app in apps/*/; do
-              if [ -d "$app" ]; then
-                app_name=$(basename "$app")
-                if echo "$CHANGED_FILES" | grep -q "^apps/$app_name/"; then
-                  CHANGED_PACKAGES+=("apps/$app_name")
-                fi
-              fi
-            done
+          # Use path filter results for efficient detection
+          if [ "${{ needs.path-filter.outputs.frontend }}" = "true" ]; then
+            CHANGED_PACKAGES+=("apps/portal-front")
           fi
 
-          # Check packages
-          if echo "$CHANGED_FILES" | grep -q "^packages/"; then
-            for pkg in packages/*/; do
-              if [ -d "$pkg" ]; then
-                pkg_name=$(basename "$pkg")
-                if echo "$CHANGED_FILES" | grep -q "^packages/$pkg_name/"; then
-                  CHANGED_PACKAGES+=("packages/$pkg_name")
-                fi
-              fi
-            done
+          if [ "${{ needs.path-filter.outputs.backend }}" = "true" ]; then
+            CHANGED_PACKAGES+=("apps/portal-api")
           fi
 
-          # Check root changes (affects all packages)
-          if echo "$CHANGED_FILES" | grep -qE "^(package\.json|pnpm-workspace\.yaml|\.changeset/|\.github/)"; then
-            CHANGED_PACKAGES=("apps/portal-front" "apps/portal-api" "packages/shared-types" "packages/shared-utils")
+          if [ "${{ needs.path-filter.outputs.shared }}" = "true" ]; then
+            CHANGED_PACKAGES+=("packages/shared-types" "packages/shared-utils")
           fi
 
-          # Fallback: if no packages detected, run all
+          # If no specific changes, run all (safety fallback)
           if [ ${#CHANGED_PACKAGES[@]} -eq 0 ]; then
             CHANGED_PACKAGES=("apps/portal-front" "apps/portal-api" "packages/shared-types" "packages/shared-utils")
           fi
@@ -85,7 +127,8 @@ jobs:
           echo "Changed packages: ${CHANGED_PACKAGES[*]}"
 
   build-test:
-    needs: detect
+    needs: [skip-check, detect]
+    if: needs.skip-check.outputs.should-skip == 'false'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -107,6 +150,18 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -136,9 +191,9 @@ jobs:
           retention-days: 1
 
   integration-test:
-    needs: build-test
+    needs: [skip-check, build-test]
+    if: needs.skip-check.outputs.should-skip == 'false' && contains(needs.detect.outputs.matrix, 'apps/portal-api')
     runs-on: ubuntu-latest
-    if: contains(needs.detect.outputs.matrix, 'apps/portal-api')
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -147,6 +202,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: 'pip'
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            apps/portal_api/.venv
+          key: ${{ runner.os }}-pip-${{ hashFiles('apps/portal_api/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Install Python dependencies
         working-directory: apps/portal_api

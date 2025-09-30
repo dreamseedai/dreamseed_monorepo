@@ -1,0 +1,119 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      target_version:
+        description: 'Target version to rollback to (optional)'
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get previous version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.target_version }}" ]; then
+            echo "version=${{ github.event.inputs.target_version }}" >> $GITHUB_OUTPUT
+          else
+            # Get the previous successful deployment version
+            PREV_VERSION=$(git tag --sort=-version:refname | head -2 | tail -1)
+            echo "version=$PREV_VERSION" >> $GITHUB_OUTPUT
+          fi
+          echo "Rolling back to version: $PREV_VERSION"
+
+      - name: Rollback Frontend
+        if: env.FRONTEND_DEPLOYED == 'true'
+        run: |
+          echo "🔄 Rolling back frontend to version ${{ steps.version.outputs.version }}"
+
+          # Example: Rollback Vercel deployment
+          if [ -n "${{ secrets.VERCEL_TOKEN }}" ]; then
+            # npx vercel rollback ${{ steps.version.outputs.version }} --token ${{ secrets.VERCEL_TOKEN }}
+            echo "Vercel rollback would be executed here"
+          fi
+
+          # Example: Rollback AWS S3
+          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+            # aws s3 sync s3://${{ secrets.S3_BUCKET }}/backups/${{ steps.version.outputs.version }}/ s3://${{ secrets.S3_BUCKET }}/ --delete
+            echo "AWS S3 rollback would be executed here"
+          fi
+        env:
+          FRONTEND_DEPLOYED: ${{ secrets.FRONTEND_DEPLOYED }}
+
+      - name: Rollback API
+        if: env.API_DEPLOYED == 'true'
+        run: |
+          echo "🔄 Rolling back API to version ${{ steps.version.outputs.version }}"
+
+          # Example: Rollback ECS service
+          if [ -n "${{ secrets.AWS_ROLE_ARN }}" ]; then
+            # aws ecs update-service --cluster ${{ secrets.ECS_CLUSTER }} --service ${{ secrets.ECS_SERVICE }} --task-definition ${{ steps.version.outputs.version }}
+            echo "ECS rollback would be executed here"
+          fi
+
+          # Example: Rollback Railway
+          if [ -n "${{ secrets.RAILWAY_TOKEN }}" ]; then
+            # railway rollback --token ${{ secrets.RAILWAY_TOKEN }}
+            echo "Railway rollback would be executed here"
+          fi
+        env:
+          API_DEPLOYED: ${{ secrets.API_DEPLOYED }}
+
+      - name: Verify rollback
+        run: |
+          echo "🔍 Verifying rollback..."
+
+          # Wait for services to stabilize
+          sleep 30
+
+          # Health check
+          for i in {1..5}; do
+            echo "Health check attempt $i/5"
+            if curl -f -s "${{ secrets.HEALTH_CHECK_URL }}/__ok" > /dev/null; then
+              echo "✅ Rollback successful - service is healthy"
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "❌ Rollback verification failed"
+          exit 1
+
+      - name: Notify rollback status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Rollback to ${{ steps.version.outputs.version }} completed successfully"
+            # Send success notification
+            # curl -X POST -H 'Content-type: application/json' \
+            #   --data '{"text":"✅ Rollback successful to ${{ steps.version.outputs.version }} in ${{ github.event.inputs.environment }}"}' \
+            #   ${{ secrets.SLACK_WEBHOOK_URL }}
+          else
+            echo "❌ Rollback to ${{ steps.version.outputs.version }} failed"
+            # Send failure notification
+            # curl -X POST -H 'Content-type: application/json' \
+            #   --data '{"text":"❌ Rollback failed to ${{ steps.version.outputs.version }} in ${{ github.event.inputs.environment }}"}' \
+            #   ${{ secrets.SLACK_WEBHOOK_URL }}
+          fi
