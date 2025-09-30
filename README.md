@@ -80,6 +80,12 @@ For complete protection, set up branch protection rules:
 - Enable "Repository Integrity Check" as a required status check
 - Require PR reviews and up-to-date branches
 
+### Operations & Maintenance
+
+- **[Operations Health Check](docs/OPERATIONS_HEALTHCHECK.md)** - 5-minute routine to ensure all automation works
+- **[New Developer Onboarding](docs/ONBOARDING_GUIDE.md)** - Complete setup guide for new team members
+- **[Branch Protection Setup](docs/BRANCH_PROTECTION_SETUP.md)** - Configure branch protection rules
+
 ### Automated Workflow Features
 
 This repository includes advanced automation:
