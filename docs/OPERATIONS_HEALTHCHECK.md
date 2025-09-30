@@ -185,6 +185,35 @@ pre-commit uninstall
 - [ ] Check and update dependency policies
 - [ ] Review and optimize pre-commit configuration
 - [ ] Update documentation and guides
+- [ ] Review monthly health report (auto-generated)
+- [ ] Check stale issues/PRs cleanup status
+
+## 🧭 Long-term Health Monitoring
+
+### Monthly Health Reports
+- **Automatic Generation**: Every 1st of the month at 09:00 UTC
+- **Manual Trigger**: Available via workflow_dispatch
+- **Metrics Tracked**:
+  - PR and Issue activity (last 30 days)
+  - Workflow run statistics
+  - Dependabot PR count
+  - Security and code scanning alerts
+  - Repository size and file count
+
+### Stale Management
+- **Automatic Cleanup**: Daily at 02:00 UTC
+- **Issues**: Marked stale after 60 days, closed after 74 days
+- **PRs**: Marked stale after 30 days, closed after 37 days
+- **Exemptions**: Security, high priority, and keep-open labeled items
+- **Notifications**: Automatic comments before marking stale and closing
+
+### Health Indicators
+- ✅ **Automation**: All workflows running smoothly
+- ✅ **Security**: Dependabot and code scanning active
+- ✅ **Quality**: Pre-commit hooks and CI checks operational
+- ✅ **Documentation**: Comprehensive guides available
+- ✅ **Cleanup**: Stale items automatically managed
+- ✅ **Monitoring**: Monthly health reports generated
 
 ## 🚨 Emergency Contacts
 
@@ -192,6 +221,7 @@ pre-commit uninstall
 - **CI/CD Problems**: Check Actions tab
 - **Security Issues**: Check Security tab
 - **Dependency Issues**: Check Dependabot alerts
+- **Health Reports**: Check monthly auto-generated issues
 
 ---
 

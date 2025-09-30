@@ -124,6 +124,18 @@ This repository includes advanced automation:
 - Version bump automation
 - Draft releases for easy publishing
 
+#### 🧭 **Long-term Health Monitoring**
+- Monthly automated health reports
+- Repository metrics tracking
+- Activity trend analysis
+- Health indicator monitoring
+
+#### ♻️ **Automatic Cleanup**
+- Stale issues and PRs management
+- Automatic labeling and notifications
+- Configurable retention periods
+- Smart exemption rules for critical items
+
 ## 🤝 Contributing
 
 1. Create a feature branch from `main`

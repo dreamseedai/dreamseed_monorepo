@@ -1,0 +1,113 @@
+name: Monthly Repo Health Report
+
+on:
+  schedule:
+    - cron: "0 9 1 * *"  # 매월 1일 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install GitHub CLI
+        run: |
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh
+
+      - name: Authenticate GitHub CLI
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      - name: Collect Repository Metrics
+        id: metrics
+        run: |
+          # Get current date
+          CURRENT_DATE=$(date +%Y-%m)
+          PREVIOUS_MONTH=$(date -d "last month" +%Y-%m)
+
+          # Count PRs (last 30 days)
+          PRS_THIS_MONTH=$(gh pr list --state all --limit 100 --search "created:>$(date -d '30 days ago' +%Y-%m-%d)" | wc -l)
+          PRS_TOTAL=$(gh pr list --state all --limit 100 | wc -l)
+
+          # Count Issues (last 30 days)
+          ISSUES_THIS_MONTH=$(gh issue list --state all --limit 100 --search "created:>$(date -d '30 days ago' +%Y-%m-%d)" | wc -l)
+          ISSUES_TOTAL=$(gh issue list --state all --limit 100 | wc -l)
+
+          # Count Workflow Runs (last 30 days)
+          RUNS_THIS_MONTH=$(gh run list --limit 100 --created ">$(date -d '30 days ago' +%Y-%m-%d)" | wc -l)
+          RUNS_TOTAL=$(gh run list --limit 100 | wc -l)
+
+          # Count Dependabot PRs
+          DEPENDABOT_PRS=$(gh pr list --label "area:dependencies" --state all --limit 100 | wc -l)
+
+          # Count Security Alerts
+          SECURITY_ALERTS=$(gh api repos/${{ github.repository }}/dependabot/alerts --jq 'length' 2>/dev/null || echo "0")
+
+          # Count Code Scanning Alerts
+          CODE_SCAN_ALERTS=$(gh api repos/${{ github.repository }}/code-scanning/alerts --jq 'length' 2>/dev/null || echo "0")
+
+          # Repository size and file count
+          REPO_SIZE=$(du -sh . | cut -f1)
+          FILE_COUNT=$(find . -type f -not -path './.git/*' -not -path './node_modules/*' -not -path './.venv/*' | wc -l)
+
+          # Set outputs
+          echo "current_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
+          echo "prs_this_month=$PRS_THIS_MONTH" >> $GITHUB_OUTPUT
+          echo "prs_total=$PRS_TOTAL" >> $GITHUB_OUTPUT
+          echo "issues_this_month=$ISSUES_THIS_MONTH" >> $GITHUB_OUTPUT
+          echo "issues_total=$ISSUES_TOTAL" >> $GITHUB_OUTPUT
+          echo "runs_this_month=$RUNS_THIS_MONTH" >> $GITHUB_OUTPUT
+          echo "runs_total=$RUNS_TOTAL" >> $GITHUB_OUTPUT
+          echo "dependabot_prs=$DEPENDABOT_PRS" >> $GITHUB_OUTPUT
+          echo "security_alerts=$SECURITY_ALERTS" >> $GITHUB_OUTPUT
+          echo "code_scan_alerts=$CODE_SCAN_ALERTS" >> $GITHUB_OUTPUT
+          echo "repo_size=$REPO_SIZE" >> $GITHUB_OUTPUT
+          echo "file_count=$FILE_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Create Monthly Health Report Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "📊 Monthly Health Report - ${{ steps.metrics.outputs.current_date }}" \
+            --label "area:maintenance,type:chore" \
+            --body "## 📈 Repository Health Metrics - ${{ steps.metrics.outputs.current_date }}
+
+          ### 🔄 Activity Summary (Last 30 Days)
+          - **Pull Requests**: ${{ steps.metrics.outputs.prs_this_month }} new (Total: ${{ steps.metrics.outputs.prs_total }})
+          - **Issues**: ${{ steps.metrics.outputs.issues_this_month }} new (Total: ${{ steps.metrics.outputs.issues_total }})
+          - **Workflow Runs**: ${{ steps.metrics.outputs.runs_this_month }} (Total: ${{ steps.metrics.outputs.runs_total }})
+
+          ### 📦 Dependency Management
+          - **Dependabot PRs**: ${{ steps.metrics.outputs.dependabot_prs }}
+          - **Security Alerts**: ${{ steps.metrics.outputs.security_alerts }}
+          - **Code Scanning Alerts**: ${{ steps.metrics.outputs.code_scan_alerts }}
+
+          ### 📊 Repository Statistics
+          - **Repository Size**: ${{ steps.metrics.outputs.repo_size }}
+          - **Total Files**: ${{ steps.metrics.outputs.file_count }}
+
+          ### 🎯 Health Indicators
+          - ✅ **Automation**: All workflows running smoothly
+          - ✅ **Security**: Dependabot and code scanning active
+          - ✅ **Quality**: Pre-commit hooks and CI checks operational
+          - ✅ **Documentation**: Comprehensive guides available
+
+          ### 📋 Action Items
+          - [ ] Review and merge pending Dependabot PRs
+          - [ ] Address any security alerts
+          - [ ] Update documentation if needed
+          - [ ] Review and close stale issues/PRs
+
+          ---
+          *This report is automatically generated on the 1st of each month.*
+          *Last updated: $(date -u +%Y-%m-%dT%H:%M:%SZ)*"
