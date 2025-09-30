@@ -1,0 +1,41 @@
+name: Repository Integrity Check
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  check-repo-strings:
+    runs-on: ubuntu-latest
+    name: Check for legacy repository paths
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Install ripgrep
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+      
+      - name: Check for legacy repository paths
+        run: |
+          chmod +x scripts/check-repo-strings.sh
+          ./scripts/check-repo-strings.sh
+      
+      - name: Check Git remote URL
+        run: |
+          echo "Current remote URLs:"
+          git remote -v
+          echo ""
+          echo "Expected: mpcstudy/dreamseed_monorepo"
+          if ! git remote -v | grep -q "mpcstudy/dreamseed_monorepo"; then
+            echo "❌ Remote URL not updated to new repository name"
+            exit 1
+          else
+            echo "✅ Remote URL is correct"
+          fi
