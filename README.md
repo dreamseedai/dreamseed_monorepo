@@ -117,6 +117,7 @@ For complete protection, set up branch protection rules:
 - **[Operations Health Check](docs/OPERATIONS_HEALTHCHECK.md)** - 5-minute routine to ensure all automation works
 - **[New Developer Onboarding](docs/ONBOARDING_GUIDE.md)** - Complete setup guide for new team members
 - **[Branch Protection Setup](docs/BRANCH_PROTECTION_SETUP.md)** - Configure branch protection rules
+- **[Micro Optimization Guide](docs/MICRO_OPTIMIZATION_GUIDE.md)** - Data-driven monthly optimization routine
 
 ### Automated Workflow Features
 
