@@ -1,0 +1,7 @@
+[db]
+driver = postgresql+psycopg
+user = postgres
+password = DreamSeedAi@0908
+host = 127.0.0.1
+port = 5432
+name = dreamseed

@@ -1,0 +1,11 @@
+{
+  "slug": "exams/sat",
+  "title": "SAT 대비 가이드",
+  "summary": "점수대별 전략, 추천 학습 로드맵, 필수 리소스",
+  "intro": "디지털 SAT 구조와 섹션별 전략, 월별 목표/모의고사 운용을 포함한 핵심 개요를 제공합니다.",
+  "sections": [
+    { "id": "overview", "title": "개요", "body": "디지털 SAT의 섹션 구성과 채점 방식, 권장 학습 루틴을 정리합니다." },
+    { "id": "timeline", "title": "권장 타임라인", "body": "월/주 단위의 목표 설정과 모의고사 주간 운영 예시를 제시합니다." },
+    { "id": "resources", "title": "자료", "body": "College Board Bluebook, Khan Academy 등 공신력 있는 자료를 소개합니다." }
+  ]
+}

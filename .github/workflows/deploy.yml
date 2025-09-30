@@ -1,0 +1,161 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+  push:
+    branches: [main]
+    paths:
+      - 'apps/portal-front/**'
+      - 'apps/portal-api/**'
+
+permissions:
+  id-token: write   # Required for OIDC
+  contents: read
+  packages: read
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    if: contains(github.event.head_commit.modified, 'apps/portal-front/') || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        working-directory: apps/portal-front
+        run: pnpm build
+        env:
+          VITE_API_URL: ${{ secrets.API_URL }}
+          VITE_APP_ENV: ${{ github.event.inputs.environment || 'staging' }}
+
+      - name: Deploy to Vercel (Example)
+        if: env.VERCEL_TOKEN != ''
+        run: |
+          # Example Vercel deployment
+          echo "Deploying to Vercel..."
+          # npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to AWS S3 (Example)
+        if: env.AWS_ACCESS_KEY_ID != ''
+        run: |
+          # Example AWS S3 deployment
+          echo "Deploying to AWS S3..."
+          # aws s3 sync apps/portal-front/dist/ s3://${{ secrets.S3_BUCKET }} --delete
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  deploy-api:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    if: contains(github.event.head_commit.modified, 'apps/portal-api/') || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        working-directory: apps/portal_api
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        working-directory: apps/portal_api
+        run: |
+          python -m pytest tests/ -v
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
+      - name: Deploy to AWS ECS (Example with OIDC)
+        if: env.AWS_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      - name: Build and push Docker image
+        if: env.AWS_ROLE_ARN != ''
+        run: |
+          # Build Docker image
+          docker build -t dreamseed-api:${{ github.sha }} apps/portal_api/
+
+          # Tag for ECR
+          docker tag dreamseed-api:${{ github.sha }} ${{ secrets.ECR_REGISTRY }}/dreamseed-api:${{ github.sha }}
+          docker tag dreamseed-api:${{ github.sha }} ${{ secrets.ECR_REGISTRY }}/dreamseed-api:latest
+
+          # Push to ECR
+          docker push ${{ secrets.ECR_REGISTRY }}/dreamseed-api:${{ github.sha }}
+          docker push ${{ secrets.ECR_REGISTRY }}/dreamseed-api:latest
+
+      - name: Deploy to ECS
+        if: env.AWS_ROLE_ARN != ''
+        run: |
+          # Update ECS service
+          aws ecs update-service \
+            --cluster ${{ secrets.ECS_CLUSTER }} \
+            --service ${{ secrets.ECS_SERVICE }} \
+            --force-new-deployment
+
+      - name: Deploy to Railway (Example)
+        if: env.RAILWAY_TOKEN != ''
+        run: |
+          # Example Railway deployment
+          echo "Deploying to Railway..."
+          # railway deploy --token ${{ secrets.RAILWAY_TOKEN }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+  notify:
+    needs: [deploy-frontend, deploy-api]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify deployment status
+        run: |
+          if [ "${{ needs.deploy-frontend.result }}" = "success" ] && [ "${{ needs.deploy-api.result }}" = "success" ]; then
+            echo "✅ Deployment successful to ${{ github.event.inputs.environment || 'staging' }}"
+          else
+            echo "❌ Deployment failed to ${{ github.event.inputs.environment || 'staging' }}"
+            exit 1
+          fi
+
+      - name: Create deployment notification
+        if: always()
+        run: |
+          # Example: Send notification to Slack/Discord
+          echo "Deployment notification would be sent here"
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data '{"text":"Deployment to ${{ github.event.inputs.environment || 'staging' }}: ${{ needs.deploy-frontend.result }}/${{ needs.deploy-api.result }}"}' \
+          #   ${{ secrets.SLACK_WEBHOOK_URL }}

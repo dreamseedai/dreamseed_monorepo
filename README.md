@@ -4,9 +4,19 @@ A comprehensive monorepo containing multiple services and applications.
 
 ## 🏗️ Structure
 
-- `portal_api/` - Backend API service
-- `portal_front/` - Frontend application
+### Applications (`apps/`)
+- `portal-front/` - Frontend application (Vite/React)
+- `portal-api/` - Backend API service (FastAPI)
+
+### Packages (`packages/`)
+- `shared-types/` - Shared TypeScript types
+- `shared-utils/` - Shared utility functions
+- `shared-ui/` - Shared UI components (coming soon)
+
+### Infrastructure
 - `scripts/` - Utility scripts and automation tools
+- `.github/` - GitHub Actions workflows and templates
+- `docs/` - Documentation and guides
 
 ## 🚀 Quick Start
 
@@ -15,11 +25,33 @@ A comprehensive monorepo containing multiple services and applications.
 git clone git@github.com:mpcstudy/dreamseed_monorepo.git
 cd dreamseed_monorepo
 
+# Install dependencies
+pnpm install
+
 # Set up pre-commit hooks (recommended)
 ./scripts/setup-pre-commit.sh
 
-# Check repository integrity
-./scripts/check-repo-strings.sh
+# Start development
+pnpm dev
+
+# Build all packages
+pnpm build
+
+# Run tests
+pnpm test
+```
+
+### Development Workflow
+
+```bash
+# Add a changeset for versioning
+pnpm changeset
+
+# Version packages (after PR merge)
+pnpm version-packages
+
+# Publish packages
+pnpm release
 ```
 
 ## 🔧 Development Tools
@@ -135,6 +167,18 @@ This repository includes advanced automation:
 - Automatic labeling and notifications
 - Configurable retention periods
 - Smart exemption rules for critical items
+
+#### 🏗️ **Monorepo Management**
+- pnpm workspaces for efficient dependency management
+- Changesets for automated versioning and releases
+- Smart CI that only builds changed packages
+- Shared packages for code reuse across applications
+
+#### 🚀 **Deployment Automation**
+- Environment-based deployment (staging/production)
+- OIDC-based secure cloud deployments
+- Multi-platform deployment support (Vercel, AWS, Railway)
+- Automatic rollback and notification systems
 
 ## 🤝 Contributing
 

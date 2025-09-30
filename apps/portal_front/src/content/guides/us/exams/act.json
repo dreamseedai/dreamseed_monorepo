@@ -1,0 +1,11 @@
+{
+  "slug": "exams/act",
+  "title": "ACT 대비 가이드",
+  "summary": "영역별 전략과 시간 관리",
+  "intro": "ACT 섹션 구조, 점수 전략, 시간 배분 및 오답 관리 방법을 안내합니다.",
+  "sections": [
+    { "id": "overview", "title": "개요", "body": "ACT의 섹션 구성과 전략의 핵심 포인트를 설명합니다." },
+    { "id": "timeline", "title": "권장 타임라인", "body": "실전 감각 유지 훈련과 주간 계획을 제시합니다." },
+    { "id": "resources", "title": "자료", "body": "Official ACT Prep 등 신뢰 가능한 자료를 소개합니다." }
+  ]
+}
