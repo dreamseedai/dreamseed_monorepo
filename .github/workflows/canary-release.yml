@@ -1,0 +1,219 @@
+name: Canary Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment for canary release'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      canary_percentage:
+        description: 'Canary traffic percentage (1-50)'
+        required: true
+        default: '10'
+        type: string
+      canary_duration:
+        description: 'Canary duration in minutes'
+        required: true
+        default: '30'
+        type: string
+      auto_promote:
+        description: 'Auto-promote to 100% if successful'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  canary-deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Validate Canary Parameters
+        run: |
+          PERCENTAGE=${{ github.event.inputs.canary_percentage }}
+          DURATION=${{ github.event.inputs.canary_duration }}
+
+          # Validate percentage (1-50)
+          if [ "$PERCENTAGE" -lt 1 ] || [ "$PERCENTAGE" -gt 50 ]; then
+            echo "❌ Canary percentage must be between 1-50%"
+            exit 1
+          fi
+
+          # Validate duration (5-120 minutes)
+          if [ "$DURATION" -lt 5 ] || [ "$DURATION" -gt 120 ]; then
+            echo "❌ Canary duration must be between 5-120 minutes"
+            exit 1
+          fi
+
+          echo "✅ Canary parameters validated:"
+          echo "  Percentage: ${PERCENTAGE}%"
+          echo "  Duration: ${DURATION} minutes"
+          echo "  Auto-promote: ${{ github.event.inputs.auto_promote }}"
+
+      - name: Deploy Canary Version
+        run: |
+          echo "🚀 Deploying canary version..."
+
+          # Deploy new version to canary environment
+          # Example: Update load balancer configuration
+          echo "Deploying to canary with ${PERCENTAGE}% traffic"
+
+          # Simulate deployment
+          sleep 10
+          echo "✅ Canary deployment completed"
+
+      - name: Monitor Canary Health
+        run: |
+          echo "🔍 Monitoring canary health for ${{ github.event.inputs.canary_duration }} minutes..."
+
+          CANARY_URL="${{ secrets.CANARY_URL || 'https://canary.your.domain' }}"
+          DURATION=${{ github.event.inputs.canary_duration }}
+          PERCENTAGE=${{ github.event.inputs.canary_percentage }}
+
+          # Health check parameters
+          CHECK_INTERVAL=30  # seconds
+          MAX_CHECKS=$((DURATION * 60 / CHECK_INTERVAL))
+          SUCCESS_THRESHOLD=0.95  # 95% success rate required
+
+          success_count=0
+          total_checks=0
+
+          for i in $(seq 1 $MAX_CHECKS); do
+            echo "Health check $i/$MAX_CHECKS"
+
+            # Check canary health
+            if curl -f -s "$CANARY_URL/__ok" > /dev/null; then
+              success_count=$((success_count + 1))
+              echo "✅ Health check passed"
+            else
+              echo "❌ Health check failed"
+            fi
+
+            total_checks=$((total_checks + 1))
+
+            # Calculate success rate
+            success_rate=$(echo "scale=2; $success_count / $total_checks" | bc)
+            echo "Success rate: ${success_rate} (${success_count}/${total_checks})"
+
+            # Check if success rate is below threshold
+            if (( $(echo "$success_rate < $SUCCESS_THRESHOLD" | bc -l) )); then
+              echo "🚨 Canary health below threshold (${success_rate} < ${SUCCESS_THRESHOLD})"
+              echo "Initiating automatic rollback..."
+
+              # Rollback canary
+              gh workflow run rollback.yml \
+                -f environment="${{ github.event.inputs.environment }}" \
+                --repo "${{ github.repository }}"
+
+              # Notify failure
+              curl -X POST -H 'Content-type: application/json' \
+                --data "{\"text\":\"🚨 Canary Release Failed - Auto Rollback Initiated\\nEnvironment: ${{ github.event.inputs.environment }}\\nSuccess Rate: ${success_rate}\\nIssue: #${{ github.event.number }}\"}" \
+                ${{ secrets.SLACK_WEBHOOK_URL }}
+
+              exit 1
+            fi
+
+            sleep $CHECK_INTERVAL
+          done
+
+          echo "✅ Canary monitoring completed successfully"
+          echo "Final success rate: ${success_rate} (${success_count}/${total_checks})"
+
+      - name: Promote Canary (if auto-promote enabled)
+        if: github.event.inputs.auto_promote == 'true'
+        run: |
+          echo "🎉 Promoting canary to 100% traffic..."
+
+          # Promote canary to full traffic
+          echo "Promoting canary deployment to 100%"
+
+          # Simulate promotion
+          sleep 5
+          echo "✅ Canary promoted to 100% traffic"
+
+          # Notify success
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"🎉 Canary Release Successful - Promoted to 100%\\nEnvironment: ${{ github.event.inputs.environment }}\\nDuration: ${{ github.event.inputs.canary_duration }} minutes\\nPercentage: ${{ github.event.inputs.canary_percentage }}%\"}" \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Manual Promotion Required
+        if: github.event.inputs.auto_promote == 'false'
+        run: |
+          echo "⏳ Canary monitoring completed. Manual promotion required."
+
+          # Create promotion issue
+          gh issue create \
+            --title "🚀 Manual Canary Promotion Required" \
+            --body "## Canary Release Ready for Promotion
+
+          **Environment:** ${{ github.event.inputs.environment }}
+          **Canary Percentage:** ${{ github.event.inputs.canary_percentage }}%
+          **Duration:** ${{ github.event.inputs.canary_duration }} minutes
+          **Status:** ✅ Healthy - Ready for promotion
+
+          ### Next Steps:
+          - [ ] Review canary metrics
+          - [ ] Promote to 100% traffic
+          - [ ] Monitor post-promotion
+          - [ ] Close this issue when complete
+
+          ### Promotion Command:
+          \`\`\`bash
+          gh workflow run canary-release.yml \\
+            -f environment=\"${{ github.event.inputs.environment }}\" \\
+            -f canary_percentage=\"100\" \\
+            -f auto_promote=\"true\"
+          \`\`\`
+
+          ---
+          *This issue was automatically created after successful canary monitoring.*" \
+            --label "deployment" \
+            --label "area:infra"
+
+          # Notify manual promotion required
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"⏳ Canary Release Ready for Manual Promotion\\nEnvironment: ${{ github.event.inputs.environment }}\\nIssue: #$(gh issue list --limit 1 --json number --jq '.[0].number')\"}" \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  post-canary-monitoring:
+    needs: canary-deploy
+    if: always() && github.event.inputs.auto_promote == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post-Canary Health Monitoring
+        run: |
+          echo "🔍 Post-canary health monitoring..."
+
+          # Monitor for 10 minutes after promotion
+          for i in {1..20}; do
+            echo "Post-canary check $i/20"
+
+            if curl -f -s "${{ secrets.HEALTH_CHECK_URL }}/__ok" > /dev/null; then
+              echo "✅ Post-canary health check passed"
+            else
+              echo "❌ Post-canary health check failed"
+
+              # Alert on post-canary issues
+              curl -X POST -H 'Content-type: application/json' \
+                --data "{\"text\":\"🚨 Post-Canary Health Check Failed\\nEnvironment: ${{ github.event.inputs.environment }}\\nCheck: $i/20\"}" \
+                ${{ secrets.SLACK_WEBHOOK_URL }}
+            fi
+
+            sleep 30
+          done
+
+          echo "✅ Post-canary monitoring completed"

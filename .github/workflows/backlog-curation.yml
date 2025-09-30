@@ -1,0 +1,271 @@
+name: Backlog Curation
+
+on:
+  schedule:
+    - cron: "0 9 1 * *" # First day of each month at 9 AM
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  quarterly-planning:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub CLI
+        run: |
+          # Install GitHub CLI
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh
+
+      - name: Get Current Quarter
+        id: quarter
+        run: |
+          MONTH=$(date +%m)
+          YEAR=$(date +%Y)
+
+          if [ "$MONTH" -ge 1 ] && [ "$MONTH" -le 3 ]; then
+            QUARTER="Q1"
+          elif [ "$MONTH" -ge 4 ] && [ "$MONTH" -le 6 ]; then
+            QUARTER="Q2"
+          elif [ "$MONTH" -ge 7 ] && [ "$MONTH" -le 9 ]; then
+            QUARTER="Q3"
+          else
+            QUARTER="Q4"
+          fi
+
+          echo "quarter=$QUARTER-$YEAR" >> $GITHUB_OUTPUT
+          echo "Current quarter: $QUARTER-$YEAR"
+
+      - name: Label Quarterly Issues
+        run: |
+          echo "🏷️ Labeling issues for ${{ steps.quarter.outputs.quarter }}..."
+
+          # Get all open issues
+          ISSUES=$(gh issue list --state open --json number,title,labels --limit 100)
+
+          # Define quarterly priorities based on labels
+          HIGH_PRIORITY_LABELS=("priority:high" "type:bug" "area:security" "area:infra")
+          MEDIUM_PRIORITY_LABELS=("priority:medium" "type:feature" "area:backend" "area:frontend")
+          LOW_PRIORITY_LABELS=("priority:low" "type:chore" "area:docs")
+
+          echo "$ISSUES" | jq -r '.[] | select(.labels | length > 0) | "\(.number) \(.title) \(.labels | map(.name) | join(","))"' | while read -r number title labels; do
+            QUARTER_LABEL=""
+
+            # Determine quarterly priority
+            if echo "$labels" | grep -qE "($(IFS="|"; echo "${HIGH_PRIORITY_LABELS[*]}"))"; then
+              QUARTER_LABEL="${{ steps.quarter.outputs.quarter }}-priority"
+            elif echo "$labels" | grep -qE "($(IFS="|"; echo "${MEDIUM_PRIORITY_LABELS[*]}"))"; then
+              QUARTER_LABEL="${{ steps.quarter.outputs.quarter }}-backlog"
+            elif echo "$labels" | grep -qE "($(IFS="|"; echo "${LOW_PRIORITY_LABELS[*]}"))"; then
+              QUARTER_LABEL="${{ steps.quarter.outputs.quarter }}-future"
+            fi
+
+            if [ -n "$QUARTER_LABEL" ]; then
+              echo "Labeling issue #$number with $QUARTER_LABEL"
+              gh issue edit "$number" --add-label "$QUARTER_LABEL"
+            fi
+          done
+
+      - name: Create Quarterly Planning Issue
+        run: |
+          echo "📋 Creating quarterly planning issue..."
+
+          # Get issue counts by quarter label
+          PRIORITY_COUNT=$(gh issue list --state open --label "${{ steps.quarter.outputs.quarter }}-priority" --json number | jq length)
+          BACKLOG_COUNT=$(gh issue list --state open --label "${{ steps.quarter.outputs.quarter }}-backlog" --json number | jq length)
+          FUTURE_COUNT=$(gh issue list --state open --label "${{ steps.quarter.outputs.quarter }}-future" --json number | jq length)
+
+          # Get previous quarter cleanup status
+          PREV_QUARTER=""
+          MONTH=$(date +%m)
+          YEAR=$(date +%Y)
+
+          if [ "$MONTH" -eq 1 ]; then
+            PREV_QUARTER="Q4-$((YEAR-1))"
+          elif [ "$MONTH" -eq 4 ]; then
+            PREV_QUARTER="Q1-$YEAR"
+          elif [ "$MONTH" -eq 7 ]; then
+            PREV_QUARTER="Q2-$YEAR"
+          elif [ "$MONTH" -eq 10 ]; then
+            PREV_QUARTER="Q3-$YEAR"
+          fi
+
+          PREV_PRIORITY_COUNT=$(gh issue list --state open --label "$PREV_QUARTER-priority" --json number | jq length 2>/dev/null || echo "0")
+          PREV_BACKLOG_COUNT=$(gh issue list --state open --label "$PREV_QUARTER-backlog" --json number | jq length 2>/dev/null || echo "0")
+
+          gh issue create \
+            --title "📋 ${{ steps.quarter.outputs.quarter }} Quarterly Planning & Backlog Review" \
+            --body "## 🎯 ${{ steps.quarter.outputs.quarter }} Quarterly Planning
+
+          ### 📊 Current Backlog Status
+          - **Priority Issues:** $PRIORITY_COUNT
+          - **Backlog Issues:** $BACKLOG_COUNT
+          - **Future Issues:** $FUTURE_COUNT
+
+          ### 📈 Previous Quarter ($PREV_QUARTER) Status
+          - **Remaining Priority:** $PREV_PRIORITY_COUNT
+          - **Remaining Backlog:** $PREV_BACKLOG_COUNT
+
+          ### 🎯 Quarterly Goals
+          - [ ] Review and prioritize all ${{ steps.quarter.outputs.quarter }}-priority issues
+          - [ ] Plan sprint capacity for priority items
+          - [ ] Clean up stale issues from previous quarters
+          - [ ] Update issue estimates and dependencies
+          - [ ] Set quarterly OKRs and milestones
+
+          ### 🧹 Backlog Cleanup Tasks
+          - [ ] Close completed or obsolete issues
+          - [ ] Update issue labels and priorities
+          - [ ] Consolidate duplicate issues
+          - [ ] Archive old quarterly labels
+          - [ ] Review and update project boards
+
+          ### 📋 Priority Issues for ${{ steps.quarter.outputs.quarter }}
+          <!-- This will be populated by the automation -->
+
+          ### 🔄 Action Items
+          - [ ] Team planning meeting scheduled
+          - [ ] Capacity planning completed
+          - [ ] Sprint planning updated
+          - [ ] Stakeholder communication sent
+
+          ---
+          *This issue was automatically created for quarterly planning and backlog curation.*" \
+            --label "area:maintenance" \
+            --label "type:planning" \
+            --label "${{ steps.quarter.outputs.quarter }}-planning"
+
+  stale-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Analyze Stale Issues
+        run: |
+          echo "🔍 Analyzing stale issues..."
+
+          # Get stale issues (older than 60 days)
+          STALE_ISSUES=$(gh issue list --state open --json number,title,createdAt,labels --limit 100 | jq '[.[] | select(.createdAt | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime < (now - 5184000))]')
+
+          STALE_COUNT=$(echo "$STALE_ISSUES" | jq length)
+
+          if [ "$STALE_COUNT" -gt 0 ]; then
+            echo "Found $STALE_COUNT stale issues"
+
+            # Categorize stale issues
+            AREA_COUNTS=$(echo "$STALE_ISSUES" | jq -r '.[].labels[]? | select(.name | startswith("area:")) | .name' | sort | uniq -c | sort -nr)
+            SIZE_COUNTS=$(echo "$STALE_ISSUES" | jq -r '.[].labels[]? | select(.name | startswith("size:")) | .name' | sort | uniq -c | sort -nr)
+
+            # Create stale analysis issue
+            gh issue create \
+              --title "📊 Stale Issues Analysis - $(date +%Y-%m)" \
+              --body "## 📊 Stale Issues Analysis
+
+            **Total Stale Issues:** $STALE_COUNT (older than 60 days)
+
+            ### 📈 Breakdown by Area
+            \`\`\`
+            $AREA_COUNTS
+            \`\`\`
+
+            ### 📏 Breakdown by Size
+            \`\`\`
+            $SIZE_COUNTS
+            \`\`\`
+
+            ### 🎯 Recommended Actions
+            - [ ] Review high-priority stale issues
+            - [ ] Close obsolete or duplicate issues
+            - [ ] Update priorities for relevant issues
+            - [ ] Break down large stale issues
+            - [ ] Archive completed work
+
+            ### 🔍 Stale Issues by Category
+            <!-- Detailed breakdown will be added here -->
+
+            ### 📋 Cleanup Checklist
+            - [ ] Review all stale issues
+            - [ ] Close obsolete issues
+            - [ ] Update issue priorities
+            - [ ] Consolidate duplicates
+            - [ ] Update project boards
+
+            ---
+            *This analysis was automatically generated to help maintain a clean backlog.*" \
+              --label "area:maintenance" \
+              --label "type:analysis" \
+              --label "stale-review"
+          else
+            echo "✅ No stale issues found"
+          fi
+
+  backlog-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Generate Backlog Health Report
+        run: |
+          echo "📊 Generating backlog health report..."
+
+          # Get various issue counts
+          TOTAL_OPEN=$(gh issue list --state open --json number | jq length)
+          TOTAL_CLOSED=$(gh issue list --state closed --json number | jq length)
+          BUGS=$(gh issue list --state open --label "type:bug" --json number | jq length)
+          FEATURES=$(gh issue list --state open --label "type:feature" --json number | jq length)
+          HIGH_PRIORITY=$(gh issue list --state open --label "priority:high" --json number | jq length)
+          MEDIUM_PRIORITY=$(gh issue list --state open --label "priority:medium" --json number | jq length)
+          LOW_PRIORITY=$(gh issue list --state open --label "priority:low" --json number | jq length)
+
+          # Calculate health metrics
+          BUG_RATIO=$(echo "scale=2; $BUGS * 100 / $TOTAL_OPEN" | bc 2>/dev/null || echo "0")
+          FEATURE_RATIO=$(echo "scale=2; $FEATURES * 100 / $TOTAL_OPEN" | bc 2>/dev/null || echo "0")
+          HIGH_PRIORITY_RATIO=$(echo "scale=2; $HIGH_PRIORITY * 100 / $TOTAL_OPEN" | bc 2>/dev/null || echo "0")
+
+          # Create health report
+          gh issue create \
+            --title "📊 Backlog Health Report - $(date +%Y-%m)" \
+            --body "## 📊 Backlog Health Report
+
+          **Report Date:** $(date +%Y-%m-%d)
+          **Total Issues:** $TOTAL_OPEN open, $TOTAL_CLOSED closed
+
+          ### 📈 Issue Distribution
+          - **Bugs:** $BUGS ($BUG_RATIO%)
+          - **Features:** $FEATURES ($FEATURE_RATIO%)
+          - **High Priority:** $HIGH_PRIORITY ($HIGH_PRIORITY_RATIO%)
+          - **Medium Priority:** $MEDIUM_PRIORITY
+          - **Low Priority:** $LOW_PRIORITY
+
+          ### 🎯 Health Indicators
+          - **Bug Ratio:** $BUG_RATIO% (target: <20%)
+          - **Feature Ratio:** $FEATURE_RATIO% (target: >40%)
+          - **High Priority Ratio:** $HIGH_PRIORITY_RATIO% (target: <30%)
+
+          ### 📋 Recommendations
+          - [ ] Review high-priority issues for urgency
+          - [ ] Balance bug fixes vs feature development
+          - [ ] Consider breaking down large issues
+          - [ ] Update issue priorities based on business value
+
+          ### 🔄 Action Items
+          - [ ] Team backlog review meeting
+          - [ ] Priority adjustment session
+          - [ ] Capacity planning update
+          - [ ] Stakeholder communication
+
+          ---
+          *This report was automatically generated to track backlog health.*" \
+            --label "area:maintenance" \
+            --label "type:report" \
+            --label "backlog-health"

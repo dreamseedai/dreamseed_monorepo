@@ -1,0 +1,156 @@
+name: SLO Monitoring
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # Every 6 hours
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  slo-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install -g @google-cloud/monitoring
+
+      - name: Check SLO Metrics
+        run: |
+          echo "🔍 Checking SLO metrics..."
+
+          # Define SLO targets
+          AVAILABILITY_TARGET=99.9
+          P95_LATENCY_TARGET=500
+          ERROR_RATE_TARGET=0.1
+
+          # Mock metrics (replace with actual monitoring queries)
+          AVAILABILITY=$(curl -s "${{ secrets.MONITORING_API }}/availability" | jq -r '.value' || echo "99.95")
+          P95_LATENCY=$(curl -s "${{ secrets.MONITORING_API }}/p95-latency" | jq -r '.value' || echo "350")
+          ERROR_RATE=$(curl -s "${{ secrets.MONITORING_API }}/error-rate" | jq -r '.value' || echo "0.05")
+
+          echo "📊 Current SLO Status:"
+          echo "  Availability: ${AVAILABILITY}% (target: ${AVAILABILITY_TARGET}%)"
+          echo "  P95 Latency: ${P95_LATENCY}ms (target: ${P95_LATENCY_TARGET}ms)"
+          echo "  Error Rate: ${ERROR_RATE}% (target: ${ERROR_RATE_TARGET}%)"
+
+          # Check if SLOs are met
+          SLO_VIOLATIONS=0
+
+          if (( $(echo "$AVAILABILITY < $AVAILABILITY_TARGET" | bc -l) )); then
+            echo "❌ Availability SLO violated: ${AVAILABILITY}% < ${AVAILABILITY_TARGET}%"
+            SLO_VIOLATIONS=$((SLO_VIOLATIONS + 1))
+          fi
+
+          if (( $(echo "$P95_LATENCY > $P95_LATENCY_TARGET" | bc -l) )); then
+            echo "❌ P95 Latency SLO violated: ${P95_LATENCY}ms > ${P95_LATENCY_TARGET}ms"
+            SLO_VIOLATIONS=$((SLO_VIOLATIONS + 1))
+          fi
+
+          if (( $(echo "$ERROR_RATE > $ERROR_RATE_TARGET" | bc -l) )); then
+            echo "❌ Error Rate SLO violated: ${ERROR_RATE}% > ${ERROR_RATE_TARGET}%"
+            SLO_VIOLATIONS=$((SLO_VIOLATIONS + 1))
+          fi
+
+          if [ $SLO_VIOLATIONS -gt 0 ]; then
+            echo "🚨 SLO violations detected: $SLO_VIOLATIONS"
+
+            # Create incident issue
+            gh issue create \
+              --title "🚨 SLO Violation Alert - $(date +%Y-%m-%d)" \
+              --body "## SLO Violation Summary
+
+              **Violations:** $SLO_VIOLATIONS
+              **Time:** $(date -u)
+
+              ### Current Metrics:
+              - **Availability:** ${AVAILABILITY}% (target: ${AVAILABILITY_TARGET}%)
+              - **P95 Latency:** ${P95_LATENCY}ms (target: ${P95_LATENCY_TARGET}ms)
+              - **Error Rate:** ${ERROR_RATE}% (target: ${ERROR_RATE_TARGET}%)
+
+              ### Action Required:
+              - [ ] Investigate root cause
+              - [ ] Implement immediate fixes
+              - [ ] Update SLO targets if needed
+              - [ ] Document lessons learned
+
+              ---
+              *This issue was automatically created by SLO monitoring.*" \
+              --label "incident" \
+              --label "priority:high" \
+              --label "area:infra"
+          else
+            echo "✅ All SLOs are within target ranges"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  error-budget:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Calculate Error Budget
+        run: |
+          echo "💰 Calculating error budget..."
+
+          # Get current month's error budget
+          CURRENT_MONTH=$(date +%Y-%m)
+          ERROR_BUDGET_TARGET=0.1  # 0.1% error budget
+
+          # Mock calculation (replace with actual monitoring data)
+          TOTAL_REQUESTS=1000000
+          ERROR_REQUESTS=500
+          ERROR_RATE=$(echo "scale=4; $ERROR_REQUESTS / $TOTAL_REQUESTS * 100" | bc)
+          ERROR_BUDGET_REMAINING=$(echo "scale=4; $ERROR_BUDGET_TARGET - $ERROR_RATE" | bc)
+
+          echo "📊 Error Budget Status for $CURRENT_MONTH:"
+          echo "  Total Requests: $TOTAL_REQUESTS"
+          echo "  Error Requests: $ERROR_REQUESTS"
+          echo "  Error Rate: ${ERROR_RATE}%"
+          echo "  Budget Remaining: ${ERROR_BUDGET_REMAINING}%"
+
+          if (( $(echo "$ERROR_BUDGET_REMAINING < 0" | bc -l) )); then
+            echo "🚨 Error budget exhausted!"
+
+            # Create error budget alert
+            gh issue create \
+              --title "💰 Error Budget Exhausted - $CURRENT_MONTH" \
+              --body "## Error Budget Alert
+
+              **Month:** $CURRENT_MONTH
+              **Budget Remaining:** ${ERROR_BUDGET_REMAINING}%
+              **Status:** EXHAUSTED
+
+              ### Current Status:
+              - **Total Requests:** $TOTAL_REQUESTS
+              - **Error Requests:** $ERROR_REQUESTS
+              - **Error Rate:** ${ERROR_RATE}%
+              - **Target:** ${ERROR_BUDGET_TARGET}%
+
+              ### Immediate Actions:
+              - [ ] Stop all non-critical deployments
+              - [ ] Focus on error reduction
+              - [ ] Review recent changes
+              - [ ] Implement additional monitoring
+
+              ---
+              *This alert was automatically created by error budget monitoring.*" \
+              --label "incident" \
+              --label "priority:critical" \
+              --label "area:infra"
+          else
+            echo "✅ Error budget is healthy: ${ERROR_BUDGET_REMAINING}% remaining"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
