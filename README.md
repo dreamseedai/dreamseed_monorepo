@@ -118,6 +118,7 @@ For complete protection, set up branch protection rules:
 - **[New Developer Onboarding](docs/ONBOARDING_GUIDE.md)** - Complete setup guide for new team members
 - **[Branch Protection Setup](docs/BRANCH_PROTECTION_SETUP.md)** - Configure branch protection rules
 - **[Micro Optimization Guide](docs/MICRO_OPTIMIZATION_GUIDE.md)** - Data-driven monthly optimization routine
+- **[Monthly Operations Bookmark](docs/MONTHLY_OPERATIONS_BOOKMARK.md)** - Two-line monthly routine for complete automation
 
 ### Automated Workflow Features
 
