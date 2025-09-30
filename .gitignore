@@ -13,6 +13,7 @@ __pycache__/
 venv/
 env/
 portal_api/.venv/
+.precommit-env/
 
 # Cache directories
 .npm-cache/

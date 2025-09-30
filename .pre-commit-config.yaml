@@ -1,0 +1,46 @@
+# Pre-commit configuration for repository integrity checks
+# Install with: pip install pre-commit && pre-commit install
+
+repos:
+  # Local repository path guard
+  - repo: local
+    hooks:
+      - id: repo-path-guard
+        name: Repository path guard
+        entry: bash scripts/check-repo-strings.sh
+        language: system
+        types: [text]
+        description: "Check for legacy repository path references"
+        verbose: true
+        always_run: false
+
+  # Standard Python checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        description: "Remove trailing whitespace"
+        exclude: '\.precommit-env/'
+      - id: end-of-file-fixer
+        description: "Ensure files end with newline"
+        exclude: '\.precommit-env/'
+      - id: check-yaml
+        description: "Check YAML syntax"
+      - id: check-json
+        description: "Check JSON syntax"
+      - id: check-merge-conflict
+        description: "Check for merge conflict markers"
+      - id: check-added-large-files
+        description: "Check for large files"
+        args: ['--maxkb=1000']
+        exclude: '\.precommit-env/'
+
+  # Custom Git remote URL check
+  - repo: local
+    hooks:
+      - id: check-git-remote-url
+        name: Check Git remote URL
+        entry: bash -c 'if ! git remote -v | grep -q "mpcstudy/dreamseed_monorepo"; then echo "❌ Remote URL not updated to new repository name"; exit 1; else echo "✅ Remote URL is correct"; fi'
+        language: system
+        description: "Verify Git remote URL is correct"
+        always_run: false

@@ -15,6 +15,9 @@ A comprehensive monorepo containing multiple services and applications.
 git clone git@github.com:mpcstudy/dreamseed_monorepo.git
 cd dreamseed_monorepo
 
+# Set up pre-commit hooks (recommended)
+./scripts/setup-pre-commit.sh
+
 # Check repository integrity
 ./scripts/check-repo-strings.sh
 ```
@@ -30,7 +33,27 @@ We maintain automated checks to ensure repository references are up-to-date:
 ./scripts/check-repo-strings.sh
 ```
 
-This script is automatically run in CI/CD pipelines to catch any hardcoded references to old repository paths.
+This script is automatically run in:
+- **Pre-commit hooks** (local development)
+- **CI/CD pipelines** (GitHub Actions)
+- **Branch protection rules** (PR validation)
+
+### Pre-commit Hooks
+
+Set up automatic checks before each commit:
+
+```bash
+# One-time setup
+./scripts/setup-pre-commit.sh
+
+# Manual run
+pre-commit run --all-files
+```
+
+Pre-commit hooks will automatically:
+- Check for legacy repository paths
+- Verify Git remote URL
+- Run standard code quality checks
 
 ### Pull Request Template
 
@@ -49,6 +72,13 @@ After repository renames or major changes, use the following checklist:
 3. **Documentation Update**: Update README, badges, and external links
 4. **CI/CD Review**: Check workflows and secrets
 5. **Branch Protection**: Review and update protection rules
+
+### Branch Protection Setup
+
+For complete protection, set up branch protection rules:
+- See [docs/BRANCH_PROTECTION_SETUP.md](docs/BRANCH_PROTECTION_SETUP.md) for detailed instructions
+- Enable "Repository Integrity Check" as a required status check
+- Require PR reviews and up-to-date branches
 
 ## 🤝 Contributing
 
