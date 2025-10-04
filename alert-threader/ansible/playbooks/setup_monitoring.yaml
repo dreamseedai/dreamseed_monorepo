@@ -1,0 +1,77 @@
+---
+- name: Setup Monitoring Stack (Prometheus, Alertmanager, Grafana)
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure monitoring directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /etc/prometheus
+        - /etc/prometheus/rules
+        - /etc/alertmanager
+        - /etc/alertmanager/templates
+        - /etc/grafana
+
+    - name: Deploy Prometheus configuration
+      template:
+        src: prometheus.yml.j2
+        dest: /etc/prometheus/prometheus.yml
+        mode: '0644'
+
+    - name: Deploy Prometheus alert rules
+      template:
+        src: threader_alerts.yml.j2
+        dest: /etc/prometheus/rules/threader_alerts.yml
+        mode: '0644'
+
+    - name: Deploy Alertmanager configuration
+      template:
+        src: alertmanager.yml.j2
+        dest: /etc/alertmanager/alertmanager.yml
+        mode: '0644'
+
+    - name: Deploy Alertmanager Slack template
+      template:
+        src: slack.tmpl.j2
+        dest: /etc/alertmanager/templates/slack.tmpl
+        mode: '0644'
+
+    - name: Install Prometheus
+      apt:
+        name: prometheus
+        state: present
+
+    - name: Install Alertmanager
+      apt:
+        name: alertmanager
+        state: present
+
+    - name: Install Grafana
+      apt:
+        name: grafana
+        state: present
+
+    - name: Reload systemd and restart monitoring services
+      systemd:
+        daemon_reload: yes
+
+    - name: Start and enable Prometheus
+      systemd:
+        name: prometheus
+        state: started
+        enabled: yes
+
+    - name: Start and enable Alertmanager
+      systemd:
+        name: alertmanager
+        state: started
+        enabled: yes
+
+    - name: Start and enable Grafana
+      systemd:
+        name: grafana-server
+        state: started
+        enabled: yes

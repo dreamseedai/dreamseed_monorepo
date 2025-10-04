@@ -1,0 +1,30 @@
+---
+- name: Deploy Alert Threader with Custom Ports
+  hosts: all
+  become: true
+  vars:
+    threader_impl: "multi"
+    threader_code_mode: "copy"
+    
+    # 서비스별 개별 포트 설정
+    threader_python_port: 9009
+    threader_node_port:   9010
+    threader_go_port:     9011
+    
+    # 서비스 활성화 설정
+    threader_services:
+      - name: alert-threader-python
+        port: "{{ threader_python_port }}"
+        enabled: true
+        impl: python
+      - name: alert-threader-node
+        port: "{{ threader_node_port }}"
+        enabled: true
+        impl: node
+      - name: alert-threader-go
+        port: "{{ threader_go_port }}"
+        enabled: true
+        impl: go
+  roles:
+    - role: alert_threader_env
+    - role: threader_install

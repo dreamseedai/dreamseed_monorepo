@@ -1,0 +1,36 @@
+threader_mode: sops           # sops | vault
+# 공통
+threader_env_path: /run/alert-threader.env
+threader_env_keys:
+  SLACK_BOT_TOKEN: "xoxb-REDACTED"
+  SLACK_CHANNEL: "C0123456789"
+  ENVIRONMENT: "staging"
+  THREAD_STORE: "file"
+  THREAD_STORE_FILE: "/var/lib/alert-threader/threads.json"
+  REDIS_URL: "redis://127.0.0.1:6379/0"
+  REDIS_KEY_PREFIX: "threader:ts"
+
+# SOPS
+sops_src_dir: /opt/alert-threader-sec
+sops_env_enc: "{{ sops_src_dir }}/alert-threader.env.enc"
+sops_age_key: "age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqs5p"
+
+# Vault
+vault_addr: https://vault.mycorp.local:8200
+vault_role_id_path: /etc/vault-agent.d/role_id
+vault_secret_id_path: /etc/vault-agent.d/secret_id
+vault_template_path: /etc/vault-agent.d/alert-threader.tpl
+vault_agent_hcl: /etc/vault-agent.d/alert-threader.hcl
+vault_kv_path: kv/data/alert-threader
+
+# Threader instances
+threader_instances:
+  - name: py-a
+    impl: python
+    port: 9009
+  - name: node-a
+    impl: node
+    port: 9010
+  - name: go-a
+    impl: go
+    port: 9011

@@ -1,0 +1,11 @@
+---
+- name: Roll back to Blue
+  hosts: all
+  become: true
+  vars:
+    switch_script: /usr/local/sbin/dreamseed_upstream_switch
+  tasks:
+    - name: Switch to blue
+      command: "{{ switch_script }} blue"
+
+

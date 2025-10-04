@@ -1,0 +1,68 @@
+- name: Ensure directories
+  become: true
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/alert-threader-sec
+    - /etc/vault-agent.d
+
+- name: Mode switch debug
+  debug: msg="Deploy mode={{ threader_mode }}"
+
+- name: SOPS | place templates
+  when: threader_mode == 'sops'
+  become: true
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode | default('0644') }}"
+  loop:
+    - { src: 'sops.env.enc.j2', dest: '{{ sops_env_enc }}' }
+    - { src: 'sops.yaml.j2',    dest: '{{ sops_yaml }}' }
+
+- name: SOPS | decrypt wrapper
+  when: threader_mode == 'sops'
+  become: true
+  template:
+    src: 'sops-decrypt.sh.j2'
+    dest: '/usr/local/sbin/alert-threader-sops-decrypt'
+    mode: '0755'
+
+- name: Vault | place templates
+  when: threader_mode == 'vault'
+  become: true
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode | default('0644') }}"
+  loop:
+    - { src: 'vault.tpl.j2', dest: '{{ vault_template_path }}' }
+    - { src: 'vault.hcl.j2', dest: '{{ vault_agent_hcl }}' }
+
+- name: Vault | install service unit
+  when: threader_mode == 'vault'
+  become: true
+  copy:
+    src: vault-agent.service
+    dest: /etc/systemd/system/vault-agent-alert-threader.service
+    mode: '0644'
+
+- name: systemd reload
+  become: true
+  systemd:
+    daemon_reload: yes
+
+- name: Render env now (SOPS)
+  when: threader_mode == 'sops'
+  become: true
+  command: /usr/local/sbin/alert-threader-sops-decrypt {{ sops_env_enc }}
+
+- name: Enable & start Vault Agent
+  when: threader_mode == 'vault'
+  become: true
+  systemd:
+    name: vault-agent-alert-threader
+    state: started
+    enabled: yes

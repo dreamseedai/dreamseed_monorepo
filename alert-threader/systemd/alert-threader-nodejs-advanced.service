@@ -1,0 +1,48 @@
+[Unit]
+Description=DreamSeed Alert Threader - Advanced (Node.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/alert-threader/nodejs-advanced
+
+# 기본 환경 변수
+Environment=SLACK_BOT_TOKEN=xoxb-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Environment=SLACK_CHANNEL=C0123456789
+Environment=ENVIRONMENT=production
+Environment=BIND_HOST=0.0.0.0
+Environment=BIND_PORT=9009
+
+# 저장소 설정 (파일 기본값)
+Environment=THREAD_STORE=file
+Environment=THREAD_STORE_FILE=/var/lib/alert-threader/threads.json
+
+# Redis 사용 시 주석 해제
+# Environment=THREAD_STORE=redis
+# Environment=REDIS_URL=redis://127.0.0.1:6379/0
+# Environment=REDIS_KEY_PREFIX=threader:ts
+
+# 실행 명령
+ExecStart=/usr/bin/env bash -lc 'cd /opt/alert-threader/nodejs-advanced && npm install && node index.js'
+
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+
+# 보안 설정
+NoNewPrivileges=yes
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+# 로그 설정
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alert-threader-nodejs
+
+[Install]
+WantedBy=multi-user.target
+

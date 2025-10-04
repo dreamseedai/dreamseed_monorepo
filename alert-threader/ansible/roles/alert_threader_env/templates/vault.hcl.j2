@@ -1,0 +1,21 @@
+exit_after_auth = false
+pid_file = "/run/vault-agent-alert-threader.pid"
+
+auto_auth {
+  method "approle" {
+    mount_path = "auth/approle"
+    config = {
+      role_id_file_path   = "{{ vault_role_id_path }}"
+      secret_id_file_path = "{{ vault_secret_id_path }}"
+    }
+  }
+  sink "file" { config = { path = "/run/vault/.token" } }
+}
+
+vault { address = "{{ vault_addr }}" }
+
+template {
+  source      = "{{ vault_template_path }}"
+  destination = "{{ threader_env_path }}"
+  perms = 0640
+}

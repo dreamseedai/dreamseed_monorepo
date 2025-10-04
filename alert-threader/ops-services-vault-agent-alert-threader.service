@@ -1,0 +1,37 @@
+[Unit]
+Description=Vault Agent for alert-threader env rendering
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/etc/vault-agent.d
+ExecStart=/usr/bin/vault agent -config=/etc/vault-agent.d/alert-threader.hcl
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+
+# --- Hardening ---
+NoNewPrivileges=yes
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectClock=yes
+LockPersonality=yes
+CapabilityBoundingSet=~CAP_SYS_ADMIN CAP_NET_ADMIN CAP_SYS_MODULE CAP_SYS_PTRACE CAP_SETUID CAP_SETGID
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @basic-io @network-io ~@mount ~@privileged
+
+# 로그 설정
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vault-agent-alert-threader
+
+[Install]
+WantedBy=multi-user.target

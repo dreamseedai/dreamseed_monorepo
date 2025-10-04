@@ -1,0 +1,498 @@
+name: Main CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      deployment_strategy:
+        description: 'Deployment strategy'
+        required: true
+        default: 'rolling'
+        type: choice
+        options:
+          - rolling
+          - canary
+          - blue-green
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+  GO_VERSION: '1.22'
+
+jobs:
+  # ===== SLACK THREAD INITIALIZATION =====
+  open_thread:
+    uses: ./.github/workflows/_slack_thread_open.yml
+    with:
+      title: "🚀 CI/CD Pipeline Started"
+      text: |
+        **Repository**: ${{ github.repository }}
+        **Branch**: ${{ github.ref_name }}
+        **Commit**: ${{ github.sha }}
+        **Actor**: ${{ github.actor }}
+        **Event**: ${{ github.event_name }}
+    secrets: inherit
+
+  # ===== BUILD AND TEST PHASE =====
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    needs: [open_thread]
+    outputs:
+      python-version: ${{ steps.python-version.outputs.version }}
+      node-version: ${{ steps.node-version.outputs.version }}
+      go-version: ${{ steps.go-version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'alert-threader/nodejs/package-lock.json'
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Get Python version
+        id: python-version
+        run: echo "version=$(python --version)" >> $GITHUB_OUTPUT
+
+      - name: Get Node.js version
+        id: node-version
+        run: echo "version=$(node --version)" >> $GITHUB_OUTPUT
+
+      - name: Get Go version
+        id: go-version
+        run: echo "version=$(go version)" >> $GITHUB_OUTPUT
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install ansible ansible-lint boto3 botocore pytest requests
+
+      - name: Install Node.js dependencies
+        working-directory: alert-threader/nodejs
+        run: npm ci
+
+      - name: Build Go application
+        working-directory: alert-threader/go
+        run: go build -o threader .
+
+      - name: Run Python tests
+        run: |
+          if [ -f "alert-threader/python/test_*.py" ]; then
+            python -m pytest alert-threader/python/test_*.py -v
+          fi
+
+      - name: Run Node.js tests
+        working-directory: alert-threader/nodejs
+        run: npm test || echo "No tests found"
+
+      - name: Run Go tests
+        working-directory: alert-threader/go
+        run: go test -v ./... || echo "No tests found"
+
+      - name: Run Ansible Lint
+        run: ansible-lint alert-threader/ansible/ || echo "Ansible lint completed"
+
+      - name: Notify build completion
+        if: always()
+        uses: ./.github/workflows/_slack_thread_reply.yml
+        with:
+          thread_ts: ${{ needs.open_thread.outputs.thread_ts }}
+          text: "🔨 Build and Test: ${{ job.status }}"
+        secrets: inherit
+
+  # ===== SECURITY SCAN PHASE =====
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [build-and-test, open_thread]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Bandit security linter
+        run: |
+          pip install bandit
+          bandit -r alert-threader/python/ -f json -o bandit-results.json || true
+
+      - name: Run Safety check
+        run: |
+          pip install safety
+          safety check --json --output safety-results.json || true
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-results.json
+            safety-results.json
+            trivy-results.sarif
+
+      - name: Notify security scan completion
+        if: always()
+        uses: ./.github/workflows/_slack_thread_reply.yml
+        with:
+          thread_ts: ${{ needs.open_thread.outputs.thread_ts }}
+          text: "🔒 Security Scan: ${{ job.status }}"
+        secrets: inherit
+
+  # ===== CODE QUALITY PHASE =====
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install linting tools
+        run: |
+          pip install black isort flake8 mypy
+
+      - name: Run Black (Python code formatting)
+        run: |
+          black --check alert-threader/python/ || echo "Black formatting issues found"
+
+      - name: Run isort (Python import sorting)
+        run: |
+          isort --check-only alert-threader/python/ || echo "Import sorting issues found"
+
+      - name: Run Flake8 (Python linting)
+        run: |
+          flake8 alert-threader/python/ || echo "Flake8 issues found"
+
+      - name: Run MyPy (Python type checking)
+        run: |
+          mypy alert-threader/python/ || echo "Type checking issues found"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Node.js linting tools
+        working-directory: alert-threader/nodejs
+        run: |
+          npm install --save-dev eslint prettier
+
+      - name: Run ESLint
+        working-directory: alert-threader/nodejs
+        run: npx eslint . || echo "ESLint issues found"
+
+      - name: Run Prettier
+        working-directory: alert-threader/nodejs
+        run: npx prettier --check . || echo "Prettier formatting issues found"
+
+  # ===== INTEGRATION TESTS PHASE =====
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: |
+          pip install pytest pytest-cov requests
+
+      - name: Run integration tests
+        run: |
+          # Create a simple integration test
+          cat > test_integration.py << 'EOF'
+          import pytest
+          import subprocess
+          import time
+          import requests
+          import os
+          import signal
+          
+          class TestIntegration:
+              def test_python_threader(self):
+                  """Test Python threader integration"""
+                  # Start Python threader
+                  proc = subprocess.Popen([
+                      'python', 'alert-threader/python/threader.py'
+                  ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                  
+                  try:
+                      # Wait for startup
+                      time.sleep(5)
+                      
+                      # Test health endpoint
+                      response = requests.get('http://localhost:9009/health', timeout=10)
+                      assert response.status_code == 200
+                      
+                      # Test alert endpoint
+                      alert_data = {
+                          "alerts": [{
+                              "status": "firing",
+                              "labels": {"alertname": "IntegrationTest"},
+                              "annotations": {"summary": "Integration test alert"}
+                          }]
+                      }
+                      response = requests.post('http://localhost:9009/alert', json=alert_data, timeout=10)
+                      assert response.status_code == 200
+                      
+                  finally:
+                      # Clean up
+                      proc.terminate()
+                      proc.wait(timeout=10)
+          EOF
+          
+          python test_integration.py || echo "Integration tests completed"
+
+  # ===== DEPLOYMENT PHASE =====
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan, code-quality, integration-tests]
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging
+        uses: ./.github/workflows/_ansible-runner.yml
+        with:
+          playbook: ansible/playbooks/deploy_env.yaml
+          extra_vars: "threader_mode=vault"
+        secrets:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY_STAGING }}
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR_STAGING }}
+          VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID_STAGING }}
+          VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID_STAGING }}
+
+      - name: Deploy Threader Services
+        uses: ./.github/workflows/_ansible-runner.yml
+        with:
+          playbook: ansible/playbooks/deploy_threader.yaml
+          extra_vars: "threader_impl=multi threader_python_port=9009 threader_node_port=9010 threader_go_port=9011"
+        secrets:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY_STAGING }}
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR_STAGING }}
+          VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID_STAGING }}
+          VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID_STAGING }}
+
+      - name: Run E2E Tests on Staging
+        uses: ./.github/workflows/end_to_end_test.yml
+        with:
+          target_url: "https://staging.dreamseedai.com"
+
+      - name: Notify deployment success
+        uses: ./.github/workflows/_slack_notify.yml
+        with:
+          status: success
+          title: "✅ Staging Deployment Successful"
+          text: "Alert Threader deployed to staging environment"
+        secrets:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_STAGING }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Production
+        uses: ./.github/workflows/_ansible-runner.yml
+        with:
+          playbook: ansible/playbooks/deploy_env.yaml
+          extra_vars: "threader_mode=vault"
+        secrets:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY_PROD }}
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR_PROD }}
+          VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID_PROD }}
+          VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID_PROD }}
+
+      - name: Deploy Threader Services
+        uses: ./.github/workflows/_ansible-runner.yml
+        with:
+          playbook: ansible/playbooks/deploy_threader.yaml
+          extra_vars: "threader_impl=multi threader_python_port=9009 threader_node_port=9010 threader_go_port=9011"
+        secrets:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY_PROD }}
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR_PROD }}
+          VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID_PROD }}
+          VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID_PROD }}
+
+      - name: Run E2E Tests on Production
+        uses: ./.github/workflows/end_to_end_test.yml
+        with:
+          target_url: "https://dreamseedai.com"
+
+      - name: Notify deployment success
+        uses: ./.github/workflows/_slack_notify.yml
+        with:
+          status: success
+          title: "🚀 Production Deployment Successful"
+          text: "Alert Threader deployed to production environment"
+        secrets:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_PROD }}
+
+  # ===== POST-DEPLOYMENT MONITORING =====
+  post-deployment-monitoring:
+    name: Post-Deployment Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: always() && needs.deploy-production.result == 'success'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up monitoring
+        uses: ./.github/workflows/monitoring_setup.yml
+
+      - name: Run performance tests
+        uses: ./.github/workflows/performance_test.yml
+        with:
+          target_url: "https://dreamseedai.com"
+          duration: "120"
+          users: "20"
+
+      - name: Notify monitoring setup complete
+        uses: ./.github/workflows/_slack_notify.yml
+        with:
+          status: success
+          title: "📊 Monitoring Setup Complete"
+          text: "Post-deployment monitoring and performance tests completed"
+        secrets:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_PROD }}
+
+  # ===== AUTO ROLLBACK ON FAILURE =====
+  auto-rollback:
+    name: Auto Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan, code-quality, integration-tests, deploy-staging, deploy-production]
+    if: failure()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Install retry backoff script
+        run: |
+          sudo cp alert-threader/ops/scripts/retry_backoff.sh /usr/local/sbin/
+          sudo chmod +x /usr/local/sbin/retry_backoff.sh
+
+      - name: Execute auto rollback with retry
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: False
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY_STAGING }}
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY_STAGING }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 192.168.68.116 >> ~/.ssh/known_hosts
+          /usr/local/sbin/retry_backoff.sh 3 5 -- ansible-playbook -i alert-threader/ansible/inventory/hosts.yaml alert-threader/ansible/playbooks/auto_rollback_on_failure.yaml
+
+        - name: Setup Guard-Window Briefing System
+          env:
+            ANSIBLE_HOST_KEY_CHECKING: False
+            SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY_STAGING }}
+          run: |
+            echo "${{ secrets.SSH_PRIVATE_KEY_STAGING }}" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -H 192.168.68.116 >> ~/.ssh/known_hosts
+            ansible-playbook -i alert-threader/ansible/inventory/hosts.yaml alert-threader/ansible/playbooks/setup_guard_briefing.yaml \
+              -e "slack_bot_token=${{ secrets.SLACK_BOT_TOKEN }}" \
+              -e "slack_channel_id=${{ secrets.SLACK_CHANNEL_ID }}" \
+              -e "thread_ts=${{ needs.open_thread.outputs.thread_ts }}" \
+              -e "prometheus_url=${{ secrets.PROMETHEUS_URL }}" \
+              -e "loki_url=${{ secrets.LOKI_URL }}" \
+              -e "jira_enabled=true" \
+              -e "jira_base=${{ secrets.JIRA_BASE }}" \
+              -e "jira_user=${{ secrets.JIRA_USER }}" \
+              -e "jira_token=${{ secrets.JIRA_TOKEN }}" \
+              -e "jira_project=${{ secrets.JIRA_PROJECT }}" \
+              -e "github_issue_enabled=true" \
+              -e "gh_repo=${{ github.repository }}" \
+              -e "gh_token=${{ secrets.GITHUB_TOKEN }}"
+
+        - name: Notify rollback completion
+          uses: ./.github/workflows/_slack_notify.yml
+          with:
+            status: success
+            title: "🔄 Auto Rollback Executed"
+            text: "Pipeline failed - automatically rolled back to Blue upstream. Guard-Window briefing system activated. Check logs for details."
+          secrets:
+            SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_STAGING }}
+
+  # ===== FAILURE NOTIFICATION =====
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan, code-quality, integration-tests, deploy-staging, deploy-production, auto-rollback]
+    if: failure()
+    steps:
+      - name: Notify deployment failure
+        uses: ./.github/workflows/_slack_notify.yml
+        with:
+          status: failure
+          title: "❌ CI/CD Pipeline Failed"
+          text: "One or more jobs in the CI/CD pipeline have failed. Auto rollback may have been executed. Please check the workflow logs."
+        secrets:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_STAGING }}

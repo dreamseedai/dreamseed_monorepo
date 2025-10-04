@@ -1,0 +1,51 @@
+[Unit]
+Description=DreamSeed Alert Threader - Python (FastAPI, Blocks, Persistent, SOPS)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/alert-threader-python
+
+# SOPS: 런타임 복호화 → /run/alert-threader.env 사용
+ExecStartPre=/usr/local/sbin/alert-threader-sops-decrypt /opt/alert-threader-sec/alert-threader.env.enc
+EnvironmentFile=/run/alert-threader.env
+
+# 최초 실행 시 의존성 설치 (무해, 실패 무시)
+ExecStartPre=/usr/bin/env bash -lc '\
+  mkdir -p /var/lib/alert-threader && chown www-data:www-data /var/lib/alert-threader && \
+  python3 -m pip install --upgrade pip || true && \
+  python3 -m pip install fastapi uvicorn httpx redis || true'
+
+# FastAPI(Uvicorn) 기동
+User=www-data
+Group=www-data
+ExecStart=/usr/bin/env bash -lc 'uvicorn app:app --host 0.0.0.0 --port 9009'
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+
+# --- Hardening ---
+NoNewPrivileges=yes
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectClock=yes
+LockPersonality=yes
+CapabilityBoundingSet=~CAP_SYS_ADMIN CAP_NET_ADMIN CAP_SYS_MODULE CAP_SYS_PTRACE CAP_SETUID CAP_SETGID
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @basic-io @network-io ~@mount ~@privileged
+
+# 로그 설정
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alert-threader-python
+
+[Install]
+WantedBy=multi-user.target

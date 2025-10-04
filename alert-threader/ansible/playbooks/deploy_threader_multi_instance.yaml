@@ -1,0 +1,31 @@
+---
+- name: Deploy Multi-Instance Alert Threader Services
+  hosts: all
+  become: true
+  vars:
+    threader_impl: "multi"
+    threader_code_mode: "copy"
+    
+    # 멀티 인스턴스 설정 예시
+    threader_instances:
+      - name: py-primary
+        impl: python
+        port: 9009
+      - name: node-primary
+        impl: node
+        port: 9010
+      - name: go-primary
+        impl: go
+        port: 9011
+      - name: py-backup
+        impl: python
+        port: 9008
+      - name: node-backup
+        impl: node
+        port: 9012
+      - name: go-backup
+        impl: go
+        port: 9013
+  roles:
+    - role: alert_threader_env
+    - role: threader_install

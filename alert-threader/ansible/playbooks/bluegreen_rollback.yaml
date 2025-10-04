@@ -1,0 +1,59 @@
+---
+- name: Roll back to Blue upstream
+  hosts: all
+  become: true
+  vars:
+    switch_script: /usr/local/sbin/dreamseed_upstream_switch
+    health_check_url: "http://127.0.0.1:9009/healthz"
+    health_check_timeout: 30
+    health_check_retries: 10
+
+  tasks:
+    - name: Log rollback initiation
+      lineinfile:
+        path: /var/log/nginx-deploy.log
+        line: "{{ ansible_date_time.iso8601 }} - Manual rollback to Blue initiated by {{ ansible_user_id }}"
+        create: yes
+        mode: '0644'
+
+    - name: Switch to Blue upstream
+      command: "{{ switch_script }} blue"
+      register: switch_result
+
+    - name: Validate Nginx configuration after rollback
+      command: nginx -t
+      register: nginx_test
+      failed_when: nginx_test.rc != 0
+
+    - name: Reload Nginx
+      systemd:
+        name: nginx
+        state: reloaded
+
+    - name: Wait for Blue upstream to be healthy
+      uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        status_code: 200
+        timeout: "{{ health_check_timeout }}"
+      register: blue_health
+      retries: "{{ health_check_retries }}"
+      delay: 3
+      until: blue_health.status == 200
+
+    - name: Log successful rollback
+      lineinfile:
+        path: /var/log/nginx-deploy.log
+        line: "{{ ansible_date_time.iso8601 }} - Successfully rolled back to Blue upstream"
+        mode: '0644'
+
+    - name: Set rollback status
+      set_fact:
+        rollback_status: "{{ 'SUCCESS' if blue_health.status == 200 else 'FAILED' }}"
+
+    - name: Fail if rollback was unsuccessful
+      fail:
+        msg: "Rollback to Blue failed - manual intervention required"
+      when: rollback_status == 'FAILED'
+
+

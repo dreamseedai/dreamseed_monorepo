@@ -1,0 +1,15 @@
+[Unit]
+Description=Healthcheck for threader (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+# /etc/alert-threader.d/%i.env 에 HEALTH_URL 또는 PORT 오버라이드 가능
+EnvironmentFile=-/etc/alert-threader.d/%i.env
+ExecStart=/usr/bin/env bash -lc '/usr/local/sbin/check-threader-%i'
+
+[Install]
+WantedBy=timers.target

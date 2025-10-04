@@ -1,0 +1,9 @@
+{{ '{{ with secret "' }}{{ vault_kv_path }}{{ '" }}' }}
+SLACK_BOT_TOKEN={{ '{{ .Data.data.SLACK_BOT_TOKEN }}' }}
+SLACK_CHANNEL={{ '{{ .Data.data.SLACK_CHANNEL }}' }}
+ENVIRONMENT={{ '{{ .Data.data.ENVIRONMENT }}' }}
+THREAD_STORE={{ '{{ .Data.data.THREAD_STORE }}' }}
+THREAD_STORE_FILE={{ '{{ .Data.data.THREAD_STORE_FILE }}' }}
+REDIS_URL={{ '{{ .Data.data.REDIS_URL }}' }}
+REDIS_KEY_PREFIX={{ '{{ .Data.data.REDIS_KEY_PREFIX }}' }}
+{{ '{{ end }}' }}

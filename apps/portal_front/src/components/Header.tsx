@@ -16,6 +16,8 @@ export default function Header() {
             <a href="/" className="text-slate-600 dark:text-slate-300 no-underline">Home</a>
             <a href="/guides/us" className="text-slate-600 dark:text-slate-300 no-underline">US Guides</a>
             <a href="/guides/ca" className="text-slate-600 dark:text-slate-300 no-underline">CA Guides</a>
+            <a href="/plans" className="text-slate-600 dark:text-slate-300 no-underline">Plans</a>
+            <a href="/saved" className="text-slate-600 dark:text-slate-300 no-underline">Saved Plans</a>
             <a href="/content/list" className="text-slate-600 dark:text-slate-300 no-underline">Content</a>
           </nav>
         </div>

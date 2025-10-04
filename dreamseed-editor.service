@@ -1,0 +1,31 @@
+[Unit]
+Description=DreamSeed Editor Server
+After=network.target
+Wants=network.target
+
+[Service]
+Type=forking
+User=won
+Group=won
+WorkingDirectory=/home/won/projects/dreamseed_monorepo
+ExecStart=/home/won/projects/dreamseed_monorepo/start_server.sh start
+ExecStop=/home/won/projects/dreamseed_monorepo/start_server.sh stop
+ExecReload=/home/won/projects/dreamseed_monorepo/start_server.sh restart
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# 환경 변수
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONPATH=/home/won/projects/dreamseed_monorepo
+
+# 보안 설정
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/won/projects/dreamseed_monorepo
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api, getToken } from '../lib/api';
+import PersonalizedPlan from './PersonalizedPlan';
 
 type PlanCard = { title: string; slug?: string; summary?: string };
 
@@ -13,6 +14,7 @@ export default function ProfileSelect({ onResult, onRequireLogin, onCountryChang
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [toast, setToast] = useState<string>('');
+  const [showPersonalizedPlan, setShowPersonalizedPlan] = useState(false);
   const runRef = useRef(0);
 
   const submit = async () => {
@@ -28,14 +30,21 @@ export default function ProfileSelect({ onResult, onRequireLogin, onCountryChang
       return;
     }
 
+    // If authenticated, show personalized plan instead of old recommendations
+    if (myRun === runRef.current) {
+      setLoading(false);
+      setToast('');
+      setShowPersonalizedPlan(true);
+      return;
+    }
+
     try {
       const key = `${country}|${grade}|${goal}`;
       if (planCache.has(key)) { if (myRun === runRef.current) { onResult(planCache.get(key) || []); setToast(''); } return; }
 
-      // Primary: POST /api/recommend (무슬래시 고정)
-      const payload: any = { mode: 'grade', category: country.toLowerCase(), keywords: [grade, goal].filter(Boolean) };
+      // Primary: GET /api/recommend (슬래시 없음)
       try {
-        const r1 = await api<any>('recommend', { method: 'POST', body: JSON.stringify(payload), cache: 'no-store' });
+        const r1 = await api<any>('recommend', { cache: 'no-store' });
         const arr = Array.isArray(r1) ? r1 : (r1?.items || r1?.results || r1?.cards || []);
         const mapped: PlanCard[] = (arr || []).slice(0, 8).map((it: any) => ({
           title: String(it?.title || it?.name || it?.label || 'Recommendation'),
@@ -75,6 +84,11 @@ export default function ProfileSelect({ onResult, onRequireLogin, onCountryChang
 
   const onCountryChanged = (val: 'US'|'CA') => { setCountry(val); onCountryChange && onCountryChange(val); };
 
+  // If showing personalized plan, render that instead
+  if (showPersonalizedPlan) {
+    return <PersonalizedPlan />;
+  }
+
   return (
     <div id="profile" className="border rounded p-3" style={{ maxWidth: 960, margin: '16px auto' }} aria-busy={loading}>
       <div className="flex gap-3 items-end" style={{ display: 'flex', gap: 12, alignItems: 'end', flexWrap: 'wrap' }}>
@@ -96,10 +110,10 @@ export default function ProfileSelect({ onResult, onRequireLogin, onCountryChang
           type="button"
           onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); void submit(); }}
           disabled={loading}
-          aria-label="내 전략 보기"
+          aria-label="View My Strategy"
           className="border px-4 py-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600"
         >
-          {loading ? 'Loading…' : '내 전략 보기'}
+          {loading ? 'Loading…' : 'View My Strategy'}
         </button>
         {msg && <span className="text-sm" style={{ color:'#dc2626' }}>{msg}</span>}
       </div>

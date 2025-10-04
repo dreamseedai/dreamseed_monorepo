@@ -1,0 +1,4 @@
+creation_rules:
+  - path_regex: .*.env\.enc$
+    age: ["{{ sops_age_key }}"]
+    encrypted_regex: '^(SLACK_BOT_TOKEN|SLACK_CHANNEL|ENVIRONMENT|THREAD_STORE|THREAD_STORE_FILE|REDIS_URL|REDIS_KEY_PREFIX)$'

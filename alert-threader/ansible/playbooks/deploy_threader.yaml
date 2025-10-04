@@ -1,0 +1,11 @@
+---
+- name: Deploy Alert Threader Services
+  hosts: all
+  become: true
+  vars:
+    threader_impl: "{{ threader_impl | default('python') }}"
+    threader_python_port: "{{ threader_python_port | default(9009) }}"
+    threader_node_port: "{{ threader_node_port | default(9010) }}"
+    threader_go_port: "{{ threader_go_port | default(9011) }}"
+  roles:
+    - role: threader_install

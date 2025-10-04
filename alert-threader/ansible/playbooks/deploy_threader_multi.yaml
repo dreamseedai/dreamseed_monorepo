@@ -1,0 +1,10 @@
+---
+- name: Deploy Multi-Language Alert Threader Services
+  hosts: all
+  become: true
+  vars:
+    threader_impl: "multi"
+    threader_code_mode: "copy"
+  roles:
+    - role: alert_threader_env
+    - role: threader_install

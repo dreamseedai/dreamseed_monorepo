@@ -1,0 +1,78 @@
+name: QoS Guard Release
+on:
+  workflow_dispatch:
+    inputs:
+      create_ticket:
+        description: 'Create ticket on SLO breach'
+        required: true
+        type: boolean
+        default: false
+      jira_enabled:
+        description: 'Enable Jira ticket creation'
+        required: false
+        type: boolean
+        default: false
+      github_issue_enabled:
+        description: 'Enable GitHub issue creation'
+        required: false
+        type: boolean
+        default: false
+      thread_ts:
+        description: 'Slack thread timestamp for notifications'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  guard_release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Install ticket creation scripts
+        run: |
+          sudo cp alert-threader/ops/scripts/create_jira_issue.sh /usr/local/sbin/
+          sudo cp alert-threader/ops/scripts/create_github_issue.sh /usr/local/sbin/
+          sudo chmod +x /usr/local/sbin/create_jira_issue.sh
+          sudo chmod +x /usr/local/sbin/create_github_issue.sh
+
+      - name: Execute guard release with ticket creation
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: False
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY_STAGING }}
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY_STAGING }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 192.168.68.116 >> ~/.ssh/known_hosts
+          ansible-playbook -i alert-threader/ansible/inventory/hosts.yaml alert-threader/ansible/playbooks/qos_guard_release.yaml \
+            -e "jira_enabled=${{ github.event.inputs.jira_enabled }}" \
+            -e "github_issue_enabled=${{ github.event.inputs.github_issue_enabled }}" \
+            -e "slack_thread_ts=${{ github.event.inputs.thread_ts }}" \
+            -e "slack_bot_token=${{ secrets.SLACK_BOT_TOKEN }}" \
+            -e "slack_channel_id=${{ secrets.SLACK_CHANNEL_ID }}" \
+            -e "jira_base=${{ secrets.JIRA_BASE }}" \
+            -e "jira_user=${{ secrets.JIRA_USER }}" \
+            -e "jira_token=${{ secrets.JIRA_TOKEN }}" \
+            -e "jira_project=${{ secrets.JIRA_PROJECT }}" \
+            -e "gh_repo=${{ github.repository }}" \
+            -e "gh_token=${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Notify completion
+        uses: ./.github/workflows/_slack_thread_reply.yml
+        with:
+          thread_ts: ${{ github.event.inputs.thread_ts }}
+          text: "🛡️ Guard release completed - check results above"
+        secrets:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+
+

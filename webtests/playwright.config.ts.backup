@@ -1,0 +1,7 @@
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  timeout: 45_000,
+  use: { headless: true },
+  reporter: [['html', { outputFolder: 'playwright-report', open: 'never' }], ['list']],
+});

@@ -12,7 +12,7 @@ export default function LoginForm() {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [diag, setDiag] = useState("");
   const [diagRunning, setDiagRunning] = useState(false);
-  const [probePath, setProbePath] = useState("/api/version");
+  const [probePath, setProbePath] = useState("/__ok");
   const [debugAuth, setDebugAuth] = useState(false);
 
   useEffect(() => {
@@ -48,15 +48,15 @@ export default function LoginForm() {
         lines.push(`[GET /api/__ok] error: ${e?.message ?? e}`);
       }
 
-      // version
+      // auth/login probe
       try {
-        const r = await fetch("/api/version", { credentials: "include" });
+        const r = await fetch("/api/auth/login", { credentials: "include" });
         const ct = r.headers.get("content-type") || "";
         const t = await r.text().catch(() => "");
-        lines.push(`[GET /api/version] ${r.status} ${r.statusText} ct=${ct}`);
+        lines.push(`[GET /api/auth/login] ${r.status} ${r.statusText} ct=${ct}`);
         lines.push(t.slice(0, 200));
       } catch (e: any) {
-        lines.push(`[GET /api/version] error: ${e?.message ?? e}`);
+        lines.push(`[GET /api/auth/login] error: ${e?.message ?? e}`);
       }
 
       // me via wrapper (adds Authorization)
@@ -102,7 +102,7 @@ export default function LoginForm() {
       const email = String(fd.get("email") ?? "");
       const password = String(fd.get("password") ?? "");
       if (!email || !password) {
-        setMsg("이메일/비밀번호를 입력하세요.");
+        setMsg("Please enter email/password.");
         return;
       }
 
@@ -113,14 +113,14 @@ export default function LoginForm() {
       });
       logPush(`[auth] POST /api/auth/login -> ${r.status} ${r.statusText}`);
       if (!r.ok) {
-        setMsg(`[${r.status}] 로그인 실패`);
+        setMsg(`[${r.status}] Login failed`);
         logPush(`[auth] login failed`);
         return;
       }
       const j = await r.json();
       logPush(`[auth] login json keys: ${Object.keys(j || {}).join(',')}`);
       if (!j?.access_token) {
-        setMsg("토큰 미수신");
+        setMsg("Token not received");
         logPush(`[auth] no access_token`);
         return;
       }
@@ -138,7 +138,7 @@ export default function LoginForm() {
       }
 
       try { window.dispatchEvent(new Event('auth:changed')); } catch {}
-      setMsg("로그인 성공");
+      setMsg("Login successful");
       const before = window.location.pathname;
       const sp = new URLSearchParams(window.location.search);
       const next = sp.get('next') || '/';
@@ -157,7 +157,7 @@ export default function LoginForm() {
       // router.push('/');
       // 또는 window.location.href = '/';
     } catch (err: any) {
-      setMsg(`에러: ${err?.message ?? err}`);
+      setMsg(`Error: ${err?.message ?? err}`);
     } finally {
       setLoading(false);
     }
@@ -192,7 +192,7 @@ export default function LoginForm() {
         />
       </div>
       <button type="submit" disabled={loading} className="border px-2 py-1">
-        {loading ? "로그인 중..." : "Login"}
+        {loading ? "Logging in..." : "Login"}
       </button>
         <span className="text-sm ml-2">{msg}</span>
       </form>
@@ -200,13 +200,13 @@ export default function LoginForm() {
       <div style={{ marginTop: 12, fontSize: 12 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
           <button type="button" onClick={runDiagnostics} disabled={diagRunning} className="border px-2 py-1">
-            진단 실행
+            Run Diagnostics
           </button>
           <input
             type="text"
             value={probePath}
             onChange={(e) => setProbePath(e.target.value)}
-            placeholder="/api/... 경로 입력"
+            placeholder="Enter /api/... path"
             className="border p-1"
             style={{ width: 280 }}
           />

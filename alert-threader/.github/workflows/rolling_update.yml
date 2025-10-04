@@ -1,0 +1,10 @@
+name: Rolling Update
+on: { workflow_dispatch: {} }
+jobs:
+  rolling:
+    uses: ./.github/workflows/_ansible-runner.yml
+    with:
+      playbook: ansible/playbooks/rolling_update.yaml
+    secrets: inherit
+
+

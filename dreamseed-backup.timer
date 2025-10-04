@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily DreamSeed SQLite backup timer
+Requires=dreamseed-backup.service
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=600
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
+

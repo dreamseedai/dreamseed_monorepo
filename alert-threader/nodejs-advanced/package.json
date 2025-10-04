@@ -1,0 +1,33 @@
+{
+  "name": "dreamseed-alert-threader-advanced",
+  "version": "2.0.0",
+  "description": "Alertmanager webhook을 Slack 스레드로 변환하는 고급 Node.js 서비스",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2",
+    "redis": "^4.6.10"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "alertmanager",
+    "slack",
+    "thread",
+    "monitoring",
+    "alerts"
+  ],
+  "author": "DreamSeed Team",
+  "license": "MIT"
+}
+

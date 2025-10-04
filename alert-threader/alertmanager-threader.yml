@@ -1,0 +1,24 @@
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@dreamseed.com'
+
+route:
+  receiver: threader
+  group_by: ['alertname', 'severity', 'service']
+  group_wait: 10s
+  group_interval: 2m
+  repeat_interval: 2h
+
+receivers:
+  - name: threader
+    webhook_configs:
+      - url: 'http://127.0.0.1:9009/alert'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+          enable_http2: true
+        max_alerts: 0  # 제한 없음
+
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+

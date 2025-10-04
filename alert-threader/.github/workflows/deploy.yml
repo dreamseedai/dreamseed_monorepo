@@ -1,0 +1,109 @@
+name: CI/CD Pipeline for Alert Threader
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      
+      - name: Install Ansible
+        run: pip install ansible ansible-lint
+      
+      - name: Run Ansible Lint
+        run: ansible-lint .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Node.js dependencies
+        working-directory: alert-threader/threaders/node
+        run: npm install
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      
+      - name: Build Go application
+        working-directory: alert-threader/threaders/go
+        run: go build -o threader .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          output: 'trivy-results.txt'
+          severity: 'HIGH,CRITICAL'
+
+  deploy-staging:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      
+      - name: Install Ansible
+        run: pip install ansible
+      
+      - name: Deploy to Staging
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: False
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR_STAGING }}
+          VAULT_TOKEN: ${{ secrets.VAULT_TOKEN_STAGING }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_STAGING }}
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY_STAGING }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ansible-playbook -i alert-threader/ansible/inventory/hosts.yaml alert-threader/ansible/playbooks/deploy_env.yaml -e "threader_mode=vault"
+          ansible-playbook -i alert-threader/ansible/inventory/hosts.yaml alert-threader/ansible/playbooks/deploy_threader.yaml -e "threader_impl=multi"
+
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      
+      - name: Install Ansible
+        run: pip install ansible
+      
+      - name: Deploy to Production
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: False
+          VAULT_ADDR: ${{ secrets.VAULT_ADDR_PROD }}
+          VAULT_TOKEN: ${{ secrets.VAULT_TOKEN_PROD }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_PROD }}
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY_PROD }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ansible-playbook -i alert-threader/ansible/inventory/hosts.yaml alert-threader/ansible/playbooks/deploy_env.yaml -e "threader_mode=vault"
+          ansible-playbook -i alert-threader/ansible/inventory/hosts.yaml alert-threader/ansible/playbooks/deploy_threader.yaml -e "threader_impl=multi"

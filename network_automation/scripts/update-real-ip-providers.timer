@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily sync for nginx real_ip providers (Cloudflare/AWS/GCP)
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

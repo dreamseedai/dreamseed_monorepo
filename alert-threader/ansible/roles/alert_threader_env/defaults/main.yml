@@ -1,0 +1,13 @@
+threader_mode: sops
+threader_env_path: /run/alert-threader.env
+sops_src_dir: /opt/alert-threader-sec
+sops_env_enc: "{{ sops_src_dir }}/alert-threader.env.enc"
+sops_yaml: /opt/alert-threader-sec/.sops.yaml
+sops_age_key: ""
+
+vault_addr: http://127.0.0.1:8200
+vault_role_id_path: /etc/vault-agent.d/role_id
+vault_secret_id_path: /etc/vault-agent.d/secret_id
+vault_template_path: /etc/vault-agent.d/alert-threader.tpl
+vault_agent_hcl: /etc/vault-agent.d/alert-threader.hcl
+vault_kv_path: kv/data/alert-threader

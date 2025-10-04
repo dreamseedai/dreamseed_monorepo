@@ -1,0 +1,59 @@
+---
+- name: Backup SQLite database
+  hosts: all
+  become: true
+  vars:
+    backup_name: "backup-{{ ansible_date_time.epoch }}"
+    backup_dir: "/var/backups/alert-threader"
+    db_path: "/var/lib/alert-threader/threads.db"
+  tasks:
+    - name: Ensure backup directory exists
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ threader_user | default('www-data') }}"
+        group: "{{ threader_group | default('www-data') }}"
+
+    - name: Create SQLite backup
+      command: >
+        sqlite3 {{ db_path }} ".backup {{ backup_dir }}/{{ backup_name }}.db"
+      become_user: "{{ threader_user | default('www-data') }}"
+      register: backup_result
+      changed_when: false
+
+    - name: Compress backup
+      archive:
+        path: "{{ backup_dir }}/{{ backup_name }}.db"
+        dest: "{{ backup_dir }}/{{ backup_name }}.db.gz"
+        format: gz
+        remove: true
+
+    - name: Upload to S3 (if configured)
+      when: s3_bucket is defined
+      aws_s3:
+        bucket: "{{ s3_bucket }}"
+        object: "alert-threader/{{ backup_name }}.db.gz"
+        src: "{{ backup_dir }}/{{ backup_name }}.db.gz"
+        mode: put
+      register: s3_upload
+
+    - name: Clean old backups (keep last 7 days)
+      find:
+        paths: "{{ backup_dir }}"
+        patterns: "backup-*.db.gz"
+        age: "7d"
+      register: old_backups
+
+    - name: Remove old backups
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_backups.files }}"
+      when: old_backups.files | length > 0
+
+    - name: Display backup info
+      debug:
+        msg: "Backup created: {{ backup_dir }}/{{ backup_name }}.db.gz"
+
+

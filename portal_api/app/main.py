@@ -22,7 +22,7 @@ if settings.sentry_dsn:
     )
 
 # Inner API app mounted under /api so local dev at :8000 works with /api prefix
-api = FastAPI(title=settings.app_name)
+api = FastAPI(title=settings.app_name, redirect_slashes=False)
 
 # CORS (production-driven origins)
 def _origins():
@@ -47,7 +47,7 @@ api.include_router(billing_stripe.router)
 api.include_router(export.router)
 
 # Root app (mounts /api)
-app = FastAPI(title=settings.app_name)
+app = FastAPI(title=settings.app_name, redirect_slashes=False)
 
 app.add_middleware(
     CORSMiddleware,

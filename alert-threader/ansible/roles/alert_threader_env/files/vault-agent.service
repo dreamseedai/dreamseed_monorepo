@@ -1,0 +1,12 @@
+[Unit]
+Description=Vault Agent for alert-threader env rendering
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/vault agent -config=/etc/vault-agent.d/alert-threader.hcl
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,99 @@
+---
+- name: Auto rollback to Blue (triggered by CI failure)
+  hosts: all
+  become: true
+  vars:
+    rollback_log: /var/log/nginx-rollback.log
+    health_check_url: "http://127.0.0.1:9009/healthz"
+    health_check_timeout: 10
+    health_check_retries: 3
+
+  tasks:
+    - name: Log rollback initiation
+      lineinfile:
+        path: "{{ rollback_log }}"
+        line: "{{ ansible_date_time.iso8601 }} - Auto rollback initiated by {{ ansible_user_id }}"
+        create: yes
+        mode: '0644'
+
+    - name: Install Nginx switch script
+      copy:
+        src: ../../ops/scripts/nginx_switch_blue.sh
+        dest: /usr/local/sbin/nginx_switch_blue.sh
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Switch Nginx upstream to Blue
+      command: /usr/local/sbin/nginx_switch_blue.sh
+      register: switch_result
+      failed_when: false
+
+    - name: Display switch result
+      debug:
+        msg: "{{ switch_result.stdout_lines }}"
+
+    - name: Check Blue upstream health
+      uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        status_code: 200
+        timeout: "{{ health_check_timeout }}"
+      register: health_check
+      retries: "{{ health_check_retries }}"
+      delay: 2
+      failed_when: false
+
+    - name: Log health check result
+      lineinfile:
+        path: "{{ rollback_log }}"
+        line: "{{ ansible_date_time.iso8601 }} - Health check: {{ 'PASSED' if health_check.status == 200 else 'FAILED' }} ({{ health_check.status | default('timeout') }})"
+        mode: '0644'
+
+    - name: Restart threader services if health check failed
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - alert-threader-python
+        - alert-threader-node
+        - alert-threader-go
+      when: health_check.status != 200
+      ignore_errors: yes
+
+    - name: Final health check after service restart
+      uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        status_code: 200
+        timeout: "{{ health_check_timeout }}"
+      register: final_health_check
+      when: health_check.status != 200
+      failed_when: false
+
+    - name: Log final status
+      lineinfile:
+        path: "{{ rollback_log }}"
+        line: "{{ ansible_date_time.iso8601 }} - Rollback completed: {{ 'SUCCESS' if (final_health_check.status | default(health_check.status)) == 200 else 'PARTIAL - Manual intervention may be required' }}"
+        mode: '0644'
+
+    - name: Set rollback status fact
+      set_fact:
+        rollback_status: "{{ 'SUCCESS' if (final_health_check.status | default(health_check.status)) == 200 else 'PARTIAL' }}"
+
+    - name: Lock QoS guard-window after rollback
+      shell: "{{ qos_guard_script | default('/usr/local/sbin/qos_guard.sh') }} lock {{ qos_guard_window | default(15) }}"
+      register: qos_lock_result
+      when: rollback_status == 'SUCCESS'
+
+    - name: Log QoS guard-window lock
+      lineinfile:
+        path: "{{ rollback_log }}"
+        line: "{{ ansible_date_time.iso8601 }} - QoS guard-window locked for {{ qos_guard_window | default(15) }} minutes"
+        mode: '0644'
+      when: rollback_status == 'SUCCESS'
+
+    - name: Fail if rollback was unsuccessful
+      fail:
+        msg: "Auto rollback to Blue failed - manual intervention required"
+      when: rollback_status == 'PARTIAL'

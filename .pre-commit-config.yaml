@@ -1,46 +1,65 @@
-# Pre-commit configuration for repository integrity checks
-# Install with: pip install pre-commit && pre-commit install
-
 repos:
-  # Local repository path guard
-  - repo: local
-    hooks:
-      - id: repo-path-guard
-        name: Repository path guard
-        entry: bash scripts/check-repo-strings.sh
-        language: system
-        types: [text]
-        description: "Check for legacy repository path references"
-        verbose: true
-        always_run: false
-
-  # Standard Python checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v4.4.0
     hooks:
       - id: trailing-whitespace
-        description: "Remove trailing whitespace"
-        exclude: '\.precommit-env/'
       - id: end-of-file-fixer
-        description: "Ensure files end with newline"
-        exclude: '\.precommit-env/'
       - id: check-yaml
-        description: "Check YAML syntax"
-      - id: check-json
-        description: "Check JSON syntax"
-      - id: check-merge-conflict
-        description: "Check for merge conflict markers"
       - id: check-added-large-files
-        description: "Check for large files"
-        args: ['--maxkb=1000']
-        exclude: '\.precommit-env/'
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: check-json
 
-  # Custom Git remote URL check
+  - repo: https://github.com/psf/black
+    rev: 23.7.0
+    hooks:
+      - id: black
+        language_version: python3
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.0.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=88, --extend-ignore=E203,W503]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.5.1
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-requests, types-redis]
+        args: [--ignore-missing-imports]
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-r, ., -f, json, -o, bandit-report.json]
+        exclude: ^tests/
+
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+    rev: v1.3.2
+    hooks:
+      - id: python-safety-dependencies-check
+        args: [--full-report]
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+
   - repo: local
     hooks:
-      - id: check-git-remote-url
-        name: Check Git remote URL
-        entry: bash -c 'if ! git remote -v | grep -q "mpcstudy/dreamseed_monorepo"; then echo "❌ Remote URL not updated to new repository name"; exit 1; else echo "✅ Remote URL is correct"; fi'
+      - id: pytest
+        name: pytest
+        entry: pytest
         language: system
-        description: "Verify Git remote URL is correct"
-        always_run: false
+        pass_filenames: false
+        always_run: true
+        args: [--tb=short, -q]

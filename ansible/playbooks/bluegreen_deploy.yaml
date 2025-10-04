@@ -1,0 +1,51 @@
+---
+- name: Blue‑Green deploy (build→green→guard→switch)
+  hosts: all
+  become: true
+  vars:
+    # 현재 blue가 서비스 중, green은 새 버전(예: 포트 9010)
+    health_url_green: http://127.0.0.1:9010/healthz
+    switch_script: /usr/local/sbin/dreamseed_upstream_switch
+    prom_guard: true
+    loki_guard: true
+  tasks:
+    - name: Build/sync artifact to green
+      debug: msg="Sync new artifact to Green (e.g., /opt/alert-threader-node-green)"
+
+    - name: Restart green service
+      systemd:
+        name: alert-threader-node   # 또는 @인스턴스, 다른 구현 가능
+        state: restarted
+
+    - name: Wait for green health
+      uri:
+        url: "{{ health_url_green }}"
+        status_code: 200
+        validate_certs: no
+      register: res
+      until: res.status == 200
+      retries: 20
+      delay: 5
+
+    - name: (옵션) 지표/로그 가드 실행
+      when: prom_guard or loki_guard
+      import_playbook: promo_with_guards.yaml
+
+    - name: Switch Nginx upstream to green
+      copy:
+        dest: /usr/local/sbin/dreamseed_upstream_switch
+        mode: '0755'
+        content: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          BLUE=/etc/nginx/upstreams/threader_blue.conf
+          GREEN=/etc/nginx/upstreams/threader_green.conf
+          ACTIVE=/etc/nginx/upstreams/threader_active.conf
+          ln -sfn "$GREEN" "$ACTIVE"
+          nginx -t && systemctl reload nginx
+      when: false  # 위에서 스크립트가 이미 설치되어 있으면 skip
+
+    - name: Run switch script
+      command: "{{ switch_script }} green"
+
+

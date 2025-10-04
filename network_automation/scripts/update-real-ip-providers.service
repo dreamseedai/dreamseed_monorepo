@@ -1,0 +1,18 @@
+[Unit]
+Description=Sync nginx real_ip providers (Cloudflare/AWS/GCP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=CF_ENABLE=yes
+Environment=AWS_ENABLE=no
+Environment=AWS_VPC_SUBNETS=no
+Environment=GCP_ENABLE=no
+Environment=GCP_SCOPE=global
+Environment=KEEP_LOCAL=yes
+Environment=AWS_REGION=
+Environment=AWS_VPC_ID=
+ExecStart=/usr/local/sbin/update_real_ip_providers
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,28 @@
+[Unit]
+Description=Alertmanager -> Slack Threader (Go)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={{ threader_go_dir }}
+EnvironmentFile={{ threader_envfile }}
+ExecStartPre=/usr/bin/env bash -lc '\
+  mkdir -p /var/lib/alert-threader && chown {{ threader_user }}:{{ threader_group }} /var/lib/alert-threader && \
+  [ -f go.mod ] || go mod init threader && \
+  go mod tidy && \
+  go get github.com/redis/go-redis/v9@v9.5.1 && \
+  go build -o threader .'
+User={{ threader_user }}
+Group={{ threader_group }}
+ExecStart=/usr/bin/env bash -lc 'PORT={{ threader_go_port | default(threader_port) }} {{ threader_go_dir }}/threader'
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

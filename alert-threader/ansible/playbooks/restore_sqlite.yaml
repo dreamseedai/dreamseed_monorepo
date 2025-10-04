@@ -1,0 +1,71 @@
+---
+- name: Restore SQLite database
+  hosts: all
+  become: true
+  vars:
+    backup_name: "{{ backup_name | default('latest') }}"
+    backup_dir: "/var/backups/alert-threader"
+    db_path: "/var/lib/alert-threader/threads.db"
+  tasks:
+    - name: Find backup file
+      find:
+        paths: "{{ backup_dir }}"
+        patterns: "{{ backup_name }}.db.gz"
+      register: backup_files
+      failed_when: backup_files.files | length == 0
+
+    - name: Stop threader services
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - alert-threader-python
+        - alert-threader-node
+        - alert-threader-go
+      ignore_errors: true
+
+    - name: Backup current database
+      copy:
+        src: "{{ db_path }}"
+        dest: "{{ db_path }}.backup.{{ ansible_date_time.epoch }}"
+        remote_src: true
+      when: ansible_check_mode is not defined
+
+    - name: Decompress backup
+      unarchive:
+        src: "{{ backup_files.files[0].path }}"
+        dest: "{{ backup_dir }}"
+        remote_src: true
+
+    - name: Restore database
+      copy:
+        src: "{{ backup_dir }}/{{ backup_name }}.db"
+        dest: "{{ db_path }}"
+        owner: "{{ threader_user | default('www-data') }}"
+        group: "{{ threader_group | default('www-data') }}"
+        mode: '0644'
+      when: ansible_check_mode is not defined
+
+    - name: Start threader services
+      systemd:
+        name: "{{ item }}"
+        state: started
+      loop:
+        - alert-threader-python
+        - alert-threader-node
+        - alert-threader-go
+      ignore_errors: true
+
+    - name: Verify restoration
+      uri:
+        url: "http://127.0.0.1:9009/health"
+        status_code: 200
+      register: health_check
+      retries: 5
+      delay: 2
+
+    - name: Display restore info
+      debug:
+        msg: "Database restored from {{ backup_files.files[0].path }}"
+
+

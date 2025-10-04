@@ -20,11 +20,10 @@ export default function TopMpcBanner() {
       ) : null}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3 sm:p-4">
         <div className="text-white text-sm sm:text-base">
-          <span className="font-semibold">DreamSeedAI</span>는{' '}
+          <span className="font-semibold">DreamSeedAI</span> is an upgraded version of{' '}
           <a href="https://mpcstudy.com" target="_blank" rel="noreferrer" className="underline">
             MPCStudy.com
           </a>
-          의 업그레이드 버전입니다.
         </div>
       </div>
     </div>

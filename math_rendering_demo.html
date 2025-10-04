@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSeedAI Math Rendering Demo - PostgreSQL + TipTap + MathLive</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+    
+    <!-- MathLive CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/mathlive/dist/mathlive-static.css">
+    
+    <!-- MathJax for rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    
+    <style>
+        .math-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .math-latex {
+            background: #e3f2fd;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin: 0 2px;
+            display: inline-block;
+        }
+        .question-card {
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .solution-section {
+            background: #f1f8e9;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        .math-input {
+            width: 100%;
+            min-height: 50px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Times New Roman', serif;
+        }
+        .database-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .tech-stack {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="row">
+            <div class="col-12">
+                <div class="database-info">
+                    <h1 class="display-4">
+                        <i class="fas fa-database"></i> PostgreSQL + TipTap + MathLive
+                    </h1>
+                    <p class="lead">수학 문제 렌더링 시스템 데모</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI 변환 테스트 섹션 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <h4><i class="fas fa-robot"></i> AI MathML → MathLive 변환 테스트</h4>
+                    <p class="mb-0">실제 OpenAI GPT-4o-mini로 변환된 ID 1997의 복잡한 수식들</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <!-- Main Content -->
+            <div class="col-md-8">
+                <!-- AI 변환 결과 테스트 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5><i class="fas fa-magic"></i> AI 변환 결과 (ID 1997)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>원본 MathML (속도):</h6>
+                                <div class="math-container">
+                                    <code>&lt;math&gt;&lt;mfrac&gt;&lt;mrow&gt;&lt;mi&gt;d&lt;/mi&gt;&lt;mi&gt;s&lt;/mi&gt;&lt;/mrow&gt;&lt;mrow&gt;&lt;mi&gt;d&lt;/mi&gt;&lt;mi&gt;t&lt;/mi&gt;&lt;/mrow&gt;&lt;/mfrac&gt;&lt;/math&gt;</code>
+                                </div>
+                                <h6>AI 변환 결과:</h6>
+                                <div class="math-container">
+                                    <span class="math-latex">\(\frac{ds}{dt}\)</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>원본 MathML (가속도):</h6>
+                                <div class="math-container">
+                                    <code>&lt;math&gt;&lt;mfrac&gt;&lt;mrow&gt;&lt;msup&gt;&lt;mi&gt;d&lt;/mi&gt;&lt;mn&gt;2&lt;/mn&gt;&lt;/msup&gt;&lt;mi&gt;s&lt;/mi&gt;&lt;/mrow&gt;&lt;mrow&gt;&lt;mi&gt;d&lt;/mi&gt;&lt;msup&gt;&lt;mi&gt;t&lt;/mi&gt;&lt;mn&gt;2&lt;/mn&gt;&lt;/msup&gt;&lt;/mrow&gt;&lt;/mfrac&gt;&lt;/math&gt;</code>
+                                </div>
+                                <h6>AI 변환 결과:</h6>
+                                <div class="math-container">
+                                    <span class="math-latex">\(\frac{d^2 s}{d t^2}\)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i> 
+                                신뢰도: 85% | API 사용량: 474 토큰 | 변환 시간: 2025-10-02 18:47:13
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- PostgreSQL 데이터 시뮬레이션 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-database"></i> PostgreSQL 데이터베이스</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>PostgreSQL에서 수학 문제 데이터를 조회합니다:</p>
+                        <pre class="bg-light p-3"><code>SELECT question_id, title, content, solution, difficulty 
+FROM questions 
+WHERE grade = 'G11' AND subject = 'M'
+ORDER BY question_id;</code></pre>
+                    </div>
+                </div>
+                
+                <!-- 수학 문제들 -->
+                <div id="questions-container">
+                    <!-- 문제 1 -->
+                    <div class="card question-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">문제 1: Quadratic Equation Solving</h5>
+                            <span class="badge bg-warning">Medium</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="math-container">
+                                <p>다음 이차방정식을 풀어보세요:</p>
+                                <p>$$x^2 - 5x + 6 = 0$$</p>
+                                <p>해를 구하는 과정을 단계별로 설명하세요.</p>
+                            </div>
+                            <button class="btn btn-outline-primary btn-sm" onclick="toggleSolution('sol1')">
+                                <i class="fas fa-eye"></i> 해답 보기
+                            </button>
+                            <div id="sol1" class="solution-section" style="display: none;">
+                                <p><strong>해결 과정:</strong></p>
+                                <p>1. 인수분해를 이용한 방법:</p>
+                                <p>$$x^2 - 5x + 6 = (x-2)(x-3) = 0$$</p>
+                                <p>따라서 $x = 2$ 또는 $x = 3$</p>
+                                <p>2. 근의 공식을 이용한 방법:</p>
+                                <p>$$x = \frac{5 \pm \sqrt{25-24}}{2} = \frac{5 \pm 1}{2}$$</p>
+                                <p>따라서 $x = 3$ 또는 $x = 2$</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 문제 2 -->
+                    <div class="card question-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">문제 2: Trigonometric Functions</h5>
+                            <span class="badge bg-danger">Hard</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="math-container">
+                                <p>다음 삼각함수 방정식을 풀어보세요:</p>
+                                <p>$$\sin^2\theta + \cos^2\theta = 1$$</p>
+                                <p>이 항등식이 성립함을 증명하세요.</p>
+                            </div>
+                            <button class="btn btn-outline-primary btn-sm" onclick="toggleSolution('sol2')">
+                                <i class="fas fa-eye"></i> 해답 보기
+                            </button>
+                            <div id="sol2" class="solution-section" style="display: none;">
+                                <p><strong>증명:</strong></p>
+                                <p>단위원에서 점 $P(\cos\theta, \sin\theta)$를 생각하면:</p>
+                                <p>$$x^2 + y^2 = 1$$</p>
+                                <p>따라서:</p>
+                                <p>$$\cos^2\theta + \sin^2\theta = 1$$</p>
+                                <p>이것이 피타고라스 정리의 삼각함수 형태입니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 문제 3 -->
+                    <div class="card question-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">문제 3: Calculus - Derivatives</h5>
+                            <span class="badge bg-danger">Hard</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="math-container">
+                                <p>다음 함수의 도함수를 구하세요:</p>
+                                <p>$$f(x) = x^3 + 2x^2 - 5x + 1$$</p>
+                                <p>미분 공식을 사용하여 계산하세요.</p>
+                            </div>
+                            <button class="btn btn-outline-primary btn-sm" onclick="toggleSolution('sol3')">
+                                <i class="fas fa-eye"></i> 해답 보기
+                            </button>
+                            <div id="sol3" class="solution-section" style="display: none;">
+                                <p><strong>해결 과정:</strong></p>
+                                <p>각 항을 개별적으로 미분합니다:</p>
+                                <p>$$\frac{d}{dx}(x^3) = 3x^2$$</p>
+                                <p>$$\frac{d}{dx}(2x^2) = 4x$$</p>
+                                <p>$$\frac{d}{dx}(-5x) = -5$$</p>
+                                <p>$$\frac{d}{dx}(1) = 0$$</p>
+                                <p>따라서:</p>
+                                <p>$$f'(x) = 3x^2 + 4x - 5$$</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sidebar -->
+            <div class="col-md-4">
+                <!-- TipTap 에디터 시뮬레이션 -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-edit"></i> TipTap 에디터</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>TipTap을 사용한 수학 문제 편집:</p>
+                        <div class="tech-stack">
+                            <strong>TipTap 기능:</strong>
+                            <ul class="mb-0">
+                                <li>Rich Text 편집</li>
+                                <li>수학 표현식 지원</li>
+                                <li>실시간 협업</li>
+                                <li>플러그인 시스템</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- MathLive 입력 테스트 -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5><i class="fas fa-keyboard"></i> MathLive 입력 테스트</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>수학 표현식을 입력해보세요:</p>
+                        <div id="math-input" class="math-input"></div>
+                        <button class="btn btn-primary mt-2" onclick="renderMathInput()">
+                            <i class="fas fa-play"></i> 렌더링
+                        </button>
+                        <div id="math-output" class="mt-3"></div>
+                    </div>
+                </div>
+                
+                <!-- 시스템 정보 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-info-circle"></i> 기술 스택</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="tech-stack">
+                            <strong>데이터베이스:</strong> PostgreSQL
+                            <br><small class="text-muted">수학 문제 데이터 저장 및 관리</small>
+                        </div>
+                        <div class="tech-stack">
+                            <strong>에디터:</strong> TipTap
+                            <br><small class="text-muted">Rich Text 편집 및 수학 표현식 지원</small>
+                        </div>
+                        <div class="tech-stack">
+                            <strong>수학 입력:</strong> MathLive
+                            <br><small class="text-muted">LaTeX 수학 표현식 입력</small>
+                        </div>
+                        <div class="tech-stack">
+                            <strong>수학 렌더링:</strong> MathJax
+                            <br><small class="text-muted">수학 표현식 시각화</small>
+                        </div>
+                        <div class="tech-stack">
+                            <strong>백엔드:</strong> FastAPI
+                            <br><small class="text-muted">RESTful API 서버</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MathLive JavaScript -->
+    <script type="module">
+        import { MathfieldElement } from 'https://unpkg.com/mathlive/dist/mathlive-element.mjs';
+        
+        // MathLive 요소 등록
+        customElements.define('math-field', MathfieldElement);
+        
+        // MathLive 입력 필드 초기화
+        const mathInput = document.getElementById('math-input');
+        const mathField = document.createElement('math-field');
+        mathField.style.width = '100%';
+        mathField.style.minHeight = '50px';
+        mathField.style.border = '1px solid #ddd';
+        mathField.style.borderRadius = '4px';
+        mathField.style.padding = '10px';
+        mathField.style.fontSize = '16px';
+        mathField.placeholder = '수학 표현식을 입력하세요...';
+        mathInput.appendChild(mathField);
+        
+        // 전역 함수로 등록
+        window.renderMathInput = function() {
+            const latex = mathField.getValue();
+            const output = document.getElementById('math-output');
+            output.innerHTML = `
+                <div class="alert alert-info">
+                    <strong>입력된 LaTeX:</strong><br>
+                    <code>${latex}</code>
+                </div>
+                <div class="math-container">
+                    <strong>렌더링 결과:</strong><br>
+                    $${latex}$$
+                </div>
+            `;
+            MathJax.typesetPromise([output]);
+        };
+    </script>
+
+    <!-- JavaScript Functions -->
+    <script>
+        function toggleSolution(solutionId) {
+            const solution = document.getElementById(solutionId);
+            if (solution.style.display === 'none') {
+                solution.style.display = 'block';
+                MathJax.typesetPromise([solution]);
+            } else {
+                solution.style.display = 'none';
+            }
+        }
+        
+        // 페이지 로드 시 MathJax 렌더링
+        document.addEventListener('DOMContentLoaded', function() {
+            MathJax.typesetPromise();
+        });
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

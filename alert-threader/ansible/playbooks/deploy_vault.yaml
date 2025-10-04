@@ -1,0 +1,129 @@
+---
+# =============================
+# Alert Threader Vault-only Deployment Playbook
+# =============================
+# Vault 모드로만 환경변수를 배포합니다.
+
+- name: Deploy Alert Threader Environment (Vault Mode)
+  hosts: all
+  become: true
+  gather_facts: true
+  
+  vars:
+    threader_mode: vault
+  
+  pre_tasks:
+    - name: Display deployment information
+      debug:
+        msg: |
+          =============================
+          Alert Threader Environment Deployment (Vault Mode)
+          =============================
+          Target: {{ inventory_hostname }}
+          Vault Address: {{ vault_addr }}
+          KV Path: {{ vault_kv_path }}
+          Environment File: {{ threader_env_path }}
+          =============================
+
+    - name: Check Vault connectivity
+      uri:
+        url: "{{ vault_addr }}/v1/sys/health"
+        method: GET
+        status_code: 200, 429, 472, 503
+      register: vault_health
+      failed_when: false
+
+    - name: Display Vault status
+      debug:
+        msg: "Vault status: {{ vault_health.status }}"
+
+    - name: Check Vault authentication files
+      stat:
+        path: "{{ item }}"
+      register: vault_auth_files
+      loop:
+        - "{{ vault_role_id_path }}"
+        - "{{ vault_secret_id_path }}"
+
+    - name: Display Vault authentication status
+      debug:
+        msg: |
+          Vault Authentication Files:
+          - Role ID: {{ vault_auth_files.results[0].stat.exists | ternary('exists', 'missing') }}
+          - Secret ID: {{ vault_auth_files.results[1].stat.exists | ternary('exists', 'missing') }}
+
+    - name: Fail if Vault authentication files are missing
+      fail:
+        msg: "Vault authentication files are missing. Please ensure role_id and secret_id are properly configured."
+      when: not (vault_auth_files.results[0].stat.exists and vault_auth_files.results[1].stat.exists)
+
+  roles:
+    - role: alert_threader_env
+
+  post_tasks:
+    - name: Verify Vault Agent deployment
+      block:
+        - name: Check Vault Agent service status
+          become: true
+          systemd:
+            name: vault-agent-alert-threader
+          register: vault_agent_status
+
+        - name: Display Vault Agent status
+          debug:
+            msg: "Vault Agent status: {{ vault_agent_status.status.ActiveState }}"
+
+        - name: Check environment file exists
+          stat:
+            path: "{{ threader_env_path }}"
+          register: env_file_check
+
+        - name: Display environment file status
+          debug:
+            msg: "Environment file {{ 'exists' if env_file_check.stat.exists else 'missing' }} at {{ threader_env_path }}"
+
+        - name: Show environment file contents (first 10 lines)
+          when: env_file_check.stat.exists
+          become: true
+          command: head -10 "{{ threader_env_path }}"
+          register: env_file_contents
+          changed_when: false
+
+        - name: Display environment file preview
+          debug:
+            msg: "{{ env_file_contents.stdout_lines }}"
+
+    - name: Test Vault Agent functionality
+      block:
+        - name: Wait for Vault Agent to render environment file
+          wait_for:
+            path: "{{ threader_env_path }}"
+            timeout: 30
+          when: not env_file_check.stat.exists
+
+        - name: Verify environment file contains expected variables
+          become: true
+          command: grep -q "SLACK_BOT_TOKEN=" "{{ threader_env_path }}"
+          register: env_verification
+          failed_when: false
+
+        - name: Display environment verification result
+          debug:
+            msg: "Environment file verification: {{ 'PASSED' if env_verification.rc == 0 else 'FAILED' }}"
+
+    - name: Display next steps
+      debug:
+        msg: |
+          =============================
+          Vault Deployment Complete!
+          =============================
+          Vault Address: {{ vault_addr }}
+          KV Path: {{ vault_kv_path }}
+          Environment File: {{ threader_env_path }}
+          
+          Next Steps:
+          1. Verify Vault connectivity: vault status
+          2. Update secrets in Vault: vault kv put {{ vault_kv_path }} key=value
+          3. Restart services: systemctl restart alert-threader-*
+          4. Monitor Vault Agent logs: journalctl -u vault-agent-alert-threader -f
+          =============================

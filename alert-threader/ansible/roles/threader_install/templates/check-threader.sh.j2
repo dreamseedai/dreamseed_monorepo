@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SVC="$1"           # systemd service name (e.g., alert-threader-python)
+URL="${2:-http://127.0.0.1:{{ threader_port }}}/healthz"
+TIMEOUT=${3:-5}
+RETRY=${4:-3}
+
+ok=0
+for i in $(seq 1 "$RETRY"); do
+  code=$(curl -sk --max-time "$TIMEOUT" -o /dev/null -w "%{http_code}" "$URL" || true)
+  if [[ "$code" =~ ^2|3 ]]; then ok=1; break; fi
+  sleep 2
+done
+
+if [[ "$ok" -eq 1 ]]; then
+  echo "[health] OK $URL"
+  exit 0
+else
+  echo "[health] FAIL $URL → restarting $SVC" >&2
+  systemctl restart "$SVC"
+  exit 2
+fi

@@ -20,6 +20,10 @@ import USExamsSAT from './pages/guides/USExamsSAT';
 import USExamsAP from './pages/guides/USExamsAP';
 import USExamsACT from './pages/guides/USExamsACT';
 import USExamsOUAC from './pages/guides/USExamsOUAC';
+import CheckoutDummy from './pages/CheckoutDummy';
+import PlansCompare from './pages/PlansCompare';
+import PlanResult from './pages/PlanResult';
+import SavedPlans from './pages/SavedPlans';
 
 export const App: React.FC = () => {
   const location = useLocation();
@@ -70,6 +74,18 @@ export const App: React.FC = () => {
   }
   if (location.pathname === '/admin/expiring') {
     return <ExpiringListPage />;
+  }
+  if (location.pathname === '/checkout') {
+    return <CheckoutDummy />;
+  }
+  if (location.pathname === '/plans') {
+    return <PlansCompare />;
+  }
+  if (location.pathname === '/plan') {
+    return <PlanResult />;
+  }
+  if (location.pathname === '/saved') {
+    return <SavedPlans />;
   }
   if (location.pathname === '/login') {
     return (

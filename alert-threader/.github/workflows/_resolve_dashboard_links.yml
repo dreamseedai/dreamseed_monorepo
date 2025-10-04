@@ -1,0 +1,65 @@
+name: _resolve-dashboard-links
+on:
+  workflow_call:
+    inputs:
+      environment: { required: false, type: string, default: '' } # 'staging' | 'production'
+      branch:      { required: false, type: string, default: '' } # github.ref_name fallback
+    outputs:
+      grafana_panel_url: { description: "Grafana panel URL", value: ${{ jobs.resolve.outputs.grafana_panel_url }} }
+      prom_dash_url:     { description: "Prometheus URL",    value: ${{ jobs.resolve.outputs.prom_dash_url }} }
+      loki_explore_url:  { description: "Loki Explore URL",  value: ${{ jobs.resolve.outputs.loki_explore_url }} }
+      slo_dash_url:      { description: "SLO Dashboard",     value: ${{ jobs.resolve.outputs.slo_dash_url }} }
+      sla_dash_url:      { description: "SLA Dashboard",     value: ${{ jobs.resolve.outputs.sla_dash_url }} }
+      jvm_dash_url:      { description: "JVM Dashboard",     value: ${{ jobs.resolve.outputs.jvm_dash_url }} }
+      db_dash_url:       { description: "DB Dashboard",      value: ${{ jobs.resolve.outputs.db_dash_url }} }
+    secrets:
+      GRAFANA_BASE_STG: { required: true }
+      GRAFANA_BASE_PROD:{ required: true }
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      grafana_panel_url: ${{ steps.mk.outputs.grafana_panel_url }}
+      prom_dash_url:     ${{ steps.mk.outputs.prom_dash_url }}
+      loki_explore_url:  ${{ steps.mk.outputs.loki_explore_url }}
+      slo_dash_url:      ${{ steps.mk.outputs.slo_dash_url }}
+      sla_dash_url:      ${{ steps.mk.outputs.sla_dash_url }}
+      jvm_dash_url:      ${{ steps.mk.outputs.jvm_dash_url }}
+      db_dash_url:       ${{ steps.mk.outputs.db_dash_url }}
+    steps:
+      - id: mk
+        env:
+          ENV:   ${{ inputs.environment || (github.ref_name == 'main' && 'production') || (github.ref_name == 'staging' && 'staging') || 'staging' }}
+          BASE:  ${{ (inputs.environment == 'production' || github.ref_name == 'main') && secrets.GRAFANA_BASE_PROD || secrets.GRAFANA_BASE_STG }}
+        run: |
+          # Define per-env paths (replace with your real dashboard IDs/panels)
+          if [ "$ENV" = "production" ]; then
+            GRAFANA_PANEL="$BASE/d/abcd1234/threader?viewPanel=2"
+            SLO="$BASE/d/slo123/slo-dashboard"
+            SLA="$BASE/d/sla456/sla-dashboard"
+            JVM="$BASE/d/jvm789/jvm-dashboard"
+            DB="$BASE/d/db012/db-dashboard"
+            PROM="https://prom-prod.local/graph?g0.expr=job%3Ahttp_5xx_ratio_1m"
+            LOKI="$BASE/explore?left=%5B%22now-1h%22,%22now%22,%22Loki%22,%7B%22expr%22:%22%7Bjob%3D%5C%22threader%5C%22%7D%20%7C~%20%5C%22ERROR%7CException%7CTraceback%5C%22%22%7D%5D"
+          else
+            GRAFANA_PANEL="$BASE/d/abcd1234/threader-stg?viewPanel=2"
+            SLO="$BASE/d/slo123/slo-dashboard-stg"
+            SLA="$BASE/d/sla456/sla-dashboard-stg"
+            JVM="$BASE/d/jvm789/jvm-dashboard-stg"
+            DB="$BASE/d/db012/db-dashboard-stg"
+            PROM="https://prom-stg.local/graph?g0.expr=job%3Ahttp_5xx_ratio_1m"
+            LOKI="$BASE/explore?left=%5B%22now-1h%22,%22now%22,%22Loki%22,%7B%22expr%22:%22%7Bjob%3D%5C%22threader%5C%22%7D%20%7C~%20%5C%22ERROR%7CException%7CTraceback%5C%22%22%7D%5D"
+          fi
+
+          {
+            echo "grafana_panel_url=$GRAFANA_PANEL"
+            echo "prom_dash_url=$PROM"
+            echo "loki_explore_url=$LOKI"
+            echo "slo_dash_url=$SLO"
+            echo "sla_dash_url=$SLA"
+            echo "jvm_dash_url=$JVM"
+            echo "db_dash_url=$DB"
+          } >> "$GITHUB_OUTPUT"
+
+

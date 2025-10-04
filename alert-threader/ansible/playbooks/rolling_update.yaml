@@ -1,0 +1,25 @@
+---
+- name: Rolling update threader services
+  hosts: all
+  become: true
+  serial: 1
+  vars:
+    health_url: "http://127.0.0.1:9009/healthz"  # 호스트별 포트/서비스에 맞게 변수화 가능
+  tasks:
+    - name: Update artifact (placeholder)
+      debug: msg="Pull new build / sync files"
+
+    - name: Restart service
+      systemd:
+        name: alert-threader-python   # 또는 @인스턴스 이름/다른 구현
+        state: restarted
+
+    - name: Wait for health
+      uri:
+        url: "{{ health_url }}"
+        status_code: 200
+        validate_certs: no
+      register: res
+      until: res.status == 200
+      retries: 15
+      delay: 6

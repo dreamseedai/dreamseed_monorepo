@@ -1,0 +1,40 @@
+name: Backup & Restore
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action (backup|restore)'
+        required: true
+        default: 'backup'
+      backup_name:
+        description: 'Backup name (for restore)'
+        required: false
+
+jobs:
+  backup:
+    if: github.event.inputs.action == 'backup'
+    uses: ./.github/workflows/_ansible-runner.yml
+    with:
+      playbook: ansible/playbooks/backup_sqlite.yaml
+      extra_vars: "backup_name=backup-$(date +%Y%m%d-%H%M%S)"
+    secrets: inherit
+
+  restore:
+    if: github.event.inputs.action == 'restore'
+    uses: ./.github/workflows/_ansible-runner.yml
+    with:
+      playbook: ansible/playbooks/restore_sqlite.yaml
+      extra_vars: "backup_name=${{ github.event.inputs.backup_name }}"
+    secrets: inherit
+
+  verify-backup:
+    if: github.event.inputs.action == 'backup'
+    needs: backup
+    runs-on: ubuntu-latest
+    steps:
+      - name: List available backups
+        run: |
+          echo "Available backups:"
+          curl -s http://192.168.68.116:9009/api/backups || echo "Backup API not available"
+
+

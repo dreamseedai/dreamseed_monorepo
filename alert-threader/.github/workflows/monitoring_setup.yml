@@ -1,0 +1,44 @@
+name: Setup Monitoring Stack
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment (staging|production)'
+        required: true
+        default: 'staging'
+      slack_webhook:
+        description: 'Slack webhook URL'
+        required: true
+
+jobs:
+  monitoring:
+    uses: ./.github/workflows/_ansible-runner.yml
+    with:
+      playbook: ansible/playbooks/setup_monitoring.yaml
+      extra_vars: "environment=${{ github.event.inputs.environment }} slack_webhook_url=${{ github.event.inputs.slack_webhook }}"
+    secrets: inherit
+
+  verify-monitoring:
+    needs: monitoring
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for services to start
+        run: sleep 30
+      
+      - name: Check Prometheus
+        run: |
+          curl -f http://192.168.68.116:9090/-/healthy || exit 1
+      
+      - name: Check Alertmanager
+        run: |
+          curl -f http://192.168.68.116:9093/-/healthy || exit 1
+      
+      - name: Check Grafana
+        run: |
+          curl -f http://192.168.68.116:3000/api/health || exit 1
+      
+      - name: Verify alert rules
+        run: |
+          curl -s http://192.168.68.116:9090/api/v1/rules | jq '.data.groups[].rules[] | select(.name | contains("Threader"))'
+
+

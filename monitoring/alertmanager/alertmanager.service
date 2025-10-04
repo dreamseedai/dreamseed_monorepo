@@ -1,0 +1,33 @@
+[Unit]
+Description=Alertmanager
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=alertmanager
+Group=alertmanager
+ExecStart=/usr/local/bin/alertmanager \
+  --config.file=/etc/alertmanager/alertmanager.yml \
+  --storage.path=/var/lib/alertmanager \
+  --web.external-url=http://localhost:9093 \
+  --web.route-prefix=/
+
+# 환경 변수 (실제 값은 override 파일에서 설정)
+Environment=SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+Environment=ENVIRONMENT=production
+Environment=MAIL_TO=admin@dreamseed.com
+
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+
+# 보안 설정
+NoNewPrivileges=yes
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+

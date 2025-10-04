@@ -1,0 +1,56 @@
+[
+  {
+    "batch_size": 5,
+    "total_items": 5,
+    "success_count": 5,
+    "success_rate": 100.0,
+    "total_time": 0.10151457786560059,
+    "avg_time_per_item": 0.02030291557312012,
+    "items_per_second": 49.25400967159327
+  },
+  {
+    "batch_size": 10,
+    "total_items": 10,
+    "success_count": 10,
+    "success_rate": 100.0,
+    "total_time": 0.10122346878051758,
+    "avg_time_per_item": 0.010122346878051757,
+    "items_per_second": 98.79131905351869
+  },
+  {
+    "batch_size": 20,
+    "total_items": 20,
+    "success_count": 20,
+    "success_rate": 100.0,
+    "total_time": 0.10155701637268066,
+    "avg_time_per_item": 0.005077850818634033,
+    "items_per_second": 196.93370989362876
+  },
+  {
+    "batch_size": 30,
+    "total_items": 30,
+    "success_count": 30,
+    "success_rate": 100.0,
+    "total_time": 0.10130739212036133,
+    "avg_time_per_item": 0.0033769130706787108,
+    "items_per_second": 296.12844010788064
+  },
+  {
+    "batch_size": 50,
+    "total_items": 50,
+    "success_count": 50,
+    "success_rate": 100.0,
+    "total_time": 0.1013798713684082,
+    "avg_time_per_item": 0.002027597427368164,
+    "items_per_second": 493.19454961925413
+  },
+  {
+    "batch_size": 100,
+    "total_items": 100,
+    "success_count": 100,
+    "success_rate": 100.0,
+    "total_time": 0.10379600524902344,
+    "avg_time_per_item": 0.0010379600524902345,
+    "items_per_second": 963.4282144104081
+  }
+]

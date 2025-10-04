@@ -1,0 +1,35 @@
+# =============================
+# Alert Threader Environment Role - Handlers
+# =============================
+
+- name: restart alert-threader services
+  become: true
+  systemd:
+    name: "{{ item }}"
+    state: restarted
+    daemon_reload: true
+  loop:
+    - alert-threader-python
+    - alert-threader-node
+    - alert-threader-go
+  when: item in threader_services | selectattr('enabled', 'equalto', true) | map(attribute='name') | list
+
+- name: reload alert-threader services
+  become: true
+  systemd:
+    name: "{{ item }}"
+    state: reloaded
+    daemon_reload: true
+  loop:
+    - alert-threader-python
+    - alert-threader-node
+    - alert-threader-go
+  when: item in threader_services | selectattr('enabled', 'equalto', true) | map(attribute='name') | list
+
+- name: restart vault-agent
+  become: true
+  systemd:
+    name: vault-agent-alert-threader
+    state: restarted
+    daemon_reload: true
+  when: threader_mode == 'vault'

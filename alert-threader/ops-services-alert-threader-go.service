@@ -1,0 +1,64 @@
+[Unit]
+Description=DreamSeed Alert Threader - Go (Blocks, Persistent)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/alert-threader-go
+
+# --- 환경변수 (필수) ---
+Environment=SLACK_BOT_TOKEN=xoxb-********
+Environment=SLACK_CHANNEL=C0123456789
+Environment=ENVIRONMENT=staging
+Environment=BIND_HOST=0.0.0.0
+Environment=BIND_PORT=9009
+
+# --- 저장소 선택 (file | redis) ---
+Environment=THREAD_STORE=file
+Environment=THREAD_STORE_FILE=/var/lib/alert-threader/threads.json
+# Redis 사용 시 (go-redis 연결 구현 필요)
+# Environment=THREAD_STORE=redis
+# Environment=REDIS_URL=redis://127.0.0.1:6379/0
+# Environment=REDIS_KEY_PREFIX=threader:ts
+
+# 빌드(최초/업데이트 시)
+ExecStartPre=/usr/bin/env bash -lc '\
+  mkdir -p /var/lib/alert-threader && chown www-data:www-data /var/lib/alert-threader && \
+  cd /opt/alert-threader-go && \
+  [ -f go.mod ] || go mod init threader && \
+  go mod tidy && \
+  go build -o threader .'
+
+User=www-data
+Group=www-data
+ExecStart=/usr/bin/env bash -lc '/opt/alert-threader-go/threader'
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+
+# --- Hardening ---
+NoNewPrivileges=yes
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectClock=yes
+LockPersonality=yes
+CapabilityBoundingSet=~CAP_SYS_ADMIN CAP_NET_ADMIN CAP_SYS_MODULE CAP_SYS_PTRACE CAP_SETUID CAP_SETGID
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @basic-io @network-io ~@mount ~@privileged
+
+# 로그 설정
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alert-threader-go
+
+[Install]
+WantedBy=multi-user.target
+

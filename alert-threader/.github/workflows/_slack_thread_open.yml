@@ -1,0 +1,40 @@
+name: _slack-thread-open
+on:
+  workflow_call:
+    inputs:
+      title:  { required: true, type: string }
+      text:   { required: false, type: string, default: '' }
+      channel:{ required: false, type: string, default: '' }
+    outputs:
+      thread_ts:
+        description: "Slack thread timestamp"
+        value: ${{ jobs.open.outputs.thread_ts }}
+    secrets:
+      SLACK_BOT_TOKEN: { required: true }
+      SLACK_CHANNEL_ID: { required: false }
+
+jobs:
+  open:
+    runs-on: ubuntu-latest
+    outputs:
+      thread_ts: ${{ steps.post.outputs.thread_ts }}
+    steps:
+      - id: post
+        env:
+          TOKEN:   ${{ secrets.SLACK_BOT_TOKEN }}
+          CHANNEL: ${{ inputs.channel || secrets.SLACK_CHANNEL_ID }}
+          TITLE:   ${{ inputs.title }}
+          TEXT:    ${{ inputs.text }}
+        run: |
+          payload=$(jq -nc --arg ch "$CHANNEL" --arg t "$TITLE" --arg tx "$TEXT" '{channel:$ch, text:($t+"\n"+$tx), unfurl_links:false, unfurl_media:false}')
+          resp=$(curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+            --data "$payload")
+          echo "SLACK_RESP=$resp" | sed 's/.*/::debug::&/'
+          ok=$(echo "$resp" | jq -r .ok)
+          ts=$(echo "$resp" | jq -r .ts)
+          if [ "$ok" != "true" ] || [ -z "$ts" ] || [ "$ts" = "null" ]; then
+            echo "::error::Slack post failed: $resp"; exit 1; fi
+          echo "thread_ts=$ts" >> $GITHUB_OUTPUT
+
+

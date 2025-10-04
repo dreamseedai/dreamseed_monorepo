@@ -1,0 +1,38 @@
+{
+  "services": {
+    "dreamseed-api": {
+      "url": "http://127.0.0.1:8002/healthz",
+      "timeout": 5,
+      "retry_count": 3,
+      "check_interval": 30,
+      "auto_restart": true,
+      "restart_command": "sudo systemctl restart dreamseed-api"
+    },
+    "redis": {
+      "url": "http://127.0.0.1:6379",
+      "timeout": 5,
+      "retry_count": 3,
+      "check_interval": 60,
+      "auto_restart": true,
+      "restart_command": "sudo systemctl restart redis-server"
+    },
+    "nginx": {
+      "url": "http://127.0.0.1:80",
+      "timeout": 5,
+      "retry_count": 3,
+      "check_interval": 60,
+      "auto_restart": true,
+      "restart_command": "sudo systemctl restart nginx"
+    }
+  },
+  "alerts": {
+    "enabled": true,
+    "email": "admin@dreamseed.com",
+    "slack_webhook": ""
+  },
+  "recovery": {
+    "max_restart_attempts": 3,
+    "restart_cooldown": 300,
+    "escalation_delay": 1800
+  }
+}

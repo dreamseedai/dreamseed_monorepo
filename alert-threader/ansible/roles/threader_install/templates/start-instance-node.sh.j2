@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# =============================
+# Node.js Express Instance Starter
+# =============================
+
+INSTANCE_NAME="${1:-node}"
+INSTANCE_DIR="$(dirname "$0")"
+PORT="${PORT:-{{ item.port | default(threader_node_port | default(threader_port)) }}}"
+HOST="${HOST:-0.0.0.0}"
+
+# =============================
+# Logging
+# =============================
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [Node-$INSTANCE_NAME] $*" >&2
+}
+
+log "Starting Node.js Express instance: $INSTANCE_NAME"
+log "Working directory: $INSTANCE_DIR"
+log "Port: $PORT, Host: $HOST"
+
+# =============================
+# Node.js Setup
+# =============================
+cd "$INSTANCE_DIR"
+
+# Create package.json if missing
+if [ ! -f "package.json" ]; then
+    log "Creating package.json..."
+    cat > package.json << 'EOF'
+{
+  "name": "alert-threader-node",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Alertmanager -> Slack Threader (Node.js)",
+  "main": "index.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "redis": "^4.6.10"
+  }
+}
+EOF
+fi
+
+# Install dependencies
+log "Installing Node.js dependencies..."
+npm -s i {{ threader_node_requirements | join(' ') }} >/dev/null 2>&1 || true
+
+# =============================
+# Start Application
+# =============================
+log "Starting Node.js Express on $HOST:$PORT"
+exec env PORT="$PORT" HOST="$HOST" node index.js

@@ -1,0 +1,44 @@
+{
+  "slack": {
+    "enabled": true,
+    "workspace": "dreamseed-ai",
+    "channels": {
+      "development": "#dreamseed-ai-dev",
+      "curriculum": "#curriculum-classification",
+      "alerts": "#system-alerts"
+    },
+    "notifications": {
+      "commits": true,
+      "pull_requests": true,
+      "issues": true,
+      "builds": true
+    }
+  },
+  "linear": {
+    "enabled": true,
+    "workspace": "dreamseed-ai",
+    "team": "DreamSeedAI",
+    "project": "Curriculum Classification System",
+    "auto_create_issues": true,
+    "auto_assign": true
+  },
+  "background_agents": {
+    "enabled": true,
+    "scope": {
+      "code_review": true,
+      "testing": true,
+      "documentation": true,
+      "bug_fixes": true,
+      "performance_optimization": true
+    },
+    "quality_gates": {
+      "test_coverage": 80,
+      "code_quality": "high",
+      "security_scan": true
+    },
+    "notifications": {
+      "slack_channel": "#dreamseed-ai-dev",
+      "email": false
+    }
+  }
+}

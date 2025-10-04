@@ -1,0 +1,9 @@
+creation_rules:
+  - path_regex: .*\.env\.enc$
+    # age 키 예시 (권장)
+    age: ["age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqs5p"]
+    # 또는 PGP
+    # pgp: ["66AABBCCDDEEFF00112233445566778899AABBCC"]
+    encrypted_regex: '^(SLACK_BOT_TOKEN|SLACK_CHANNEL|ENVIRONMENT|THREAD_STORE|THREAD_STORE_FILE|REDIS_URL|REDIS_KEY_PREFIX)$'
+    key_groups:
+      - age: ["age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqs5p"]

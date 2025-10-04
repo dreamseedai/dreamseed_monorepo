@@ -1,0 +1,24 @@
+name: Deploy env + threader
+on:
+  workflow_dispatch:
+    inputs:
+      mode: { description: 'env mode (sops|vault)', required: true, default: 'sops' }
+      impl: { description: 'threader impl (python|node|go|multi)', required: true, default: 'multi' }
+
+jobs:
+  env:
+    uses: ./.github/workflows/_ansible-runner.yml
+    with:
+      playbook: ansible/playbooks/deploy_env.yaml
+      extra_vars: "threader_mode=${{ github.event.inputs.mode }}"
+    secrets: inherit
+
+  app:
+    needs: env
+    uses: ./.github/workflows/_ansible-runner.yml
+    with:
+      playbook: ansible/playbooks/deploy_threader.yaml
+      extra_vars: "threader_impl=${{ github.event.inputs.impl }} threader_python_port=9009 threader_node_port=9010 threader_go_port=9011"
+    secrets: inherit
+
+

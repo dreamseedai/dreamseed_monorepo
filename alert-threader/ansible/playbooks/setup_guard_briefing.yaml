@@ -1,0 +1,132 @@
+---
+- name: Setup Guard-Window Briefing System
+  hosts: all
+  become: true
+  vars:
+    briefing_script: "{{ guard_briefing_script | default('/usr/local/sbin/guard_window_brief.sh') }}"
+    briefing_env_file: "{{ guard_briefing_env_file | default('/etc/guard-brief.env') }}"
+    briefing_service: "{{ guard_briefing_service | default('guard-brief.service') }}"
+    briefing_timer: "{{ guard_briefing_timer | default('guard-brief.timer') }}"
+    briefing_interval: "{{ guard_briefing_interval | default('5m') }}"
+    
+  tasks:
+    - name: Install required packages
+      package:
+        name:
+          - jq
+          - bc
+          - curl
+        state: present
+
+    - name: Install briefing script
+      copy:
+        src: "{{ briefing_script }}"
+        dest: "{{ briefing_script }}"
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Install ticket creation scripts
+      copy:
+        src: "{{ item }}"
+        dest: "/usr/local/sbin/{{ item | basename }}"
+        mode: '0755'
+        owner: root
+        group: root
+      loop:
+        - "ops/scripts/create_jira_issue.sh"
+        - "ops/scripts/create_github_issue.sh"
+
+    - name: Create briefing environment file
+      template:
+        src: "ops/templates/guard-brief.env.j2"
+        dest: "{{ briefing_env_file }}"
+        mode: '0640'
+        owner: root
+        group: root
+      vars:
+        slack_bot_token: "{{ slack_bot_token | default('xoxb-REPLACE_ME') }}"
+        slack_channel_id: "{{ slack_channel_id | default('C0123456789') }}"
+        thread_ts: "{{ thread_ts | default('1699999999.000000') }}"
+        prometheus_url: "{{ prometheus_url | default('http://prometheus.local:9090') }}"
+        loki_url: "{{ loki_url | default('http://loki.local:3100') }}"
+        slo_window: "{{ slo_window | default('15m') }}"
+        threader_job: "{{ threader_job | default('threader') }}"
+        max_5xx_ratio: "{{ max_5xx_ratio | default('0.01') }}"
+        min_health_ratio: "{{ min_health_ratio | default('0.995') }}"
+        max_error_logs_per_min: "{{ max_error_logs_per_min | default('1') }}"
+        jira_enabled: "{{ jira_enabled | default('false') }}"
+        jira_base: "{{ jira_base | default('https://your.atlassian.net') }}"
+        jira_user: "{{ jira_user | default('email@domain.com') }}"
+        jira_token: "{{ jira_token | default('REPLACE_ME') }}"
+        jira_project: "{{ jira_project | default('OPS') }}"
+        jira_issue_type: "{{ jira_issue_type | default('Bug') }}"
+        jira_priority: "{{ jira_priority | default('High') }}"
+        jira_labels: "{{ jira_labels | default('slo-breach,auto-generated') }}"
+        github_issue_enabled: "{{ github_issue_enabled | default('false') }}"
+        gh_repo: "{{ gh_repo | default('owner/repo') }}"
+        gh_token: "{{ gh_token | default('REPLACE_ME') }}"
+        gh_labels: "{{ gh_labels | default('slo-breach,auto-generated') }}"
+        gh_assignees: "{{ gh_assignees | default('') }}"
+        grafana_panel_url: "{{ grafana_panel_url | default('') }}"
+        prometheus_dash_url: "{{ prometheus_dash_url | default('') }}"
+        loki_explore_url: "{{ loki_explore_url | default('') }}"
+        slo_dash_url: "{{ slo_dash_url | default('') }}"
+        sla_dash_url: "{{ sla_dash_url | default('') }}"
+        jvm_dash_url: "{{ jvm_dash_url | default('') }}"
+        db_dash_url: "{{ db_dash_url | default('') }}"
+
+    - name: Install systemd service
+      copy:
+        src: "ops/services/{{ briefing_service }}"
+        dest: "/etc/systemd/system/{{ briefing_service }}"
+        mode: '0644'
+        owner: root
+        group: root
+
+    - name: Install systemd timer
+      copy:
+        src: "ops/services/{{ briefing_timer }}"
+        dest: "/etc/systemd/system/{{ briefing_timer }}"
+        mode: '0644'
+        owner: root
+        group: root
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start briefing timer
+      systemd:
+        name: "{{ briefing_timer }}"
+        state: started
+        enabled: yes
+
+    - name: Test briefing script
+      command: "{{ briefing_script }}"
+      environment:
+        PROM_URL: "{{ prometheus_url | default('http://prometheus.local:9090') }}"
+        LOKI_URL: "{{ loki_url | default('http://loki.local:3100') }}"
+        SLACK_BOT_TOKEN: "{{ slack_bot_token | default('xoxb-REPLACE_ME') }}"
+        SLACK_CHANNEL_ID: "{{ slack_channel_id | default('C0123456789') }}"
+        THREAD_TS: "{{ thread_ts | default('1699999999.000000') }}"
+        WINDOW: "{{ slo_window | default('15m') }}"
+        JOB: "{{ threader_job | default('threader') }}"
+        MAX_5XX_RATIO: "{{ max_5xx_ratio | default('0.01') }}"
+        MIN_HEALTH_RATIO: "{{ min_health_ratio | default('0.995') }}"
+        MAX_ERROR_LOGS_PER_MIN: "{{ max_error_logs_per_min | default('1') }}"
+      failed_when: false
+      register: briefing_test
+
+    - name: Display briefing test result
+      debug:
+        msg: "Briefing test result: {{ briefing_test.stdout_lines | default(['No output']) }}"
+
+    - name: Check timer status
+      systemd:
+        name: "{{ briefing_timer }}"
+      register: timer_status
+
+    - name: Display timer status
+      debug:
+        msg: "Timer status: {{ timer_status.status.ActiveState }}"

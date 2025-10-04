@@ -1,0 +1,134 @@
+---
+# =============================
+# Alert Threader SOPS-only Deployment Playbook
+# =============================
+# SOPS 모드로만 환경변수를 배포합니다.
+
+- name: Deploy Alert Threader Environment (SOPS Mode)
+  hosts: all
+  become: true
+  gather_facts: true
+  
+  vars:
+    threader_mode: sops
+  
+  pre_tasks:
+    - name: Display deployment information
+      debug:
+        msg: |
+          =============================
+          Alert Threader Environment Deployment (SOPS Mode)
+          =============================
+          Target: {{ inventory_hostname }}
+          SOPS Source: {{ sops_env_enc }}
+          Environment File: {{ threader_env_path }}
+          =============================
+
+    - name: Check required packages
+      package:
+        name:
+          - curl
+          - jq
+          - age
+        state: present
+
+    - name: Check if SOPS is installed
+      command: sops --version
+      register: sops_check
+      failed_when: false
+      changed_when: false
+
+    - name: Display SOPS status
+      debug:
+        msg: "SOPS status: {{ 'installed' if sops_check.rc == 0 else 'not installed' }}"
+
+  roles:
+    - role: alert_threader_env
+
+  post_tasks:
+    - name: Verify SOPS deployment
+      block:
+        - name: Check SOPS configuration file
+          stat:
+            path: "{{ sops_yaml }}"
+          register: sops_config_check
+
+        - name: Display SOPS configuration status
+          debug:
+            msg: "SOPS configuration: {{ 'exists' if sops_config_check.stat.exists else 'missing' }}"
+
+        - name: Check encrypted environment file
+          stat:
+            path: "{{ sops_env_enc }}"
+          register: sops_enc_file_check
+
+        - name: Display encrypted file status
+          debug:
+            msg: "Encrypted file: {{ 'exists' if sops_enc_file_check.stat.exists else 'missing' }}"
+
+        - name: Check decryption script
+          stat:
+            path: /usr/local/sbin/alert-threader-sops-decrypt
+          register: sops_decrypt_check
+
+        - name: Display decryption script status
+          debug:
+            msg: "Decryption script: {{ 'exists' if sops_decrypt_check.stat.exists else 'missing' }}"
+
+        - name: Check environment file exists
+          stat:
+            path: "{{ threader_env_path }}"
+          register: env_file_check
+
+        - name: Display environment file status
+          debug:
+            msg: "Environment file {{ 'exists' if env_file_check.stat.exists else 'missing' }} at {{ threader_env_path }}"
+
+        - name: Show environment file contents (first 10 lines)
+          when: env_file_check.stat.exists
+          become: true
+          command: head -10 "{{ threader_env_path }}"
+          register: env_file_contents
+          changed_when: false
+
+        - name: Display environment file preview
+          debug:
+            msg: "{{ env_file_contents.stdout_lines }}"
+
+    - name: Test SOPS functionality
+      block:
+        - name: Test SOPS decryption
+          become: true
+          command: /usr/local/sbin/alert-threader-sops-decrypt "{{ sops_env_enc }}"
+          register: sops_test
+          failed_when: false
+
+        - name: Display SOPS test result
+          debug:
+            msg: "SOPS decryption test: {{ 'PASSED' if sops_test.rc == 0 else 'FAILED' }}"
+
+        - name: Verify environment file contains expected variables
+          become: true
+          command: grep -q "SLACK_BOT_TOKEN=" "{{ threader_env_path }}"
+          register: env_verification
+          failed_when: false
+
+        - name: Display environment verification result
+          debug:
+            msg: "Environment file verification: {{ 'PASSED' if env_verification.rc == 0 else 'FAILED' }}"
+
+    - name: Display next steps
+      debug:
+        msg: |
+          =============================
+          SOPS Deployment Complete!
+          =============================
+          SOPS Source: {{ sops_env_enc }}
+          Environment File: {{ threader_env_path }}
+          
+          Next Steps:
+          1. Verify SOPS decryption: sops -d {{ sops_env_enc }}
+          2. Update secrets: sops {{ sops_env_enc }}
+          3. Restart services: systemctl restart alert-threader-*
+          4. Test decryption: /usr/local/sbin/alert-threader-sops-decrypt {{ sops_env_enc }}
+          =============================

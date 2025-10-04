@@ -1,0 +1,52 @@
+# DreamSeed Prometheus 설정
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "dreamseed_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - localhost:9093
+
+scrape_configs:
+  # Prometheus 자체 모니터링
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter (시스템 메트릭)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']
+    scrape_interval: 5s
+
+  # DreamSeed API 서버
+  - job_name: 'dreamseed-api'
+    static_configs:
+      - targets: ['localhost:8002']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Redis 서버
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['localhost:6379']
+    scrape_interval: 30s
+
+  # Nginx 서버
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['localhost:9113']
+    scrape_interval: 30s
+
+  # DreamSeed Frontend (가상 메트릭)
+  - job_name: 'dreamseed-frontend'
+    static_configs:
+      - targets: ['localhost:9000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+

@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# =============================
+# Python FastAPI Instance Starter
+# =============================
+
+INSTANCE_NAME="${1:-python}"
+INSTANCE_DIR="$(dirname "$0")"
+PORT="${PORT:-{{ item.port | default(threader_python_port | default(threader_port)) }}}"
+HOST="${HOST:-0.0.0.0}"
+LOG_LEVEL="${LOG_LEVEL:-info}"
+
+# =============================
+# Logging
+# =============================
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [Python-$INSTANCE_NAME] $*" >&2
+}
+
+log "Starting Python FastAPI instance: $INSTANCE_NAME"
+log "Working directory: $INSTANCE_DIR"
+log "Port: $PORT, Host: $HOST"
+
+# =============================
+# Python Setup
+# =============================
+log "Installing Python dependencies..."
+python3 -m pip install --upgrade pip >/dev/null 2>&1 || true
+python3 -m pip install {{ threader_python_requirements | join(' ') }} >/dev/null 2>&1 || true
+
+# =============================
+# Start Application
+# =============================
+log "Starting Python FastAPI on $HOST:$PORT"
+exec uvicorn app:app \
+    --host "$HOST" \
+    --port "$PORT" \
+    --proxy-headers \
+    --forwarded-allow-ips='*' \
+    --log-level "$LOG_LEVEL"

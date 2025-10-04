@@ -1,0 +1,63 @@
+name: Canary + Blue-Green
+on:
+  workflow_dispatch:
+    inputs:
+      canary: { description: 'Instance name (e.g., py-a)', required: true, default: 'py-a' }
+      environment: { description: 'Target environment', required: true, default: 'staging', type: choice, options: ['staging', 'production'] }
+
+jobs:
+  open_thread:
+    uses: ./.github/workflows/_slack_thread_open.yml
+    with:
+      title: "🚀 Deployment Started: Canary + Blue-Green"
+      text: |
+        **Environment**: ${{ github.event.inputs.environment }}
+        **Canary Instance**: ${{ github.event.inputs.canary }}
+        **Repository**: ${{ github.repository }}
+        **Branch**: ${{ github.ref_name }}
+        **Commit**: ${{ github.sha }}
+        **Actor**: ${{ github.actor }}
+    secrets: inherit
+
+  canary:
+    uses: ./.github/workflows/_ansible-runner.yml
+    with:
+      playbook: ansible/playbooks/deploy_canary.yaml
+      extra_vars: "canary_instances=['${{ github.event.inputs.canary }}']"
+    secrets: inherit
+    needs: [open_thread]
+    finally:
+      uses: ./.github/workflows/_slack_thread_reply.yml
+      with:
+        thread_ts: ${{ needs.open_thread.outputs.thread_ts }}
+        text: "🔍 Canary deployment: ${{ job.status }}"
+      secrets: inherit
+
+  guards:
+    needs: [canary, open_thread]
+    uses: ./.github/workflows/_ansible-runner.yml
+    with:
+      playbook: ansible/playbooks/promo_with_guards.yaml
+    secrets: inherit
+    finally:
+      uses: ./.github/workflows/_slack_thread_reply.yml
+      with:
+        thread_ts: ${{ needs.open_thread.outputs.thread_ts }}
+        text: "🛡️ Guards validation: ${{ job.status }}"
+      secrets: inherit
+
+  bluegreen:
+    needs: [guards, open_thread]
+    environment:
+      name: ${{ github.event.inputs.environment }}
+      url: ${{ github.event.inputs.environment == 'production' && 'https://dreamseedai.com' || 'https://staging.dreamseedai.com' }}
+    uses: ./.github/workflows/_ansible-runner.yml
+    with:
+      playbook: ansible/playbooks/bluegreen_deploy.yaml
+    secrets: inherit
+    finally:
+      uses: ./.github/workflows/_slack_thread_reply.yml
+      with:
+        thread_ts: ${{ needs.open_thread.outputs.thread_ts }}
+        text: "🔄 Blue-Green switch: ${{ job.status }}"
+      secrets: inherit

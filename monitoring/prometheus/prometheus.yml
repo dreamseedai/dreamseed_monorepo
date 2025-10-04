@@ -1,0 +1,45 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # DreamSeed API 서비스
+  - job_name: 'dreamseed-api'
+    static_configs:
+      - targets: ['localhost:8002']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Node Exporter (시스템 메트릭)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']
+    scrape_interval: 30s
+
+  # Redis Exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['localhost:9121']
+    scrape_interval: 30s
+
+  # systemd Exporter (백업 서비스 상태)
+  - job_name: 'systemd'
+    static_configs:
+      - targets: ['localhost:9558']
+    scrape_interval: 30s
+
+  # SSL 인증서 모니터링
+  - job_name: 'ssl-exporter'
+    static_configs:
+      - targets: ['localhost:9219']
+    scrape_interval: 1h
+

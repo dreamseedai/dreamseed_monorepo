@@ -1,0 +1,42 @@
+{
+  "test_time": "2025-10-02T18:37:02.142342",
+  "total_tests": 4,
+  "successful_conversions": 4,
+  "success_rate": 100.0,
+  "average_confidence": 0.9575,
+  "average_complexity": 0.42500000000000004,
+  "results": [
+    {
+      "test_name": "ID 1997 - Velocity (ds/dt)",
+      "original_mathml": "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mstyle displaystyle=\"false\"><mfrac><mrow><mi>d</mi><mi>s</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac></mstyle></math>",
+      "converted_latex": "$\\text{converted expression}$",
+      "confidence": 0.97,
+      "status": "success",
+      "complexity_score": 0.30000000000000004
+    },
+    {
+      "test_name": "ID 1997 - Acceleration (d²s/dt²)",
+      "original_mathml": "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mstyle displaystyle=\"false\"><mfrac><mrow><msup><mi>d</mi><mn>2</mn></msup><mi>s</mi></mrow><mrow><mi>d</mi><msup><mi>t</mi><mn>2</mn></msup></mrow></mfrac></mstyle></math>",
+      "converted_latex": "$\\text{converted expression}$",
+      "confidence": 0.97,
+      "status": "success",
+      "complexity_score": 0.30000000000000004
+    },
+    {
+      "test_name": "Complex Matrix Example",
+      "original_mathml": "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mfenced><mtable><mtr><mtd><msub><mi>a</mi><mrow><mi>n</mi><mo>+</mo><mn>2</mn></mrow></msub></mtd><mtd><msub><mi>a</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub></mtd></mtr><mtr><mtd><msub><mi>a</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub></mtd><mtd><msub><mi>a</mi><mi>n</mi></msub></mtd></mtr></mtable></mfenced></math>",
+      "converted_latex": "\\[\\begin{pmatrix} a_{n+2} & a_{n+1} \\\\ a_{n+1} & a_n \\end{pmatrix}\\]",
+      "confidence": 0.955,
+      "status": "success",
+      "complexity_score": 0.45
+    },
+    {
+      "test_name": "Complex Summation Example",
+      "original_mathml": "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><munderover><mo>∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><mfrac><mrow><mi>k</mi><mfenced><mrow><mi>k</mi><mo>+</mo><mn>1</mn></mrow></mfenced></mrow><mn>2</mn></mfrac></math>",
+      "converted_latex": "\\[\\sum_{k=1}^{n} \\frac{k(k+1)}{2}\\]",
+      "confidence": 0.935,
+      "status": "success",
+      "complexity_score": 0.65
+    }
+  ]
+}

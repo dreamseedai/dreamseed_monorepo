@@ -1,0 +1,564 @@
+openapi: 3.0.3
+info:
+  title: DreamSeed AI Platform API
+  description: |
+    DreamSeed AI Platform의 RESTful API 문서입니다.
+    
+    ## 주요 기능
+    - 실시간 대시보드 데이터 제공
+    - 사용자 통계 및 분석
+    - 국가별 사용자 분포
+    - 캐시 관리
+    - 모니터링 메트릭
+    
+    ## 인증
+    현재 API는 공개적으로 접근 가능하며, 향후 토큰 기반 인증이 추가될 예정입니다.
+    
+    ## 응답 형식
+    모든 API는 JSON 형식으로 응답하며, 표준 HTTP 상태 코드를 사용합니다.
+    
+    ## 제한사항
+    - 요청 제한: 분당 100회
+    - 응답 크기: 최대 10MB
+    - 타임아웃: 30초
+  version: 1.0.0
+  contact:
+    name: DreamSeed Team
+    email: team@dreamseed.com
+    url: https://dreamseedai.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://dreamseedai.com
+    description: 프로덕션 서버
+  - url: http://localhost:8002
+    description: 로컬 개발 서버
+  - url: http://staging.dreamseed.com
+    description: 스테이징 서버
+
+tags:
+  - name: Health
+    description: 시스템 상태 및 헬스체크
+  - name: Dashboard
+    description: 대시보드 데이터 및 통계
+  - name: Cache
+    description: 캐시 관리
+  - name: Metrics
+    description: 모니터링 메트릭
+
+paths:
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: 시스템 헬스체크
+      description: 시스템의 전반적인 상태를 확인합니다.
+      operationId: getHealthCheck
+      responses:
+        '200':
+          description: 시스템 정상
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "healthy"
+                timestamp: "2024-01-15T10:30:00Z"
+                version: "1.0.0"
+                cache: "enabled"
+        '500':
+          description: 시스템 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/dashboard/stats:
+    get:
+      tags:
+        - Dashboard
+      summary: 실시간 통계 조회
+      description: 대시보드에 표시할 실시간 통계 데이터를 조회합니다.
+      operationId: getDashboardStats
+      parameters:
+        - name: user_type
+          in: query
+          description: 사용자 타입 필터 (free, paid, premium)
+          required: false
+          schema:
+            type: string
+            enum: [free, paid, premium]
+        - name: time_filter
+          in: query
+          description: 시간 필터 (realtime, daily, weekly, monthly, quarterly, yearly, total)
+          required: false
+          schema:
+            type: string
+            enum: [realtime, daily, weekly, monthly, quarterly, yearly, total]
+      responses:
+        '200':
+          description: 통계 데이터 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+              example:
+                total_users: 1250
+                online_users: 45
+                realtime_users: 12
+                free_users: 800
+                paid_users: 350
+                premium_users: 100
+                revenue_today: 1500.50
+                revenue_total: 45000.00
+        '400':
+          description: 잘못된 요청
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/dashboard/user-growth:
+    get:
+      tags:
+        - Dashboard
+      summary: 사용자 증가 추이 조회
+      description: 시간별 사용자 증가 데이터를 조회합니다.
+      operationId: getUserGrowth
+      parameters:
+        - name: days
+          in: query
+          description: 조회할 일수 (기본값: 30)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        '200':
+          description: 사용자 증가 데이터 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserGrowthData'
+              example:
+                labels: ["2024-01-01", "2024-01-02", "2024-01-03"]
+                datasets:
+                  - label: "총 사용자"
+                    data: [100, 120, 150]
+                    borderColor: "#3B82F6"
+                  - label: "신규 사용자"
+                    data: [20, 30, 25]
+                    borderColor: "#10B981"
+
+  /api/dashboard/daily-activity:
+    get:
+      tags:
+        - Dashboard
+      summary: 일일 활동 데이터 조회
+      description: 일별 사용자 활동 데이터를 조회합니다.
+      operationId: getDailyActivity
+      parameters:
+        - name: days
+          in: query
+          description: 조회할 일수 (기본값: 7)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+            default: 7
+      responses:
+        '200':
+          description: 일일 활동 데이터 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyActivityData'
+
+  /api/dashboard/country-data:
+    get:
+      tags:
+        - Dashboard
+      summary: 국가별 사용자 데이터 조회
+      description: 국가별 사용자 분포 데이터를 조회합니다.
+      operationId: getCountryData
+      parameters:
+        - name: user_type
+          in: query
+          description: 사용자 타입 필터
+          required: false
+          schema:
+            type: string
+            enum: [free, paid, premium]
+        - name: time_filter
+          in: query
+          description: 시간 필터
+          required: false
+          schema:
+            type: string
+            enum: [realtime, daily, weekly, monthly, quarterly, yearly, total]
+      responses:
+        '200':
+          description: 국가별 데이터 조회 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CountryData'
+              example:
+                - country: "KR"
+                  country_name: "대한민국"
+                  users: 450
+                  today_active: 25
+                  online_users: 12
+                  realtime_users: 5
+                - country: "US"
+                  country_name: "미국"
+                  users: 320
+                  today_active: 18
+                  online_users: 8
+                  realtime_users: 3
+
+  /api/dashboard/recent-activities:
+    get:
+      tags:
+        - Dashboard
+      summary: 최근 활동 조회
+      description: 최근 사용자 활동 로그를 조회합니다.
+      operationId: getRecentActivities
+      parameters:
+        - name: limit
+          in: query
+          description: 조회할 활동 수 (기본값: 10)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: 최근 활동 조회 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Activity'
+
+  /api/cache/status:
+    get:
+      tags:
+        - Cache
+      summary: 캐시 상태 조회
+      description: Redis 캐시 시스템의 상태를 조회합니다.
+      operationId: getCacheStatus
+      responses:
+        '200':
+          description: 캐시 상태 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheStatus'
+              example:
+                status: "connected"
+                cached_keys: 15
+                used_memory: "2.5MB"
+                hit_rate: 0.85
+
+  /api/cache/invalidate:
+    post:
+      tags:
+        - Cache
+      summary: 캐시 무효화
+      description: 지정된 패턴의 캐시를 무효화합니다.
+      operationId: invalidateCache
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pattern:
+                  type: string
+                  description: 무효화할 캐시 패턴
+                  example: "dreamseed:stats"
+              required:
+                - pattern
+      responses:
+        '200':
+          description: 캐시 무효화 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheInvalidateResponse'
+              example:
+                message: "캐시 무효화 완료"
+                invalidated_keys: 5
+        '400':
+          description: 잘못된 요청
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /metrics:
+    get:
+      tags:
+        - Metrics
+      summary: Prometheus 메트릭 조회
+      description: Prometheus 형식의 메트릭 데이터를 조회합니다.
+      operationId: getMetrics
+      responses:
+        '200':
+          description: 메트릭 데이터 조회 성공
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP dreamseed_requests_total Total number of requests
+                # TYPE dreamseed_requests_total counter
+                dreamseed_requests_total{method="GET",endpoint="/api/dashboard/stats"} 1250
+                
+                # HELP dreamseed_request_duration_seconds Request duration in seconds
+                # TYPE dreamseed_request_duration_seconds histogram
+                dreamseed_request_duration_seconds_bucket{le="0.1"} 1000
+                dreamseed_request_duration_seconds_bucket{le="0.5"} 1200
+                dreamseed_request_duration_seconds_bucket{le="1.0"} 1250
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: 시스템 상태
+        timestamp:
+          type: string
+          format: date-time
+          description: 응답 시간
+        version:
+          type: string
+          description: API 버전
+        cache:
+          type: string
+          enum: [enabled, disabled]
+          description: 캐시 상태
+      required:
+        - status
+        - timestamp
+        - version
+
+    DashboardStats:
+      type: object
+      properties:
+        total_users:
+          type: integer
+          description: 총 사용자 수
+        online_users:
+          type: integer
+          description: 현재 온라인 사용자 수
+        realtime_users:
+          type: integer
+          description: 실시간 활성 사용자 수
+        free_users:
+          type: integer
+          description: 무료 사용자 수
+        paid_users:
+          type: integer
+          description: 유료 사용자 수
+        premium_users:
+          type: integer
+          description: 프리미엄 사용자 수
+        revenue_today:
+          type: number
+          format: float
+          description: 오늘 수익
+        revenue_total:
+          type: number
+          format: float
+          description: 총 수익
+      required:
+        - total_users
+        - online_users
+        - realtime_users
+
+    UserGrowthData:
+      type: object
+      properties:
+        labels:
+          type: array
+          items:
+            type: string
+          description: 날짜 라벨
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChartDataset'
+          description: 차트 데이터셋
+      required:
+        - labels
+        - datasets
+
+    ChartDataset:
+      type: object
+      properties:
+        label:
+          type: string
+          description: 데이터셋 라벨
+        data:
+          type: array
+          items:
+            type: number
+          description: 데이터 값
+        borderColor:
+          type: string
+          description: 선 색상
+        backgroundColor:
+          type: string
+          description: 배경 색상
+      required:
+        - label
+        - data
+
+    DailyActivityData:
+      type: object
+      properties:
+        labels:
+          type: array
+          items:
+            type: string
+          description: 날짜 라벨
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChartDataset'
+          description: 활동 데이터셋
+      required:
+        - labels
+        - datasets
+
+    CountryData:
+      type: object
+      properties:
+        country:
+          type: string
+          description: 국가 코드 (ISO 3166-1 alpha-2)
+        country_name:
+          type: string
+          description: 국가명
+        users:
+          type: integer
+          description: 총 사용자 수
+        today_active:
+          type: integer
+          description: 오늘 활성 사용자 수
+        online_users:
+          type: integer
+          description: 현재 온라인 사용자 수
+        realtime_users:
+          type: integer
+          description: 실시간 활성 사용자 수
+      required:
+        - country
+        - country_name
+        - users
+
+    Activity:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 활동 ID
+        user_id:
+          type: string
+          description: 사용자 ID
+        activity_type:
+          type: string
+          description: 활동 타입
+        description:
+          type: string
+          description: 활동 설명
+        timestamp:
+          type: string
+          format: date-time
+          description: 활동 시간
+        metadata:
+          type: object
+          description: 추가 메타데이터
+      required:
+        - id
+        - user_id
+        - activity_type
+        - description
+        - timestamp
+
+    CacheStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [connected, disconnected, error]
+          description: 캐시 연결 상태
+        cached_keys:
+          type: integer
+          description: 캐시된 키 수
+        used_memory:
+          type: string
+          description: 사용된 메모리
+        hit_rate:
+          type: number
+          format: float
+          description: 캐시 히트율
+      required:
+        - status
+        - cached_keys
+
+    CacheInvalidateResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: 응답 메시지
+        invalidated_keys:
+          type: integer
+          description: 무효화된 키 수
+      required:
+        - message
+        - invalidated_keys
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: 오류 코드
+        message:
+          type: string
+          description: 오류 메시지
+        details:
+          type: object
+          description: 추가 오류 정보
+      required:
+        - error
+        - message
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API 키 인증 (향후 구현 예정)
+
+security:
+  - ApiKeyAuth: []
+

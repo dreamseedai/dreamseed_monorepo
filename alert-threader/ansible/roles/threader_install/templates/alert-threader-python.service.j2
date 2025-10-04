@@ -1,0 +1,26 @@
+[Unit]
+Description=Alertmanager -> Slack Threader (Python/FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={{ threader_python_dir }}
+EnvironmentFile={{ threader_envfile }}
+ExecStartPre=/usr/bin/env bash -lc '\
+  mkdir -p /var/lib/alert-threader && chown {{ threader_user }}:{{ threader_group }} /var/lib/alert-threader && \
+  python3 -m pip install --upgrade pip || true && \
+  python3 -m pip install fastapi uvicorn httpx redis || true'
+User={{ threader_user }}
+Group={{ threader_group }}
+ExecStart=/usr/bin/env bash -lc 'uvicorn app:app --host 0.0.0.0 --port {{ threader_python_port | default(threader_port) }}'
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

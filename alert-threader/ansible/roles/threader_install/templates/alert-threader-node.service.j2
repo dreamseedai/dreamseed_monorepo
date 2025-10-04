@@ -1,0 +1,26 @@
+[Unit]
+Description=Alertmanager -> Slack Threader (Node.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={{ threader_node_dir }}
+EnvironmentFile={{ threader_envfile }}
+ExecStartPre=/usr/bin/env bash -lc '\
+  mkdir -p /var/lib/alert-threader && chown {{ threader_user }}:{{ threader_group }} /var/lib/alert-threader && \
+  [ -f package.json ] || echo "{\"name\":\"threader\",\"type\":\"module\"}" > package.json && \
+  npm -s i express node-fetch@2 redis'
+User={{ threader_user }}
+Group={{ threader_group }}
+ExecStart=/usr/bin/env bash -lc 'PORT={{ threader_node_port | default(threader_port) }} node index.js'
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

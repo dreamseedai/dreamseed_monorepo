@@ -1,0 +1,193 @@
+groups:
+  - name: dreamseed.alerts
+    interval: 30s
+    rules:
+      # A) DreamSeed 백업 실패 (systemd unit failed)
+      - alert: DreamSeedBackupFailed
+        expr: node_systemd_unit_state{name="dreamseed-backup-enhanced.service",state="failed"} == 1
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          service: backup
+        annotations:
+          summary: "DreamSeed 백업 실패"
+          description: |
+            DreamSeed 백업 서비스가 실패 상태입니다 (5분 이상).
+            확인사항:
+            - journalctl -u dreamseed-backup-enhanced.service
+            - /var/log/dreamseed-backup.log
+            - /var/backups/dreamseed 디렉토리 상태
+
+      # B) DreamSeed API 서비스 다운
+      - alert: DreamSeedAPIDown
+        expr: node_systemd_unit_state{name="dreamseed-api.service",state="failed"} == 1
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+          service: api
+        annotations:
+          summary: "DreamSeed API 서비스 다운"
+          description: |
+            DreamSeed API 서비스가 실패 상태입니다.
+            확인사항:
+            - systemctl status dreamseed-api
+            - journalctl -u dreamseed-api.service
+            - API 헬스체크: curl http://localhost:8002/healthz
+
+      # C) 백업이 36시간 이상 실행되지 않음
+      - alert: DreamSeedBackupStale
+        expr: (time() - max_over_time(node_systemd_service_restart_total{name="dreamseed-backup-enhanced.service"}[36h])) > 129600
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          service: backup
+        annotations:
+          summary: "DreamSeed 백업이 36시간 이상 실행되지 않음"
+          description: |
+            DreamSeed 백업이 36시간 이상 실행되지 않았습니다.
+            확인사항:
+            - systemctl status dreamseed-backup-enhanced.timer
+            - systemctl list-timers | grep dreamseed-backup
+            - 백업 타이머 활성화 상태 확인
+
+      # D) DreamSeed API 높은 오류율
+      - alert: DreamSeedAPIHighErrorRate
+        expr: rate(dreamseed_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          service: api
+        annotations:
+          summary: "DreamSeed API 오류율 높음"
+          description: |
+            DreamSeed API의 5xx 오류율이 10%를 초과했습니다.
+            현재 오류율: {{ $value | humanizePercentage }}
+
+      # E) DreamSeed API 높은 응답 시간
+      - alert: DreamSeedAPIHighResponseTime
+        expr: histogram_quantile(0.95, rate(dreamseed_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          service: api
+        annotations:
+          summary: "DreamSeed API 응답 시간 높음"
+          description: |
+            DreamSeed API의 95% 응답 시간이 2초를 초과했습니다.
+            현재 응답 시간: {{ $value }}초
+
+      # F) Redis 서비스 다운
+      - alert: DreamSeedRedisDown
+        expr: up{job="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+          service: redis
+        annotations:
+          summary: "DreamSeed Redis 서비스 다운"
+          description: |
+            DreamSeed Redis 서비스가 다운되었습니다.
+            확인사항:
+            - systemctl status redis-server
+            - Redis 연결 상태 확인
+
+      # G) Redis 높은 메모리 사용량
+      - alert: DreamSeedRedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          service: redis
+        annotations:
+          summary: "DreamSeed Redis 메모리 사용량 높음"
+          description: |
+            DreamSeed Redis 메모리 사용량이 90%를 초과했습니다.
+            현재 사용률: {{ $value | humanizePercentage }}
+
+      # H) 시스템 높은 CPU 사용량
+      - alert: DreamSeedHighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          service: system
+        annotations:
+          summary: "DreamSeed 서버 CPU 사용량 높음"
+          description: |
+            DreamSeed 서버의 CPU 사용량이 80%를 초과했습니다.
+            현재 사용률: {{ $value | humanizePercentage }}%
+
+      # I) 시스템 높은 메모리 사용량
+      - alert: DreamSeedHighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          service: system
+        annotations:
+          summary: "DreamSeed 서버 메모리 사용량 높음"
+          description: |
+            DreamSeed 서버의 메모리 사용량이 85%를 초과했습니다.
+            현재 사용률: {{ $value | humanizePercentage }}%
+
+      # J) 디스크 공간 부족
+      - alert: DreamSeedLowDiskSpace
+        expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          service: system
+        annotations:
+          summary: "DreamSeed 서버 디스크 공간 부족"
+          description: |
+            DreamSeed 서버의 디스크 사용량이 90%를 초과했습니다.
+            현재 사용률: {{ $value | humanizePercentage }}%
+            확인사항:
+            - df -h
+            - /var/backups/dreamseed 디렉토리 정리
+            - 로그 파일 정리
+
+      # K) SSL 인증서 만료 임박
+      - alert: DreamSeedSSLCertExpiringSoon
+        expr: (ssl_cert_not_after - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: warning
+          team: platform
+          service: ssl
+        annotations:
+          summary: "DreamSeed SSL 인증서 만료 임박"
+          description: |
+            DreamSeed SSL 인증서가 30일 이내에 만료됩니다.
+            남은 일수: {{ $value | humanizeDuration }}
+            확인사항:
+            - certbot certificates
+            - certbot renew --dry-run
+
+      # L) 백업 파일 크기 비정상
+      - alert: DreamSeedBackupSizeAbnormal
+        expr: dreamseed_backup_size_bytes < 1000000 or dreamseed_backup_size_bytes > 1000000000
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          service: backup
+        annotations:
+          summary: "DreamSeed 백업 파일 크기 비정상"
+          description: |
+            DreamSeed 백업 파일 크기가 비정상적입니다.
+            현재 크기: {{ $value | humanizeBytes }}
+            확인사항:
+            - ls -la /var/backups/dreamseed/
+            - 백업 파일 무결성 확인
+

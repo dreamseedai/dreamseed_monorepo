@@ -1,0 +1,49 @@
+[Unit]
+Description=DreamSeed Alert Threader - Node.js (ESM, Blocks, Persistent, EnvironmentFile)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/alert-threader-node
+EnvironmentFile=/etc/alert-threader.env
+
+# 의존성 설치 (처음 1회/업데이트 시)
+ExecStartPre=/usr/bin/env bash -lc '\
+  mkdir -p /var/lib/alert-threader && chown www-data:www-data /var/lib/alert-threader && \
+  cd /opt/alert-threader-node && \
+  [ -f package.json ] || echo "{\"name\":\"threader\",\"type\":\"module\"}" > package.json && \
+  npm -s i express node-fetch@2 redis'
+
+User=www-data
+Group=www-data
+ExecStart=/usr/bin/env bash -lc 'node index.js'
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+
+# --- Hardening ---
+NoNewPrivileges=yes
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectClock=yes
+LockPersonality=yes
+CapabilityBoundingSet=~CAP_SYS_ADMIN CAP_NET_ADMIN CAP_SYS_MODULE CAP_SYS_PTRACE CAP_SETUID CAP_SETGID
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @basic-io @network-io ~@mount ~@privileged
+
+# 로그 설정
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alert-threader-node
+
+[Install]
+WantedBy=multi-user.target
+

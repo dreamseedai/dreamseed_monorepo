@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5172",
+    "dev:paid": "VITE_BILLING_ENABLED=true VITE_PAID_READY=true vite --host 0.0.0.0 --port 5172",
     "build": "vite build",
+    "build:paid": "VITE_BILLING_ENABLED=true VITE_PAID_READY=true vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5172"
   },
   "dependencies": {

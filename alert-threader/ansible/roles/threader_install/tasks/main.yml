@@ -1,0 +1,96 @@
+- name: Ensure packages
+  when: threader_impl in ['go','multi'] and threader_code_mode == 'copy'
+  become: true
+  copy:
+    src: "{{ threader_go_src }}"
+    dest: "{{ threader_go_dir }}/main.go"
+    owner: "{{ threader_user }}"
+    group: "{{ threader_group }}"
+    mode: '0644'
+
+- name: Install systemd unit (python)
+  when: threader_impl in ['python','multi']
+  become: true
+  template:
+    src: alert-threader-python.service.j2
+    dest: /etc/systemd/system/alert-threader-python.service
+    mode: '0644'
+  notify: [systemd-reload]
+
+- name: Install systemd unit (node)
+  when: threader_impl in ['node','multi']
+  become: true
+  template:
+    src: alert-threader-node.service.j2
+    dest: /etc/systemd/system/alert-threader-node.service
+    mode: '0644'
+  notify: [systemd-reload]
+
+- name: Install systemd unit (go)
+  when: threader_impl in ['go','multi']
+  become: true
+  template:
+    src: alert-threader-go.service.j2
+    dest: /etc/systemd/system/alert-threader-go.service
+    mode: '0644'
+  notify: [systemd-reload]
+
+- name: Install health script template
+  become: true
+  template:
+    src: check-threader.sh.j2
+    dest: /usr/local/sbin/check-threader
+    mode: '0755'
+
+- name: Install health@ template units
+  become: true
+  template:
+    src: threader-health@.service.j2
+    dest: /etc/systemd/system/threader-health@.service
+    mode: '0644'
+  notify: [systemd-reload]
+
+- name: Install health@ timer
+  become: true
+  template:
+    src: threader-health@.timer.j2
+    dest: /etc/systemd/system/threader-health@.timer
+    mode: '0644'
+  notify: [systemd-reload]
+
+- name: Create per-instance health wrapper
+  when: threader_instances | length > 0
+  become: true
+  copy:
+    dest: "/usr/local/sbin/check-threader-{{ item.name }}"
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      SVC="alert-threader@{{ item.name }}"
+      URL="${HEALTH_URL:-http://127.0.0.1:{{ item.port | default( (item.impl == 'python') | ternary(threader_python_port, (item.impl == 'node') | ternary(threader_node_port, threader_go_port)) ) }}/healthz}"
+      /usr/local/sbin/check-threader "$SVC" "$URL"
+  loop: "{{ threader_instances }}"
+  loop_control: { label: "{{ item.name }}" }
+
+- name: Enable health timers per instance
+  when: threader_instances | length > 0
+  become: true
+  systemd:
+    name: "threader-health@{{ item.name }}.timer"
+    state: started
+    enabled: yes
+  loop: "{{ threader_instances }}"
+  loop_control: { label: "{{ item.name }}" }
+
+- name: Enable & start services
+  become: true
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop: >-
+    {{ ['alert-threader-python'] if threader_impl == 'python' else
+       ['alert-threader-node']   if threader_impl == 'node'   else
+       ['alert-threader-go']     if threader_impl == 'go'     else
+       ['alert-threader-python','alert-threader-node','alert-threader-go'] }}

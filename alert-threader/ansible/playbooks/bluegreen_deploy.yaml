@@ -1,0 +1,119 @@
+---
+- name: Blue-Green Deploy (Build → Green → Health → Switch)
+  hosts: all
+  become: true
+  vars:
+    blue_upstream: /etc/nginx/upstreams/threader_blue.conf
+    green_upstream: /etc/nginx/upstreams/threader_green.conf
+    active_upstream: /etc/nginx/upstreams/threader_active.conf
+    switch_script: /usr/local/sbin/dreamseed_upstream_switch
+    health_check_url: "http://127.0.0.1:9010/healthz"
+    health_check_timeout: 30
+    health_check_retries: 10
+
+  tasks:
+    - name: Ensure upstream directories exist
+      file:
+        path: /etc/nginx/upstreams
+        state: directory
+        mode: '0755'
+
+    - name: Create Blue upstream configuration
+      copy:
+        content: |
+          # Blue upstream (stable version)
+          upstream threader_blue {
+              server 127.0.0.1:9009 max_fails=3 fail_timeout=30s;
+              keepalive 32;
+          }
+        dest: "{{ blue_upstream }}"
+        mode: '0644'
+
+    - name: Create Green upstream configuration
+      copy:
+        content: |
+          # Green upstream (new version)
+          upstream threader_green {
+              server 127.0.0.1:9010 max_fails=3 fail_timeout=30s;
+              keepalive 32;
+          }
+        dest: "{{ green_upstream }}"
+        mode: '0644'
+
+    - name: Install upstream switch script
+      copy:
+        src: ../../ops/scripts/dreamseed_upstream_switch.sh
+        dest: "{{ switch_script }}"
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Deploy new version to Green (placeholder)
+      debug:
+        msg: "Deploying new version to Green upstream (port 9010)"
+      # In real deployment, this would:
+      # 1. Deploy new code to Green instances
+      # 2. Start Green services
+      # 3. Wait for Green to be ready
+
+    - name: Start Green services
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - alert-threader-python
+        - alert-threader-node
+        - alert-threader-go
+      ignore_errors: yes
+
+    - name: Wait for Green upstream to be healthy
+      uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        status_code: 200
+        timeout: "{{ health_check_timeout }}"
+      register: green_health
+      retries: "{{ health_check_retries }}"
+      delay: 3
+      until: green_health.status == 200
+
+    - name: Switch to Green upstream
+      command: "{{ switch_script }} green"
+      register: switch_result
+
+    - name: Validate Nginx configuration after switch
+      command: nginx -t
+      register: nginx_test
+      failed_when: nginx_test.rc != 0
+
+    - name: Reload Nginx
+      systemd:
+        name: nginx
+        state: reloaded
+
+    - name: Verify Green upstream is active
+      uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        status_code: 200
+        timeout: 10
+      register: final_health_check
+
+    - name: Log successful switch
+      lineinfile:
+        path: /var/log/nginx-deploy.log
+        line: "{{ ansible_date_time.iso8601 }} - Successfully switched to Green upstream"
+        create: yes
+        mode: '0644'
+
+    - name: Set deployment status
+      set_fact:
+        deployment_status: "{{ 'SUCCESS' if final_health_check.status == 200 else 'FAILED' }}"
+
+    - name: Fail if deployment was unsuccessful
+      fail:
+        msg: "Blue-Green deployment failed - Green upstream not healthy"
+      when: deployment_status == 'FAILED'
+
+

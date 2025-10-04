@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathML 변환 품질 검증 도구 - DreamSeed AI</title>
+    
+    <!-- MathJax + ChemDoodle -->
+    <script>
+    MathJax = {
+        tex: {
+            packages: {
+                '[+]': ['ams', 'mhchem', 'configmacros', 'newcommand', 'physics']
+            }
+        },
+        svg: {
+            fontCache: 'local'
+        }
+    };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <!-- ChemDoodle Web Components -->
+    <script src="https://web.chemdoodle.com/install/ChemDoodleWeb.js"></script>
+    
+    <!-- TipTap Editor -->
+    <script src="https://unpkg.com/@tiptap/core@2.1.13/dist/index.umd.min.js"></script>
+    <script src="https://unpkg.com/@tiptap/starter-kit@2.1.13/dist/index.umd.min.js"></script>
+    <script src="https://unpkg.com/@tiptap/react@2.1.13/dist/index.umd.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .control-group label {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .control-group input, .control-group select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .btn-success {
+            background: #28a745;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .comparison-container {
+            display: flex;
+            min-height: calc(100vh - 200px);
+        }
+        
+        .panel {
+            flex: 1;
+            background: white;
+            margin: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #ddd;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .panel-content {
+            padding: 20px;
+            height: calc(100% - 60px);
+            overflow-y: auto;
+        }
+        
+        .original-panel .panel-header {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .new-panel .panel-header {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .question-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .question-id {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .question-title {
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        
+        .mathml-content {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #666;
+            border: 1px solid #e9ecef;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .rendered-content {
+            background: white;
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+            min-height: 200px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        .wiris-rendering {
+            background: #fff3e0;
+            border: 2px solid #ff9800;
+        }
+        
+        .mathjax-rendering {
+            background: #e8f5e8;
+            border: 2px solid #4caf50;
+        }
+        
+        .chemdoodle-rendering {
+            background: #f3e5f5;
+            border: 2px solid #9c27b0;
+        }
+        
+        .hybrid-rendering {
+            background: #e1f5fe;
+            border: 2px solid #00bcd4;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .navigation {
+            background: white;
+            padding: 15px 20px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .progress-info {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .chemdoodle-canvas {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .comparison-notes {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        
+        .notes-textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        
+        .save-notes-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .save-notes-btn:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔬 MathML 변환 품질 검증 도구</h1>
+        <p>mpcstudy.com 오리지널 vs 새로운 TipTap + MathJax + ChemDoodle 렌더링 비교</p>
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label for="questionId">문제 ID:</label>
+            <input type="number" id="questionId" placeholder="문제 ID 입력" min="1">
+        </div>
+        
+        <div class="control-group">
+            <label for="conversionFile">변환 파일:</label>
+            <input type="file" id="conversionFile" accept=".jsonl">
+        </div>
+        
+        <div class="control-group">
+            <label for="autoMode">자동 모드:</label>
+            <select id="autoMode">
+                <option value="false">수동</option>
+                <option value="true">자동</option>
+            </select>
+        </div>
+        
+        <button class="btn" onclick="loadQuestion()">문제 로드</button>
+        <button class="btn" onclick="loadNextQuestion()">다음 문제</button>
+        <button class="btn" onclick="loadPreviousQuestion()">이전 문제</button>
+        <button class="btn btn-success" onclick="markAsCorrect()">정확함</button>
+        <button class="btn btn-danger" onclick="markAsError()">오류 있음</button>
+    </div>
+    
+    <div class="comparison-container">
+        <!-- 왼쪽 패널: mpcstudy.com 오리지널 Wiris 렌더링 -->
+        <div class="panel original-panel">
+            <div class="panel-header">
+                📐 mpcstudy.com 오리지널 (Wiris) - iframe
+                <span class="status-badge status-success" id="originalStatus">로딩 중...</span>
+            </div>
+            <div class="panel-content">
+                <div id="originalContent">
+                    <div class="loading">문제를 로드하는 중...</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 오른쪽 패널: 새로운 TipTap + MathJax + ChemDoodle 렌더링 -->
+        <div class="panel new-panel">
+            <div class="panel-header">
+                🧪 새로운 렌더링 (MathJax + ChemDoodle)
+                <span class="status-badge status-warning" id="newStatus">로딩 중...</span>
+            </div>
+            <div class="panel-content">
+                <div id="newContent">
+                    <div class="loading">문제를 로드하는 중...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="navigation">
+        <div class="nav-buttons">
+            <button class="btn" onclick="loadPreviousQuestion()">← 이전</button>
+            <button class="btn" onclick="loadNextQuestion()">다음 →</button>
+        </div>
+        <div class="progress-info">
+            <span id="progressInfo">문제 0 / 0</span>
+        </div>
+        <div class="nav-buttons">
+            <button class="btn btn-success" onclick="markAsCorrect()">✅ 정확</button>
+            <button class="btn btn-danger" onclick="markAsError()">❌ 오류</button>
+        </div>
+    </div>
+    
+    <script>
+        class VisualComparisonTool {
+            constructor() {
+                this.conversionData = [];
+                this.currentIndex = 0;
+                this.currentQuestionId = null;
+                this.notes = {};
+                this.init();
+            }
+            
+            init() {
+                // 파일 입력 이벤트 리스너
+                document.getElementById('conversionFile').addEventListener('change', (e) => {
+                    this.loadConversionFile(e.target.files[0]);
+                });
+                
+                // 키보드 단축키
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'ArrowLeft') {
+                        this.loadPreviousQuestion();
+                    } else if (e.key === 'ArrowRight') {
+                        this.loadNextQuestion();
+                    } else if (e.key === 'y' || e.key === 'Y') {
+                        this.markAsCorrect();
+                    } else if (e.key === 'n' || e.key === 'N') {
+                        this.markAsError();
+                    }
+                });
+            }
+            
+            async loadConversionFile(file) {
+                if (!file) return;
+                
+                try {
+                    const text = await file.text();
+                    const lines = text.trim().split('\n');
+                    this.conversionData = lines.map(line => JSON.parse(line));
+                    
+                    console.log(`✅ 변환 파일 로드 완료: ${this.conversionData.length}개 항목`);
+                    
+                    if (this.conversionData.length > 0) {
+                        this.currentIndex = 0;
+                        this.loadQuestionByIndex(0);
+                    }
+                } catch (error) {
+                    console.error('❌ 파일 로드 오류:', error);
+                    this.showError('파일 로드 중 오류가 발생했습니다.');
+                }
+            }
+            
+            loadQuestion() {
+                const questionId = parseInt(document.getElementById('questionId').value);
+                if (questionId) {
+                    this.loadQuestionById(questionId);
+                } else {
+                    this.showError('문제 ID를 입력해주세요.');
+                }
+            }
+            
+            loadQuestionById(questionId) {
+                // 데이터베이스에서 문제 정보 조회
+                this.fetchQuestionFromDatabase(questionId);
+            }
+            
+            async fetchQuestionFromDatabase(questionId) {
+                try {
+                    // 실제 구현에서는 API 호출
+                    const response = await fetch(`/api/questions/${questionId}`);
+                    const question = await response.json();
+                    
+                    this.currentQuestionId = questionId;
+                    this.renderQuestion(question);
+                } catch (error) {
+                    console.error('❌ 문제 조회 오류:', error);
+                    this.showError('문제를 조회할 수 없습니다.');
+                }
+            }
+            
+            loadQuestionByIndex(index) {
+                if (index < 0 || index >= this.conversionData.length) return;
+                
+                this.currentIndex = index;
+                const conversionItem = this.conversionData[index];
+                this.currentQuestionId = conversionItem.question_id;
+                
+                this.renderConversionItem(conversionItem);
+                this.updateProgress();
+            }
+            
+            loadNextQuestion() {
+                if (this.currentIndex < this.conversionData.length - 1) {
+                    this.loadQuestionByIndex(this.currentIndex + 1);
+                }
+            }
+            
+            loadPreviousQuestion() {
+                if (this.currentIndex > 0) {
+                    this.loadQuestionByIndex(this.currentIndex - 1);
+                }
+            }
+            
+            renderQuestion(question) {
+                // 오리지널 렌더링 (mpcstudy.com 스타일)
+                this.renderOriginalContent(question);
+                
+                // 새로운 렌더링 (MathJax + ChemDoodle)
+                this.renderNewContent(question);
+            }
+            
+            renderConversionItem(conversionItem) {
+                // 변환된 데이터로 렌더링
+                this.renderOriginalFromConversion(conversionItem);
+                this.renderNewFromConversion(conversionItem);
+            }
+            
+            renderOriginalContent(question) {
+                const originalContent = document.getElementById('originalContent');
+                
+                originalContent.innerHTML = `
+                    <div class="question-info">
+                        <div class="question-id">문제 #${question.id}</div>
+                        <div class="question-title">${question.title || '제목 없음'}</div>
+                        <div style="margin-top: 10px;">
+                            <a href="https://mpcstudy.com/admin/index.php?view=question_info&que_id=${question.id}" 
+                               target="_blank" 
+                               style="color: #1976d2; text-decoration: none;">
+                                🔗 mpcstudy.com에서 보기
+                            </a>
+                        </div>
+                    </div>
+                    <div class="mathml-content">${question.original_mathml || 'MathML 없음'}</div>
+                    <div class="rendered-content wiris-rendering">
+                        <h4>mpcstudy.com 오리지널 (Wiris):</h4>
+                        <iframe 
+                            id="mpcstudyFrame"
+                            src="https://mpcstudy.com/admin/index.php?view=question_info&que_id=${question.id}"
+                            width="100%" 
+                            height="600px"
+                            frameborder="0"
+                            style="border: 1px solid #ddd; border-radius: 4px;">
+                        </iframe>
+                    </div>
+                `;
+            }
+            
+            renderNewContent(question) {
+                const newContent = document.getElementById('newContent');
+                
+                newContent.innerHTML = `
+                    <div class="question-info">
+                        <div class="question-id">문제 #${question.id}</div>
+                        <div class="question-title">${question.title || '제목 없음'}</div>
+                    </div>
+                    <div class="mathml-content">${question.original_mathml || 'MathML 없음'}</div>
+                    <div class="rendered-content" id="newRenderedContent">
+                        <h4>새로운 렌더링:</h4>
+                        <div id="mathjaxContent">로딩 중...</div>
+                    </div>
+                    <div class="comparison-notes">
+                        <h4>비교 노트:</h4>
+                        <textarea class="notes-textarea" id="notesTextarea" placeholder="변환 품질에 대한 노트를 작성하세요..."></textarea>
+                        <button class="save-notes-btn" onclick="saveNotes()">노트 저장</button>
+                    </div>
+                `;
+                
+                // MathJax + ChemDoodle 렌더링
+                this.renderNewContent(question.original_mathml);
+            }
+            
+            renderOriginalFromConversion(conversionItem) {
+                const originalContent = document.getElementById('originalContent');
+                
+                originalContent.innerHTML = `
+                    <div class="question-info">
+                        <div class="question-id">문제 #${conversionItem.question_id}</div>
+                        <div class="question-title">변환된 문제</div>
+                        <div style="margin-top: 10px;">
+                            <a href="https://mpcstudy.com/admin/index.php?view=question_info&que_id=${conversionItem.question_id}" 
+                               target="_blank" 
+                               style="color: #1976d2; text-decoration: none;">
+                                🔗 mpcstudy.com에서 보기
+                            </a>
+                        </div>
+                    </div>
+                    <div class="mathml-content">${conversionItem.original_mathml}</div>
+                    <div class="rendered-content wiris-rendering">
+                        <h4>mpcstudy.com 오리지널 (Wiris):</h4>
+                        <iframe 
+                            id="mpcstudyFrame"
+                            src="https://mpcstudy.com/admin/index.php?view=question_info&que_id=${conversionItem.question_id}"
+                            width="100%" 
+                            height="600px"
+                            frameborder="0"
+                            style="border: 1px solid #ddd; border-radius: 4px;">
+                        </iframe>
+                    </div>
+                `;
+            }
+            
+            renderNewFromConversion(conversionItem) {
+                const newContent = document.getElementById('newContent');
+                
+                newContent.innerHTML = `
+                    <div class="question-info">
+                        <div class="question-id">문제 #${conversionItem.question_id}</div>
+                        <div class="question-title">변환된 문제</div>
+                    </div>
+                    <div class="mathml-content">${conversionItem.original_mathml}</div>
+                    <div class="rendered-content ${this.getRenderingClass(conversionItem.conversion_type)}" id="newRenderedContent">
+                        <h4>새로운 렌더링 (${conversionItem.conversion_type}):</h4>
+                        <div id="mathjaxContent">로딩 중...</div>
+                    </div>
+                    <div class="comparison-notes">
+                        <h4>비교 노트:</h4>
+                        <textarea class="notes-textarea" id="notesTextarea" placeholder="변환 품질에 대한 노트를 작성하세요..."></textarea>
+                        <button class="save-notes-btn" onclick="saveNotes()">노트 저장</button>
+                    </div>
+                `;
+                
+                // MathJax + ChemDoodle 렌더링
+                this.renderConvertedContent(conversionItem);
+            }
+            
+            getRenderingClass(conversionType) {
+                switch(conversionType) {
+                    case 'mathjax': return 'mathjax-rendering';
+                    case 'chemdoodle': return 'chemdoodle-rendering';
+                    case 'hybrid': return 'hybrid-rendering';
+                    default: return 'mathjax-rendering';
+                }
+            }
+            
+            renderWirisContent(mathml) {
+                // 이 함수는 더 이상 사용되지 않음 (iframe으로 대체)
+                // Wiris 렌더링은 mpcstudy.com iframe에서 처리됨
+            }
+            
+            async renderConvertedContent(conversionItem) {
+                const mathjaxContent = document.getElementById('mathjaxContent');
+                if (!mathjaxContent) return;
+                
+                try {
+                    if (conversionItem.conversion_type === 'mathjax') {
+                        // MathJax 렌더링
+                        mathjaxContent.innerHTML = conversionItem.converted_content;
+                        await MathJax.typesetPromise([mathjaxContent]);
+                    } else if (conversionItem.conversion_type === 'chemdoodle') {
+                        // ChemDoodle 렌더링
+                        const chemData = JSON.parse(conversionItem.converted_content);
+                        this.renderChemDoodleContent(chemData, mathjaxContent);
+                    } else if (conversionItem.conversion_type === 'hybrid') {
+                        // 하이브리드 렌더링
+                        const hybridData = JSON.parse(conversionItem.converted_content);
+                        mathjaxContent.innerHTML = `
+                            <div class="mathjax-part">${hybridData.mathjax}</div>
+                            <div class="chemdoodle-part"></div>
+                        `;
+                        await MathJax.typesetPromise([mathjaxContent]);
+                        this.renderChemDoodleContent(JSON.parse(hybridData.chemdoodle), mathjaxContent.querySelector('.chemdoodle-part'));
+                    }
+                    
+                    document.getElementById('newStatus').textContent = '렌더링 완료';
+                    document.getElementById('newStatus').className = 'status-badge status-success';
+                } catch (error) {
+                    console.error('❌ 렌더링 오류:', error);
+                    mathjaxContent.innerHTML = `<div class="error">렌더링 오류: ${error.message}</div>`;
+                    document.getElementById('newStatus').textContent = '렌더링 오류';
+                    document.getElementById('newStatus').className = 'status-badge status-error';
+                }
+            }
+            
+            renderChemDoodleContent(chemData, container) {
+                if (!window.ChemDoodle) {
+                    container.innerHTML = '<div class="error">ChemDoodle 라이브러리가 로드되지 않았습니다.</div>';
+                    return;
+                }
+                
+                try {
+                    const canvasId = `chemdoodle-canvas-${Date.now()}`;
+                    container.innerHTML = `<div id="${canvasId}" class="chemdoodle-canvas"></div>`;
+                    
+                    const canvas = new ChemDoodle.SketchCanvas(canvasId, 400, 300);
+                    
+                    if (chemData.type === 'benzene') {
+                        // 벤젠 고리 생성
+                        this.createBenzene(canvas);
+                    } else if (chemData.type === 'naphthalene') {
+                        // 나프탈렌 생성
+                        this.createNaphthalene(canvas);
+                    } else if (chemData.type === 'steroid') {
+                        // 스테로이드 생성
+                        this.createSteroid(canvas);
+                    } else if (chemData.type === 'reaction') {
+                        // 화학 반응식
+                        container.innerHTML = `<div class="mathjax-rendering">${chemData.data}</div>`;
+                    }
+                } catch (error) {
+                    console.error('❌ ChemDoodle 렌더링 오류:', error);
+                    container.innerHTML = `<div class="error">ChemDoodle 렌더링 오류: ${error.message}</div>`;
+                }
+            }
+            
+            createBenzene(canvas) {
+                const benzene = new ChemDoodle.Molecule();
+                
+                // 벤젠 고리 원자들
+                const atoms = [
+                    new ChemDoodle.Atom(0, 100, 0, 'C'),
+                    new ChemDoodle.Atom(87, 50, 0, 'C'),
+                    new ChemDoodle.Atom(87, -50, 0, 'C'),
+                    new ChemDoodle.Atom(0, -100, 0, 'C'),
+                    new ChemDoodle.Atom(-87, -50, 0, 'C'),
+                    new ChemDoodle.Atom(-87, 50, 0, 'C')
+                ];
+                
+                atoms.forEach(atom => benzene.addAtom(atom));
+                
+                // 벤젠 고리 결합들
+                const bonds = [
+                    new ChemDoodle.Bond(0, 1, 1),
+                    new ChemDoodle.Bond(1, 2, 2), // 이중 결합
+                    new ChemDoodle.Bond(2, 3, 1),
+                    new ChemDoodle.Bond(3, 4, 2), // 이중 결합
+                    new ChemDoodle.Bond(4, 5, 1),
+                    new ChemDoodle.Bond(5, 0, 2)  // 이중 결합
+                ];
+                
+                bonds.forEach(bond => benzene.addBond(bond));
+                
+                canvas.loadMolecule(benzene);
+            }
+            
+            createNaphthalene(canvas) {
+                // 나프탈렌 구조 생성 (간단한 버전)
+                const naphthalene = new ChemDoodle.Molecule();
+                // 실제 구현에서는 더 복잡한 구조 생성
+                canvas.loadMolecule(naphthalene);
+            }
+            
+            createSteroid(canvas) {
+                // 스테로이드 구조 생성 (간단한 버전)
+                const steroid = new ChemDoodle.Molecule();
+                // 실제 구현에서는 더 복잡한 구조 생성
+                canvas.loadMolecule(steroid);
+            }
+            
+            markAsCorrect() {
+                this.updateStatus('정확함', 'success');
+                this.saveValidationResult('correct');
+            }
+            
+            markAsError() {
+                this.updateStatus('오류 있음', 'error');
+                this.saveValidationResult('error');
+            }
+            
+            updateStatus(message, type) {
+                document.getElementById('originalStatus').textContent = message;
+                document.getElementById('originalStatus').className = `status-badge status-${type}`;
+                
+                document.getElementById('newStatus').textContent = message;
+                document.getElementById('newStatus').className = `status-badge status-${type}`;
+            }
+            
+            saveValidationResult(result) {
+                // 검증 결과 저장
+                const validationData = {
+                    question_id: this.currentQuestionId,
+                    result: result,
+                    timestamp: new Date().toISOString(),
+                    notes: document.getElementById('notesTextarea')?.value || ''
+                };
+                
+                console.log('검증 결과 저장:', validationData);
+                // 실제 구현에서는 서버에 저장
+            }
+            
+            saveNotes() {
+                const notes = document.getElementById('notesTextarea').value;
+                if (this.currentQuestionId) {
+                    this.notes[this.currentQuestionId] = notes;
+                    console.log('노트 저장:', notes);
+                }
+            }
+            
+            updateProgress() {
+                const progressInfo = document.getElementById('progressInfo');
+                progressInfo.textContent = `문제 ${this.currentIndex + 1} / ${this.conversionData.length}`;
+            }
+            
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.textContent = message;
+                document.body.appendChild(errorDiv);
+                
+                setTimeout(() => {
+                    errorDiv.remove();
+                }, 5000);
+            }
+        }
+        
+        // 전역 함수들
+        let comparisonTool;
+        
+        function loadQuestion() {
+            comparisonTool.loadQuestion();
+        }
+        
+        function loadNextQuestion() {
+            comparisonTool.loadNextQuestion();
+        }
+        
+        function loadPreviousQuestion() {
+            comparisonTool.loadPreviousQuestion();
+        }
+        
+        function markAsCorrect() {
+            comparisonTool.markAsCorrect();
+        }
+        
+        function markAsError() {
+            comparisonTool.markAsError();
+        }
+        
+        function saveNotes() {
+            comparisonTool.saveNotes();
+        }
+        
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            comparisonTool = new VisualComparisonTool();
+        });
+    </script>
+</body>
+</html>

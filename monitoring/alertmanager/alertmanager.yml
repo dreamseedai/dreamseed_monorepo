@@ -1,0 +1,114 @@
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@dreamseed.com'
+
+route:
+  receiver: slack_info
+  group_by: ['alertname', 'service', 'instance']
+  group_wait: 10s
+  group_interval: 2m
+  repeat_interval: 2h
+  routes:
+    # Critical 알림은 즉시 전송 (그룹화 최소화)
+    - match:
+        severity: critical
+      receiver: slack_critical
+      group_wait: 5s
+      group_interval: 1m
+      repeat_interval: 30m
+    
+    # Warning 알림은 그룹화하여 전송
+    - match:
+        severity: warning
+      receiver: slack_warning
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+    
+    # Info 알림은 기본 처리
+    - match:
+        severity: info
+      receiver: slack_info
+      group_wait: 1m
+      group_interval: 10m
+      repeat_interval: 6h
+    
+    # 백업 관련 알림은 별도 처리
+    - match:
+        service: backup
+      receiver: slack_backup
+      group_wait: 15s
+      group_interval: 3m
+      repeat_interval: 2h
+
+receivers:
+  - name: slack_critical
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '${SLACK_CHANNEL_CRITICAL:-#dreamseed-critical}'
+        username: 'DreamSeed AlertManager'
+        icon_emoji: ':rotating_light:'
+        send_resolved: true
+        title: '{{ template "slack.title" . }}'
+        text: '{{ template "slack.critical.text" . }}'
+        color: '{{ template "slack.color" . }}'
+        mrkdwn_in: ['text', 'pretext']
+        fields: '{{ template "slack.fields" . }}'
+
+  - name: slack_warning
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '${SLACK_CHANNEL_WARNING:-#dreamseed-warnings}'
+        username: 'DreamSeed AlertManager'
+        icon_emoji: ':warning:'
+        send_resolved: true
+        title: '{{ template "slack.title" . }}'
+        text: '{{ template "slack.warning.text" . }}'
+        color: '{{ template "slack.color" . }}'
+        mrkdwn_in: ['text', 'pretext']
+        fields: '{{ template "slack.fields" . }}'
+
+  - name: slack_info
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '${SLACK_CHANNEL_INFO:-#dreamseed-info}'
+        username: 'DreamSeed AlertManager'
+        icon_emoji: ':information_source:'
+        send_resolved: true
+        title: '{{ template "slack.title" . }}'
+        text: '{{ template "slack.info.text" . }}'
+        color: '{{ template "slack.color" . }}'
+        mrkdwn_in: ['text', 'pretext']
+        fields: '{{ template "slack.fields" . }}'
+
+  - name: slack_backup
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '${SLACK_CHANNEL_BACKUP:-#dreamseed-backup}'
+        username: 'DreamSeed Backup'
+        icon_emoji: ':floppy_disk:'
+        send_resolved: true
+        title: '{{ template "slack.title" . }}'
+        text: '{{ template "slack.text" . }}'
+        color: '{{ template "slack.color" . }}'
+        mrkdwn_in: ['text', 'pretext']
+        fields: '{{ template "slack.fields" . }}'
+
+  # 이메일 알림 (백업)
+  - name: email_backup
+    email_configs:
+      - to: '${MAIL_TO}'
+        subject: '[DreamSeed] {{ .CommonLabels.severity | toUpper }} - {{ .CommonAnnotations.summary }}'
+        body: |
+          DreamSeed 시스템 알림
+          
+          심각도: {{ .CommonLabels.severity }}
+          서비스: {{ .CommonLabels.service }}
+          알림: {{ .CommonAnnotations.summary }}
+          설명: {{ .CommonAnnotations.description }}
+          
+          시작 시간: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          라벨: {{ range $k, $v := .CommonLabels }}{{$k}}={{$v}} {{ end }}
+
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

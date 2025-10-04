@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SRC={{ sops_env_enc }}
+OUT={{ threader_env_path }}
+umask 0177
+mkdir -p /run
+TMP=$(mktemp /run/alert-threader.env.XXXXXX)
+sops -d "$SRC" > "$TMP"
+mv "$TMP" "$OUT"
+chmod 0640 "$OUT"
+chown root:root "$OUT"
+echo "rendered $OUT"

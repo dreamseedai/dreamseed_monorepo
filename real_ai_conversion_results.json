@@ -1,0 +1,25 @@
+{
+  "test_time": "2025-10-02T18:47:18.114934",
+  "stats": {
+    "total_conversions": 2,
+    "cache_size": 2,
+    "successful_conversions": 2,
+    "total_tokens_used": 474
+  },
+  "results": [
+    {
+      "test_name": "ID 1997 - 속도 (ds/dt)",
+      "original_mathml": "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mstyle displaystyle=\"false\"><mfrac><mrow><mi>d</mi><mi>s</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac></mstyle></math>",
+      "converted_latex": "\\(\\frac{ds}{dt}\\)",
+      "confidence": 0.8500000000000001,
+      "status": "success"
+    },
+    {
+      "test_name": "ID 1997 - 가속도 (d²s/dt²)",
+      "original_mathml": "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mstyle displaystyle=\"false\"><mfrac><mrow><msup><mi>d</mi><mn>2</mn></msup><mi>s</mi></mrow><mrow><mi>d</mi><msup><mi>t</mi><mn>2</mn></msup></mrow></mfrac></mstyle></math>",
+      "converted_latex": "\\(\\frac{d^2 s}{d t^2}\\)",
+      "confidence": 0.8500000000000001,
+      "status": "success"
+    }
+  ]
+}

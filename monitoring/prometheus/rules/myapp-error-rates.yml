@@ -1,0 +1,38 @@
+groups:
+  - name: myapp.error.rates
+    interval: 30s
+    rules:
+      # HTTP 5xx rate (1m) / total (1m)
+      - record: job:http_5xx_rate_1m
+        expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[1m])) by (job)
+      - record: job:http_total_rate_1m
+        expr: sum(rate(http_server_requests_seconds_count[1m])) by (job)
+      - record: job:http_5xx_ratio_1m
+        expr: job:http_5xx_rate_1m / clamp_min(job:http_total_rate_1m, 1)
+
+      # health success ratio(1m) — /healthz 2xx 비율
+      - record: job:health_ok_ratio_1m
+        expr: sum(rate(http_health_requests_total{code=~"2.."}[1m])) by (job) / clamp_min(sum(rate(http_health_requests_total[1m])) by (job),1)
+
+  - name: myapp.error.alerts
+    interval: 30s
+    rules:
+      - alert: ThreaderHighErrorRate
+        expr: job:http_5xx_ratio_1m > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP 5xx > 5% for 5m"
+          description: "Investigate the new rollout or canary."
+
+      - alert: ThreaderHealthLow
+        expr: job:health_ok_ratio_1m < 0.98
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Health success < 98% for 5m"
+          description: "Auto‑promotion should pause."
+
+

@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Cloudflare CIDR sync for nginx real_ip
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

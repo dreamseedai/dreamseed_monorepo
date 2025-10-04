@@ -1,0 +1,76 @@
+name: Performance Test
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Target URL for testing'
+        required: true
+        default: 'http://192.168.68.116:9009'
+      duration:
+        description: 'Test duration in seconds'
+        required: false
+        default: '60'
+      users:
+        description: 'Number of concurrent users'
+        required: false
+        default: '10'
+
+jobs:
+  performance-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Locust
+        run: |
+          pip install locust
+      
+      - name: Create Locust test file
+        run: |
+          cat > locustfile.py << 'EOF'
+          from locust import HttpUser, task, between
+          
+          class ThreaderUser(HttpUser):
+              wait_time = between(1, 3)
+              
+              @task(3)
+              def health_check(self):
+                  self.client.get("/health")
+              
+              @task(2)
+              def alert_endpoint(self):
+                  self.client.post("/alert", json={
+                      "alerts": [{
+                          "status": "firing",
+                          "labels": {"alertname": "TestAlert"},
+                          "annotations": {"summary": "Test alert"}
+                      }]
+                  })
+              
+              @task(1)
+              def metrics_endpoint(self):
+                  self.client.get("/metrics")
+          EOF
+      
+      - name: Run Locust performance test
+        run: |
+          locust -f locustfile.py \
+            --host=${{ github.event.inputs.target_url }} \
+            --users=${{ github.event.inputs.users }} \
+            --spawn-rate=2 \
+            --run-time=${{ github.event.inputs.duration }}s \
+            --headless \
+            --html=performance-report.html
+      
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: performance-report.html
+
+

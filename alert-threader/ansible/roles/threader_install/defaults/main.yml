@@ -1,0 +1,37 @@
+# 어떤 구현을 설치할지: python | node | go | multi
+threader_impl: python
+
+# 서비스 공통
+threader_workdir_base: /opt
+threader_envfile: /run/alert-threader.env
+threader_user: www-data
+threader_group: www-data
+threader_port: 9009
+
+# 구현별 디렉터리
+threader_python_dir: "{{ threader_workdir_base }}/alert-threader-python"
+threader_node_dir:   "{{ threader_workdir_base }}/alert-threader-node"
+threader_go_dir:     "{{ threader_workdir_base }}/alert-threader-go"
+
+# 코드 배포 방식: copy | skip (skip이면 이미 배치된 것으로 가정)
+threader_code_mode: copy
+
+# 파일/템플릿 소스(필요 시 경로 변경)
+threader_python_src: ansible/roles/threader_install/files/python/app.py
+threader_node_src:   ansible/roles/threader_install/files/node-index.js
+threader_go_src:     ansible/roles/threader_install/files/go-main.go
+
+# 공통 기본 포트(단일 인스턴스 모드에서 사용)
+threader_port: 9009
+
+# 서비스별 개별 포트 (multi 구현 시 권장)
+threader_python_port: 9009
+threader_node_port:   9010
+threader_go_port:     9011
+
+# 멀티 인스턴스 설정 (optional)
+# threader_instances 예시:
+# - name: py-a   impl: python port: 9009
+# - name: node-a impl: node   port: 9010
+# - name: go-a   impl: go     port: 9011
+threader_instances: []

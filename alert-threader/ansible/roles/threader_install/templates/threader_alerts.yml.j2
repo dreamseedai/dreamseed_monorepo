@@ -1,0 +1,33 @@
+groups:
+  - name: threader.alerts
+    interval: 30s
+    rules:
+      - alert: ThreaderInstanceDown
+        expr: up{job=~"alert_threader_.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: ops
+        annotations:
+          summary: "Alert Threader instance {{ $labels.job }} is down"
+          description: "The Alert Threader instance {{ $labels.job }} on {{ $labels.instance }} is not reachable. Investigate immediately."
+
+      - alert: ThreaderHighErrorRate
+        expr: sum(rate(http_server_requests_seconds_count{job=~"alert_threader_.*", status=~"5.."}[5m])) by (job) / sum(rate(http_server_requests_seconds_count{job=~"alert_threader_.*"}[5m])) by (job) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          team: dev
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "The Alert Threader instance {{ $labels.job }} is experiencing a high rate of 5xx errors (over 5% in 5 minutes). Investigate recent deployments."
+
+      - alert: ThreaderHealthcheckFailed
+        expr: probe_success{job="blackbox_exporter_threader_health"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: ops
+        annotations:
+          summary: "Threader healthcheck failed"
+          description: "The external healthcheck for Alert Threader is failing. This could indicate a service outage or network issue."

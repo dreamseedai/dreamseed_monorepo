@@ -1,0 +1,86 @@
+[
+  {
+    "test_name": "API 헬스체크",
+    "success": true,
+    "details": "상태: healthy",
+    "timestamp": "2025-10-03T15:55:19.231202"
+  },
+  {
+    "test_name": "API 메트릭",
+    "success": true,
+    "details": "Prometheus 메트릭 정상",
+    "timestamp": "2025-10-03T15:55:19.234220"
+  },
+  {
+    "test_name": "Prometheus 상태",
+    "success": true,
+    "details": "정상 작동",
+    "timestamp": "2025-10-03T15:55:19.237158"
+  },
+  {
+    "test_name": "Prometheus 타겟",
+    "success": true,
+    "details": "2/2 타겟 정상",
+    "timestamp": "2025-10-03T15:55:19.238085"
+  },
+  {
+    "test_name": "Grafana 상태",
+    "success": true,
+    "details": "정상 작동",
+    "timestamp": "2025-10-03T15:55:19.240158"
+  },
+  {
+    "test_name": "Node Exporter",
+    "success": true,
+    "details": "시스템 메트릭 정상",
+    "timestamp": "2025-10-03T15:55:19.289549"
+  },
+  {
+    "test_name": "API 성능 /healthz",
+    "success": true,
+    "details": "0.001초",
+    "timestamp": "2025-10-03T15:55:19.290654"
+  },
+  {
+    "test_name": "API 성능 /api/dashboard/stats",
+    "success": true,
+    "details": "0.006초",
+    "timestamp": "2025-10-03T15:55:19.296325"
+  },
+  {
+    "test_name": "API 성능 /api/dashboard/user-growth",
+    "success": true,
+    "details": "0.002초",
+    "timestamp": "2025-10-03T15:55:19.298239"
+  },
+  {
+    "test_name": "API 성능 /api/cache/status",
+    "success": true,
+    "details": "0.002초",
+    "timestamp": "2025-10-03T15:55:19.299816"
+  },
+  {
+    "test_name": "메트릭 수집",
+    "success": true,
+    "details": "5개 메트릭 확인",
+    "timestamp": "2025-10-03T15:55:19.826630"
+  },
+  {
+    "test_name": "알림 시스템",
+    "success": false,
+    "details": "알림 전송 실패",
+    "timestamp": "2025-10-03T15:55:19.830717"
+  },
+  {
+    "test_name": "헬스체크 모니터링",
+    "success": false,
+    "details": "서비스 상태 없음",
+    "timestamp": "2025-10-03T15:55:19.841224"
+  },
+  {
+    "test_name": "로그 분석",
+    "success": true,
+    "details": "3개 로그 분석 완료",
+    "timestamp": "2025-10-03T15:55:19.858011"
+  }
+]

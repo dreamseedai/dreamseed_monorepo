@@ -8,11 +8,11 @@ export default function MyPlanPanel({ cards }: { cards: PlanCard[] }) {
       <h3 className="text-lg font-semibold mb-3">Your Recommended Plan</h3>
       {(!cards || cards.length === 0) ? (
         <div className="text-sm text-gray-600">
-          추천이 준비 중입니다.
+          Recommendations are being prepared.
           <button
             onClick={() => window.dispatchEvent(new Event('plan:retry'))}
             className="ml-2 inline-flex items-center px-3 py-1 rounded border border-gray-300 hover:bg-gray-50"
-          >재시도</button>
+          >Retry</button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">

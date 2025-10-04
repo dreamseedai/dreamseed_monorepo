@@ -1,0 +1,46 @@
+name: _slack-notify
+on:
+  workflow_call:
+    inputs:
+      status:
+        required: true
+        type: string
+      title:
+        required: true
+        type: string
+      text:
+        required: false
+        type: string
+        default: ""
+      channel:
+        required: false
+        type: string
+        default: "#alerts"
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ inputs.status }}
+          channel: ${{ inputs.channel }}
+          text: |
+            *${{ inputs.title }}*
+            
+            ${{ inputs.text }}
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            Workflow: ${{ github.workflow }}
+            Run: ${{ github.run_id }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+
+

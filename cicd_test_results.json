@@ -1,0 +1,188 @@
+[
+  {
+    "test_name": "Black 검사",
+    "success": false,
+    "details": "실패: would reformat /home/won/projects/dreamseed_monorepo/apps/portal_api_clean/alembic/versions/39faccfc",
+    "timestamp": "2025-10-03T16:07:34.118502"
+  },
+  {
+    "test_name": "isort 검사",
+    "success": false,
+    "details": "실패: ERROR: /home/won/projects/dreamseed_monorepo/quick_math_button_fix.py Imports are incorrectly sorted",
+    "timestamp": "2025-10-03T16:07:36.257050"
+  },
+  {
+    "test_name": "Flake8 검사",
+    "success": false,
+    "details": "실패: <unknown>:102: SyntaxWarning: invalid escape sequence '\\s'\n<unknown>:144: SyntaxWarning: invalid esc",
+    "timestamp": "2025-10-03T16:07:52.920821"
+  },
+  {
+    "test_name": "MyPy 검사",
+    "success": false,
+    "details": "실패: ",
+    "timestamp": "2025-10-03T16:07:54.704092"
+  },
+  {
+    "test_name": "Bandit 검사",
+    "success": false,
+    "details": "타임아웃",
+    "timestamp": "2025-10-03T16:08:54.732767"
+  },
+  {
+    "test_name": "Safety 검사",
+    "success": false,
+    "details": "실패: Usage: safety check [OPTIONS]\nTry 'safety check --help' for help.\n\nError: Invalid value for '--outpu",
+    "timestamp": "2025-10-03T16:08:55.725825"
+  },
+  {
+    "test_name": "pytest 설치",
+    "success": false,
+    "details": "pytest가 설치되지 않음",
+    "timestamp": "2025-10-03T16:08:55.856193"
+  },
+  {
+    "test_name": "Docker 설치",
+    "success": true,
+    "details": "정상",
+    "timestamp": "2025-10-03T16:08:55.867469"
+  },
+  {
+    "test_name": "Docker 빌드",
+    "success": false,
+    "details": "빌드 실패: t\n  18 |     \n  19 |     # 프로덕션 이미지\n--------------------\nERROR: failed to solve: process \"/bin/sh -c pip install --no-cache-dir --user -r requirements.txt\" did not complete successfully: exit code: 1\n",
+    "timestamp": "2025-10-03T16:08:57.598159"
+  },
+  {
+    "test_name": "deploy_staging.sh 권한",
+    "success": true,
+    "details": "실행 가능",
+    "timestamp": "2025-10-03T16:08:57.598188"
+  },
+  {
+    "test_name": "deploy_staging.sh 문법",
+    "success": true,
+    "details": "문법 오류 없음",
+    "timestamp": "2025-10-03T16:08:57.599331"
+  },
+  {
+    "test_name": "deploy_production.sh 권한",
+    "success": true,
+    "details": "실행 가능",
+    "timestamp": "2025-10-03T16:08:57.599344"
+  },
+  {
+    "test_name": "deploy_production.sh 문법",
+    "success": true,
+    "details": "문법 오류 없음",
+    "timestamp": "2025-10-03T16:08:57.600465"
+  },
+  {
+    "test_name": "rollback.sh 권한",
+    "success": true,
+    "details": "실행 가능",
+    "timestamp": "2025-10-03T16:08:57.600471"
+  },
+  {
+    "test_name": "rollback.sh 문법",
+    "success": true,
+    "details": "문법 오류 없음",
+    "timestamp": "2025-10-03T16:08:57.602958"
+  },
+  {
+    "test_name": ".github/workflows/ci.yml YAML",
+    "success": true,
+    "details": "문법 정상",
+    "timestamp": "2025-10-03T16:08:57.624440"
+  },
+  {
+    "test_name": ".github/workflows/cd.yml YAML",
+    "success": true,
+    "details": "문법 정상",
+    "timestamp": "2025-10-03T16:08:57.642300"
+  },
+  {
+    "test_name": "pyproject.toml 크기",
+    "success": true,
+    "details": "2947 bytes",
+    "timestamp": "2025-10-03T16:08:57.642316"
+  },
+  {
+    "test_name": "pyproject.toml 읽기",
+    "success": true,
+    "details": "읽기 가능",
+    "timestamp": "2025-10-03T16:08:57.642337"
+  },
+  {
+    "test_name": ".pre-commit-config.yaml 크기",
+    "success": true,
+    "details": "1581 bytes",
+    "timestamp": "2025-10-03T16:08:57.642342"
+  },
+  {
+    "test_name": ".pre-commit-config.yaml 읽기",
+    "success": true,
+    "details": "읽기 가능",
+    "timestamp": "2025-10-03T16:08:57.642352"
+  },
+  {
+    "test_name": "docker-compose.yml 크기",
+    "success": true,
+    "details": "3466 bytes",
+    "timestamp": "2025-10-03T16:08:57.642356"
+  },
+  {
+    "test_name": "docker-compose.yml 읽기",
+    "success": true,
+    "details": "읽기 가능",
+    "timestamp": "2025-10-03T16:08:57.642365"
+  },
+  {
+    "test_name": "nginx.conf 크기",
+    "success": true,
+    "details": "6426 bytes",
+    "timestamp": "2025-10-03T16:08:57.642368"
+  },
+  {
+    "test_name": "nginx.conf 읽기",
+    "success": true,
+    "details": "읽기 가능",
+    "timestamp": "2025-10-03T16:08:57.642379"
+  },
+  {
+    "test_name": "gunicorn.conf.py 크기",
+    "success": true,
+    "details": "805 bytes",
+    "timestamp": "2025-10-03T16:08:57.642383"
+  },
+  {
+    "test_name": "gunicorn.conf.py 읽기",
+    "success": true,
+    "details": "읽기 가능",
+    "timestamp": "2025-10-03T16:08:57.642391"
+  },
+  {
+    "test_name": "requirements.txt",
+    "success": true,
+    "details": "3개 의존성",
+    "timestamp": "2025-10-03T16:08:57.642405"
+  },
+  {
+    "test_name": "의존성 Flask",
+    "success": false,
+    "details": "설치 안됨",
+    "timestamp": "2025-10-03T16:08:57.648636"
+  },
+  {
+    "test_name": "의존성 Flask-CORS",
+    "success": false,
+    "details": "설치 안됨",
+    "timestamp": "2025-10-03T16:08:57.655545"
+  },
+  {
+    "test_name": "의존성 sqlite3",
+    "success": true,
+    "details": "정상",
+    "timestamp": "2025-10-03T16:08:57.667068"
+  }
+]

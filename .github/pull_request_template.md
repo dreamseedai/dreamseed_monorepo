@@ -1,55 +1,15 @@
-## 📋 Pull Request Checklist
+## Summary
+- [ ] Change scoped to staging first
+- [ ] Nginx config validated (`nginx -t`)
+- [ ] Ports avoid browser-blocked list (no 6000, 6665–6669, 10080)
+- [ ] HTTPS works (cert ok) and HSTS toggle considered (staging=OFF, prod=ON)
+- [ ] CORS + cookies reviewed (SameSite=None; Secure; Domain=… if cross-site)
+- [ ] CSP applied; exceptions documented (nonce/hash for 3p scripts)
+- [ ] WebSocket/Upload limits/timeouts reviewed
+- [ ] Playwright smoke passed (CI) & report attached
 
-### 🏷️ Auto-Labeling
-This PR will be automatically labeled based on changed files:
-- `area:frontend` - Frontend changes
-- `area:backend` - Backend changes
-- `area:infra` - Infrastructure changes
-- `area:docs` - Documentation changes
-- `area:config` - Configuration changes
-- `area:maintenance` - Repository maintenance
-- `area:dependencies` - Dependency updates
-- `area:security` - Security-related changes
-- `area:testing` - Test changes
-- `area:database` - Database changes
-
-### 🎯 General
-- [ ] Code follows project conventions
-- [ ] Tests pass locally
-- [ ] Documentation updated (if needed)
-- [ ] No sensitive information exposed
-
-### 🔄 Rename/Repo Maintenance Checklist
-- [ ] Remote URL updated (`git remote -v` OK)
-- [ ] README/Badges/CI links updated
-- [ ] Branch protection reviewed
-- [ ] Secrets/Envs reviewed
-- [ ] Workflows referencing repo name updated
-
-### 🧪 Testing
-- [ ] Manual testing completed
-- [ ] Edge cases considered
-- [ ] Performance impact assessed
-
-### 📚 Documentation
-- [ ] Code comments added/updated
-- [ ] README updated (if applicable)
-- [ ] API documentation updated (if applicable)
-
-### 🔄 Auto-Merge (Optional)
-- [ ] Add `automerge` label for automatic merging when CI passes and reviews are approved
-- [ ] Ensure no `do-not-merge` or `blocked` labels are present
-
----
-
-## 📝 Description
-<!-- Describe your changes here -->
-
-## 🔗 Related Issues
-<!-- Link to related issues, e.g., "Fixes #123" -->
-
-## 🧪 Testing Instructions
-<!-- How to test these changes -->
-
-## 📸 Screenshots (if applicable)
-<!-- Add screenshots for UI changes -->
+## Risk & Rollback
+- Rollback steps:
+  1. Revert nginx site to previous commit and reload
+  2. Disable new service (`systemctl revert/stop`)
+  3. Announce and verify via smoke test

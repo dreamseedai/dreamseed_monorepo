@@ -1,0 +1,75 @@
+{{ define "slack.title" }}[{{ .CommonLabels.severity | toUpper }}] {{ .CommonAnnotations.summary }}{{ end }}
+
+{{ define "slack.color" }}
+  {{- if eq .CommonLabels.severity "critical" -}}#E01E5A{{- else if eq .CommonLabels.severity "warning" -}}#ECB22E{{- else -}}#2EB67D{{- end -}}
+{{ end }}
+
+{{ define "slack.text" }}
+*🌍 Environment*: {{ getenv "ENVIRONMENT" | default "staging" }}
+*🚨 Alert*: {{ .CommonAnnotations.summary }}
+*⚡ Severity*: `{{ .CommonLabels.severity }}`
+*⏰ StartsAt*: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+*📝 Description*: {{ .CommonAnnotations.description | default "(no description)" }}
+
+*🏷️ Labels*: {{ range $k, $v := .CommonLabels }}`{{$k}}={{$v}}` {{ end }}
+{{ end }}
+
+{{ define "slack.fields" }}
+[
+  {"title": "🚨 Alert",     "value": "{{ .CommonAnnotations.summary }}", "short": false},
+  {"title": "⚡ Severity",  "value": "{{ .CommonLabels.severity }}",     "short": true},
+  {"title": "🌍 Environment","value": "{{ getenv "ENVIRONMENT" | default "staging" }}", "short": true},
+  {"title": "🕐 Time",      "value": "{{ .StartsAt.Format "15:04:05" }}", "short": true}
+]
+{{ end }}
+
+{{ define "slack.critical.text" }}
+🚨 *CRITICAL ALERT* 🚨
+
+*🌍 Environment*: {{ getenv "ENVIRONMENT" | default "staging" }}
+*🚨 Alert*: {{ .CommonAnnotations.summary }}
+*⏰ Time*: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+*📝 Description*: {{ .CommonAnnotations.description | default "(no description)" }}
+
+*🏷️ Labels*: {{ range $k, $v := .CommonLabels }}`{{$k}}={{$v}}` {{ end }}
+
+*⚡ IMMEDIATE ACTION REQUIRED* ⚡
+{{ end }}
+
+{{ define "slack.warning.text" }}
+⚠️ *WARNING ALERT* ⚠️
+
+*🌍 Environment*: {{ getenv "ENVIRONMENT" | default "staging" }}
+*⚠️ Alert*: {{ .CommonAnnotations.summary }}
+*⏰ Time*: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+*📝 Description*: {{ .CommonAnnotations.description | default "(no description)" }}
+
+*🏷️ Labels*: {{ range $k, $v := .CommonLabels }}`{{$k}}={{$v}}` {{ end }}
+
+*📋 Please investigate when convenient* 📋
+{{ end }}
+
+{{ define "slack.info.text" }}
+ℹ️ *INFO ALERT* ℹ️
+
+*🌍 Environment*: {{ getenv "ENVIRONMENT" | default "staging" }}
+*ℹ️ Alert*: {{ .CommonAnnotations.summary }}
+*⏰ Time*: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+*📝 Description*: {{ .CommonAnnotations.description | default "(no description)" }}
+
+*🏷️ Labels*: {{ range $k, $v := .CommonLabels }}`{{$k}}={{$v}}` {{ end }}
+
+*📊 For your information* 📊
+{{ end }}
+
+{{ define "slack.resolved.text" }}
+✅ *ALERT RESOLVED* ✅
+
+*🌍 Environment*: {{ getenv "ENVIRONMENT" | default "staging" }}
+*✅ Alert*: {{ .CommonAnnotations.summary }}
+*⏰ Resolved*: {{ .EndsAt.Format "2006-01-02 15:04:05" }}
+*⏱️ Duration*: {{ .EndsAt.Sub .StartsAt }}
+
+*🏷️ Labels*: {{ range $k, $v := .CommonLabels }}`{{$k}}={{$v}}` {{ end }}
+{{ end }}
+

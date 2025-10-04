@@ -1,0 +1,10 @@
+[Unit]
+Description=Update nginx real_ip Cloudflare CIDRs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/update_cloudflare_real_ip
+StandardOutput=journal
+StandardError=journal

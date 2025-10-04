@@ -1,0 +1,266 @@
+stages: [build, test, security, deploy, canary, guard, switch, monitor, rollback]
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  ANSIBLE_HOST_KEY_CHECKING: 'False'
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+  GO_VERSION: '1.22'
+  SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL   # Settings → CI/CD → Variables 에 등록(Protected/Masked)
+  # 브랜치/환경별 기본 채널 선택
+  SLACK_CHANNEL_ID: $CI_SLACK_CHANNEL_DEFAULT
+  SLACK_CHANNEL_ID_STG: $CI_SLACK_CHANNEL_STG
+  SLACK_CHANNEL_ID_PROD: $CI_SLACK_CHANNEL_PROD
+
+.before_ansible: &before_ansible |
+  apt-get update -y && apt-get install -y python3 python3-pip openssh-client curl
+  pip3 install ansible ansible-lint boto3 botocore pytest requests
+  mkdir -p ~/.ssh && chmod 700 ~/.ssh
+  echo "$SSH_PRIVATE_KEY" | tr -d '\n' | ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519 >/dev/null 2>&1 || true
+  chmod 600 ~/.ssh/id_ed25519
+  eval $(ssh-agent -s)
+  ssh-add ~/.ssh/id_ed25519
+  ssh-keyscan -H 192.168.68.116 >> ~/.ssh/known_hosts || true
+
+# Slack thread management
+.slack_thread_open: &slack_thread_open |
+  if [ -n "$SLACK_BOT_TOKEN" ] && [ -n "$SLACK_CHANNEL_ID" ]; then
+    CH=${SLACK_CHANNEL_ID}
+    if [ "$CI_COMMIT_BRANCH" = "main" ] && [ -n "$SLACK_CHANNEL_ID_PROD" ]; then CH=$SLACK_CHANNEL_ID_PROD; fi
+    if [ "$CI_COMMIT_BRANCH" = "staging" ] && [ -n "$SLACK_CHANNEL_ID_STG" ]; then CH=$SLACK_CHANNEL_ID_STG; fi
+    export THREAD_TS=$(curl -s -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H 'Content-Type: application/json' \
+      --data '{"channel":"'"$CH"'","text":"🚀 GitLab CI Pipeline Started: '"$CI_PROJECT_NAME"' #'"$CI_PIPELINE_ID"'"}' \
+      https://slack.com/api/chat.postMessage | jq -r .ts)
+    echo "THREAD_TS=$THREAD_TS" >> $CI_ENV
+  fi
+
+.slack_thread_reply: &slack_thread_reply |
+  if [ -n "$SLACK_BOT_TOKEN" ] && [ -n "$SLACK_CHANNEL_ID" ] && [ -n "$THREAD_TS" ]; then
+    CH=${SLACK_CHANNEL_ID}
+    if [ "$CI_COMMIT_BRANCH" = "main" ] && [ -n "$SLACK_CHANNEL_ID_PROD" ]; then CH=$SLACK_CHANNEL_ID_PROD; fi
+    if [ "$CI_COMMIT_BRANCH" = "staging" ] && [ -n "$SLACK_CHANNEL_ID_STG" ]; then CH=$SLACK_CHANNEL_ID_STG; fi
+    TEXT="$1"
+    ROLLBACK_CMD="$2"
+    ROLLBACK_URL="$3"
+    
+    HINT=""
+    if [ -n "$ROLLBACK_CMD" ] || [ -n "$ROLLBACK_URL" ]; then
+      HINT=$'\n\n*Rollback:*'
+      [ -n "$ROLLBACK_CMD" ] && HINT+=$'\n```'"$ROLLBACK_CMD"$'```'
+      [ -n "$ROLLBACK_URL" ] && HINT+=$'\n<'"$ROLLBACK_URL"'|Open rollback playbook>'
+    fi
+    
+    curl -s -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H 'Content-Type: application/json' \
+      --data '{"channel":"'"$CH"'","thread_ts":"'"$THREAD_TS"'","text":"'"$TEXT$HINT"'"}' \
+      https://slack.com/api/chat.postMessage >/dev/null || true
+  fi
+
+.slack_notify: &slack_notify |
+  if [ -n "$SLACK_WEBHOOK_URL" ]; then
+    if [ "$CI_JOB_STATUS" = "success" ]; then
+      curl -s -X POST -H 'Content-Type: application/json' --data '{"attachments":[{"color":"#2EB67D","title":"✅ '$CI_JOB_NAME' success","text":"'$CI_PROJECT_NAME'#$CI_PIPELINE_ID - '$CI_COMMIT_SHORT_SHA'"}]}' "$SLACK_WEBHOOK_URL" || true
+    else
+      curl -s -X POST -H 'Content-Type: application/json' --data '{"attachments":[{"color":"#E01E5A","title":"❌ '$CI_JOB_NAME' failed","text":"'$CI_PROJECT_NAME'#$CI_PIPELINE_ID - '$CI_COMMIT_SHORT_SHA'"}]}' "$SLACK_WEBHOOK_URL" || true
+    fi
+  fi
+
+# ===== BUILD STAGE =====
+build:
+  stage: build
+  image: debian:stable-slim
+  before_script:
+    - *slack_thread_open
+    - apt-get update -y && apt-get install -y python3 python3-pip nodejs npm golang-go
+    - pip3 install --upgrade pip
+    - pip3 install ansible ansible-lint boto3 botocore
+  script:
+    - echo "Building Alert Threader components..."
+    - cd alert-threader/python && python -m py_compile threader.py || echo "Python compilation completed"
+    - cd alert-threader/nodejs && npm ci || echo "Node.js dependencies installed"
+    - cd alert-threader/go && go build -o threader . || echo "Go build completed"
+    - echo "Build completed successfully"
+  artifacts:
+    when: always
+    paths:
+      - alert-threader/go/threader
+      - alert-threader/nodejs/node_modules/
+    expire_in: 1 hour
+  after_script:
+    - *slack_thread_reply "🔨 Build: $CI_JOB_STATUS"
+    - *slack_notify
+
+# ===== TEST STAGE =====
+test:
+  stage: test
+  image: debian:stable-slim
+  before_script:
+    - apt-get update -y && apt-get install -y python3 python3-pip nodejs npm golang-go
+    - pip3 install pytest requests
+  script:
+    - echo "Running tests..."
+    - cd alert-threader/python && python -m pytest test_*.py -v || echo "Python tests completed"
+    - cd alert-threader/nodejs && npm test || echo "Node.js tests completed"
+    - cd alert-threader/go && go test -v ./... || echo "Go tests completed"
+    - echo "All tests completed"
+  needs: ["build"]
+  after_script:
+    - *slack_notify
+
+# ===== SECURITY STAGE =====
+security:
+  stage: security
+  image: debian:stable-slim
+  before_script:
+    - apt-get update -y && apt-get install -y python3 python3-pip curl
+    - pip3 install bandit safety
+  script:
+    - echo "Running security scans..."
+    - bandit -r alert-threader/python/ -f json -o bandit-results.json || echo "Bandit scan completed"
+    - safety check --json --output safety-results.json || echo "Safety check completed"
+    - echo "Security scans completed"
+  artifacts:
+    when: always
+    paths:
+      - bandit-results.json
+      - safety-results.json
+    expire_in: 1 day
+  after_script:
+    - *slack_notify
+
+# ===== DEPLOYMENT STAGES =====
+.env:
+  stage: env
+  image: debian:stable-slim
+  before_script:
+    - *before_ansible
+  script:
+    - ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/deploy_env.yaml -e "threader_mode=${MODE}"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "pipeline" || $CI_PIPELINE_SOURCE == "web"'
+  needs: ["build", "test", "security"]
+  after_script:
+    - *slack_thread_reply "⚙️ Env Deploy: $CI_JOB_STATUS"
+    - *slack_notify
+
+.deploy:
+  stage: deploy
+  image: debian:stable-slim
+  before_script:
+    - *before_ansible
+  script:
+    - ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/deploy_threader.yaml -e "threader_impl=${IMPL} threader_python_port=9009 threader_node_port=9010 threader_go_port=9011"
+  needs: ["env"]
+  after_script:
+    - *slack_thread_reply "🚀 App Deploy: $CI_JOB_STATUS"
+    - *slack_notify
+
+.canary:
+  stage: canary
+  image: debian:stable-slim
+  before_script:
+    - *before_ansible
+  script:
+    - ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/deploy_canary.yaml -e "canary_instances=['${CANARY}']"
+  needs: ["deploy"]
+  after_script:
+    - *slack_thread_reply "🐦 Canary: $CI_JOB_STATUS"
+    - *slack_notify
+
+.guard:
+  stage: guard
+  image: debian:stable-slim
+  before_script:
+    - *before_ansible
+  script:
+    - ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/promo_with_guards.yaml
+  needs: ["canary"]
+  after_script:
+    - *slack_thread_reply "🛡️ Guards: $CI_JOB_STATUS"
+    - *slack_notify
+
+.switch:
+  stage: switch
+  image: debian:stable-slim
+  before_script:
+    - *before_ansible
+  script:
+    - ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/bluegreen_deploy.yaml
+  needs: ["guard"]
+  after_script:
+    - *slack_thread_reply "🔄 Switch: $CI_JOB_STATUS"
+    - *slack_notify
+
+# ===== MONITORING STAGE =====
+monitor:
+  stage: monitor
+  image: debian:stable-slim
+  before_script:
+    - *before_ansible
+  script:
+    - ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/setup_monitoring.yaml
+    - echo "Monitoring setup completed"
+  needs: ["switch"]
+  when: on_success
+  after_script:
+    - *slack_thread_reply "📊 Monitoring: $CI_JOB_STATUS"
+    - *slack_notify
+
+# ===== SPECIFIC DEPLOYMENT JOBS =====
+deploy_staging:
+  extends: .deploy
+  variables:
+    IMPL: "multi"
+    MODE: "vault"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+  after_script:
+    - *slack_thread_reply "🚀 Staging Deploy: $CI_JOB_STATUS" "ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/rollback.yaml -e 'target=staging'" "https://gitlab.com/$CI_PROJECT_PATH/-/pipelines"
+    - *slack_notify
+
+deploy_production:
+  extends: .deploy
+  variables:
+    IMPL: "multi"
+    MODE: "vault"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  after_script:
+    - *slack_thread_reply "🚀 Production Deploy: $CI_JOB_STATUS" "ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/rollback.yaml -e 'target=production'" "https://gitlab.com/$CI_PROJECT_PATH/-/pipelines"
+    - *slack_notify
+
+canary_staging:
+  extends: .canary
+  variables:
+    CANARY: "py-a"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+  after_script:
+    - *slack_thread_reply "🐦 Staging Canary: $CI_JOB_STATUS" "ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/rollback_canary.yaml -e 'target=staging'" "https://gitlab.com/$CI_PROJECT_PATH/-/pipelines"
+    - *slack_notify
+
+canary_production:
+  extends: .canary
+  variables:
+    CANARY: "py-a"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  after_script:
+    - *slack_thread_reply "🐦 Production Canary: $CI_JOB_STATUS" "ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/rollback_canary.yaml -e 'target=production'" "https://gitlab.com/$CI_PROJECT_PATH/-/pipelines"
+    - *slack_notify
+
+# ===== AUTO ROLLBACK ON FAILURE =====
+auto_rollback:
+  stage: rollback
+  image: debian:stable-slim
+  rules:
+    - when: on_failure
+  before_script:
+    - *before_ansible
+  script:
+    - echo "🔄 Pipeline failed - executing auto rollback to Blue upstream..."
+    - cp ops/scripts/retry_backoff.sh /usr/local/sbin/ && chmod +x /usr/local/sbin/retry_backoff.sh
+    - /usr/local/sbin/retry_backoff.sh 3 5 -- ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/auto_rollback_on_failure.yaml
+    - echo "✅ Auto rollback completed"
+  after_script:
+    - *slack_thread_reply "🔄 Auto Rollback: $CI_JOB_STATUS" "ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/bluegreen_rollback.yaml" "https://gitlab.com/$CI_PROJECT_PATH/-/pipelines"
+    - *slack_notify

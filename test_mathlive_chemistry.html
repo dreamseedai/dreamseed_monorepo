@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathLive Chemistry Support Test</title>
+    <script src="https://unpkg.com/mathlive/dist/mathlive.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .math-container {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e8f5e8;
+            border-radius: 4px;
+        }
+        .error {
+            background-color: #ffe8e8;
+        }
+        .success {
+            background-color: #e8f5e8;
+        }
+    </style>
+</head>
+<body>
+    <h1>MathLive Chemistry Support Test</h1>
+    <p>MathLive가 화학 표기법을 얼마나 잘 지원하는지 테스트합니다.</p>
+
+    <div class="test-section">
+        <h2>1. 기본 화학 공식 테스트</h2>
+        
+        <div class="math-container">
+            <h3>H₂O (물)</h3>
+            <math-field id="water">H_2O</math-field>
+            <div class="result" id="water-result"></div>
+        </div>
+
+        <div class="math-container">
+            <h3>CO₂ (이산화탄소)</h3>
+            <math-field id="co2">CO_2</math-field>
+            <div class="result" id="co2-result"></div>
+        </div>
+
+        <div class="math-container">
+            <h3>NH₃ (암모니아)</h3>
+            <math-field id="nh3">NH_3</math-field>
+            <div class="result" id="nh3-result"></div>
+        </div>
+
+        <div class="math-container">
+            <h3>Ca(OH)₂ (수산화칼슘)</h3>
+            <math-field id="caoh2">Ca(OH)_2</math-field>
+            <div class="result" id="caoh2-result"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 화학 반응식 테스트</h2>
+        
+        <div class="math-container">
+            <h3>2H₂ + O₂ → 2H₂O</h3>
+            <math-field id="reaction1">2H_2 + O_2 \rightarrow 2H_2O</math-field>
+            <div class="result" id="reaction1-result"></div>
+        </div>
+
+        <div class="math-container">
+            <h3>H₂SO₄ + 2NaOH → Na₂SO₄ + 2H₂O</h3>
+            <math-field id="reaction2">H_2SO_4 + 2NaOH \rightarrow Na_2SO_4 + 2H_2O</math-field>
+            <div class="result" id="reaction2-result"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 이온과 전하 테스트</h2>
+        
+        <div class="math-container">
+            <h3>Na⁺ (나트륨 이온)</h3>
+            <math-field id="na_ion">Na^+</math-field>
+            <div class="result" id="na_ion-result"></div>
+        </div>
+
+        <div class="math-container">
+            <h3>SO₄²⁻ (황산 이온)</h3>
+            <math-field id="so4_ion">SO_4^{2-}</math-field>
+            <div class="result" id="so4_ion-result"></div>
+        </div>
+
+        <div class="math-container">
+            <h3>Fe³⁺ (철 이온)</h3>
+            <math-field id="fe_ion">Fe^{3+}</math-field>
+            <div class="result" id="fe_ion-result"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. 화학 단위 테스트</h2>
+        
+        <div class="math-container">
+            <h3>몰 (mol)</h3>
+            <math-field id="mol">mol</math-field>
+            <div class="result" id="mol-result"></div>
+        </div>
+
+        <div class="math-container">
+            <h3>농도 (M)</h3>
+            <math-field id="molarity">M</math-field>
+            <div class="result" id="molarity-result"></div>
+        </div>
+
+        <div class="math-container">
+            <h3>온도 (°C)</h3>
+            <math-field id="temp">25°C</math-field>
+            <div class="result" id="temp-result"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. 복잡한 화학 구조 테스트</h2>
+        
+        <div class="math-container">
+            <h3>벤젠 고리</h3>
+            <math-field id="benzene">C_6H_6</math-field>
+            <div class="result" id="benzene-result"></div>
+        </div>
+
+        <div class="math-container">
+            <h3>에탄올</h3>
+            <math-field id="ethanol">C_2H_5OH</math-field>
+            <div class="result" id="ethanol-result"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>6. mhchem 패키지 스타일 테스트</h2>
+        
+        <div class="math-container">
+            <h3>mhchem 스타일: \ce{H2O}</h3>
+            <math-field id="mhchem1">\ce{H2O}</math-field>
+            <div class="result" id="mhchem1-result"></div>
+        </div>
+
+        <div class="math-container">
+            <h3>mhchem 스타일: \ce{2H2 + O2 -> 2H2O}</h3>
+            <math-field id="mhchem2">\ce{2H2 + O2 -> 2H2O}</math-field>
+            <div class="result" id="mhchem2-result"></div>
+        </div>
+    </div>
+
+    <script>
+        // MathLive 초기화 및 테스트
+        function initializeMathField(id) {
+            const mathField = document.getElementById(id);
+            const resultDiv = document.getElementById(id + '-result');
+            
+            try {
+                // MathLive 설정
+                mathField.addEventListener('input', (ev) => {
+                    const latex = mathField.getValue();
+                    resultDiv.innerHTML = `<strong>LaTeX:</strong> ${latex}`;
+                    resultDiv.className = 'result success';
+                });
+                
+                // 초기 값 설정
+                mathField.dispatchEvent(new Event('input'));
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        // 모든 math-field 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            const mathFields = document.querySelectorAll('math-field');
+            mathFields.forEach(field => {
+                initializeMathField(field.id);
+            });
+        });
+
+        // MathLive 버전 정보 표시
+        document.addEventListener('DOMContentLoaded', () => {
+            const versionInfo = document.createElement('div');
+            versionInfo.innerHTML = `<p><strong>MathLive Version:</strong> ${MathLive.version || 'Unknown'}</p>`;
+            document.body.insertBefore(versionInfo, document.body.firstChild);
+        });
+    </script>
+</body>
+</html>

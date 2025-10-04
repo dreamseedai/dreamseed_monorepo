@@ -1,0 +1,33 @@
+---
+- name: Canary deploy to selected instance(s)
+  hosts: all
+  become: true
+  vars:
+    # 예: py-a 인스턴스만 대상으로
+    canary_instances: ["py-a"]
+    canary_health_url: "http://127.0.0.1:9009/healthz"
+    max_wait: 90
+  tasks:
+    - name: Update code/config for canary instances
+      debug: msg="Deploy app to {{ item }} (code sync steps go here: git/rsync/artifact)"
+      loop: "{{ canary_instances }}"
+
+    - name: Restart canary instance
+      systemd:
+        name: "alert-threader@{{ item }}"
+        state: restarted
+      loop: "{{ canary_instances }}"
+
+    - name: Wait for health (per canary)
+      uri:
+        url: "{{ canary_health_url }}"
+        status_code: 200
+        validate_certs: no
+      register: res
+      until: res.status == 200
+      retries: 15
+      delay: 6
+
+    - name: Promotion approved (manual gate)
+      pause:
+        prompt: "Canary OK. Press Enter to promote to full fleet, or Ctrl+C/A to abort"

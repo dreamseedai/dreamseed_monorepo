@@ -21,7 +21,8 @@ export function apiPath(input: string): string {
   } catch {}
 
   let pathOnly = stripHostnameSegment(raw);
-  pathOnly = pathOnly.replace(/^\/?api\/?/i, "");
+  // Keep /api/ prefix for proper routing
+  // pathOnly = pathOnly.replace(/^\/?api\/?/i, "");
 
   // GLOBAL slash collapsing
   let clean = ("/" + pathOnly).replace(/\/+/, "/").replace(/\/+/, "/");
@@ -32,8 +33,8 @@ export function apiPath(input: string): string {
   clean = clean.replace(/\/+/, "/");
   // Simpler: one global replace
   clean = ("/" + pathOnly).replace(/\/+/, "/");
-  // Remove trailing slash except root
-  if (clean.length > 1 && clean.endsWith("/")) clean = clean.slice(0, -1);
+  // Keep trailing slash for /api/recommend/ endpoint
+  // if (clean.length > 1 && clean.endsWith("/")) clean = clean.slice(0, -1);
 
   const finalPath = (API_BASE + clean).replace(/\/+/, "/");
   return finalPath;
@@ -44,12 +45,10 @@ async function raw(path: string, opts: RequestInit = {}) {
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   let url = apiPath(path);
   url = url.replace(/^\/(?:www\.)?[^\/:\s]+\.[^\/:\s]+(?::\d+)?(\/api\/.*)$/i, "$1");
-  url = url.replace(/^\/api\/recommend\/?$/i, "/api/recommend");
+  // url = url.replace(/^\/api\/recommend\/?$/i, "/api/recommend");
 
   let finalOpts: RequestInit = { cache: "no-store", ...opts };
-  if (url === "/api/recommend" && !finalOpts.method) {
-    finalOpts.method = "POST";
-  }
+  // POST 메서드 자동 설정 제거 - 이제 GET으로 명시적 호출
   if (/^\/[\w.-]+\.[\w.-]+\/api\//i.test(url)) {
     // eslint-disable-next-line no-console
     console.warn("[api] host segment stripped, final:", url, path);

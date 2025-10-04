@@ -1,0 +1,63 @@
+name: _slack-thread-reply
+on:
+  workflow_call:
+    inputs:
+      thread_ts: { required: true, type: string }
+      text:      { required: true, type: string }
+      rollback_cmd: { required: false, type: string, default: '' }
+      rollback_url: { required: false, type: string, default: '' }
+      channel:   { required: false, type: string, default: '' }
+      grafana_panel_url: { required: false, type: string, default: '' }
+      prom_dash_url:     { required: false, type: string, default: '' }
+      loki_explore_url:  { required: false, type: string, default: '' }
+      slo_dash_url:      { required: false, type: string, default: '' }
+      sla_dash_url:      { required: false, type: string, default: '' }
+      jvm_dash_url:      { required: false, type: string, default: '' }
+      db_dash_url:       { required: false, type: string, default: '' }
+    secrets:
+      SLACK_BOT_TOKEN: { required: true }
+      SLACK_CHANNEL_ID:{ required: false }
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    steps:
+      - id: send
+        env:
+          TOKEN:   ${{ secrets.SLACK_BOT_TOKEN }}
+          CHANNEL: ${{ inputs.channel || secrets.SLACK_CHANNEL_ID }}
+          TS:      ${{ inputs.thread_ts }}
+          TEXT:    ${{ inputs.text }}
+          ROLLBACK_CMD: ${{ inputs.rollback_cmd }}
+          ROLLBACK_URL: ${{ inputs.rollback_url }}
+          GRAFANA_PANEL_URL: ${{ inputs.grafana_panel_url }}
+          PROM_DASH_URL:     ${{ inputs.prom_dash_url }}
+          LOKI_EXPLORE_URL:  ${{ inputs.loki_explore_url }}
+          SLO_DASH_URL:      ${{ inputs.slo_dash_url }}
+          SLA_DASH_URL:      ${{ inputs.sla_dash_url }}
+          JVM_DASH_URL:      ${{ inputs.jvm_dash_url }}
+          DB_DASH_URL:       ${{ inputs.db_dash_url }}
+        run: |
+          hint=""
+          if [ -n "$ROLLBACK_CMD" ] || [ -n "$ROLLBACK_URL" ]; then
+            hint+=$'\n\n*Rollback:*'
+            [ -n "$ROLLBACK_CMD" ] && hint+=$'\n```'"$ROLLBACK_CMD"$'```'
+            [ -n "$ROLLBACK_URL" ] && hint+=$'\n<'"$ROLLBACK_URL"'|Open rollback playbook>'
+          fi
+          
+          # Add dashboard links if any are configured
+          if [ -n "$GRAFANA_PANEL_URL" ] || [ -n "$PROM_DASH_URL" ] || [ -n "$LOKI_EXPLORE_URL" ] || [ -n "$SLO_DASH_URL" ] || [ -n "$SLA_DASH_URL" ] || [ -n "$JVM_DASH_URL" ] || [ -n "$DB_DASH_URL" ]; then
+            hint+=$'\n\n*Dashboards:*'
+            [ -n "$GRAFANA_PANEL_URL" ] && hint+=$'\n• <'"$GRAFANA_PANEL_URL"'|Grafana panel>'
+            [ -n "$PROM_DASH_URL" ]    && hint+=$'\n• <'"$PROM_DASH_URL"'|Prometheus>'
+            [ -n "$LOKI_EXPLORE_URL" ] && hint+=$'\n• <'"$LOKI_EXPLORE_URL"'|Loki Explore>'
+            [ -n "$SLO_DASH_URL" ]     && hint+=$'\n• <'"$SLO_DASH_URL"'|SLO>'
+            [ -n "$SLA_DASH_URL" ]     && hint+=$'\n• <'"$SLA_DASH_URL"'|SLA>'
+            [ -n "$JVM_DASH_URL" ]     && hint+=$'\n• <'"$JVM_DASH_URL"'|JVM>'
+            [ -n "$DB_DASH_URL" ]      && hint+=$'\n• <'"$DB_DASH_URL"'|DB>'
+          fi
+          
+          payload=$(jq -nc --arg ch "$CHANNEL" --arg ts "$TS" --arg tx "$TEXT$hint" '{channel:$ch, thread_ts:$ts, text:$tx, unfurl_links:false, unfurl_media:false}')
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+            --data "$payload" >/dev/null || true

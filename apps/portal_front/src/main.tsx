@@ -48,7 +48,7 @@
           keepalive: rClone.keepalive,
           signal: init?.signal ?? rClone.signal,
         };
-        if (nurl === "/api/recommend" && !init?.method && !rClone.method) finalInit.method = "POST";
+        // POST 메서드 자동 설정 제거
         return orig(new Request(nurl, finalInit));
       }
       return orig(input, init);
@@ -59,7 +59,7 @@
     if (sameOrigin(url) && (/\/api\//i.test(url) || HOST_RE.test(url))) {
       const nurl = normalize(url);
       const finalInit: RequestInit = { cache: "no-store", ...init };
-      if (nurl === "/api/recommend" && !finalInit.method) finalInit.method = "POST";
+      // POST 메서드 자동 설정 제거
       return orig(nurl, finalInit);
     }
     return orig(input as any, init);

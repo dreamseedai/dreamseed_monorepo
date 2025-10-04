@@ -1,0 +1,20 @@
+[Unit]
+Description=DreamSeed SQLite backup job
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/home/won/projects/dreamseed_monorepo/dreamseed-backup.env
+# I/O/CPU 낮춤
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+ExecStart=/home/won/projects/dreamseed_monorepo/sqlite-backup.sh
+StandardOutput=journal
+StandardError=journal
+
+# 보안 설정
+NoNewPrivileges=yes
+PrivateTmp=true
+

@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSeedAI - 문제 풀이</title>
+    
+    <!-- CSS 프레임워크 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- TipTap CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/@tiptap/core@2.1.0/dist/index.css">
+    <link rel="stylesheet" href="https://unpkg.com/@tiptap/extension-math@2.1.0/dist/index.css">
+    
+    <!-- MathLive CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/mathlive@0.95.0/dist/mathlive-static.css">
+    
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --info-color: #17a2b8;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .question-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .question-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--info-color));
+            color: white;
+            padding: 20px;
+        }
+
+        .question-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .question-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .question-content {
+            padding: 30px;
+            line-height: 1.6;
+        }
+
+        .tab-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin: 20px 0;
+        }
+
+        .tab-nav {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: var(--secondary-color);
+            position: relative;
+        }
+
+        .tab-button:hover {
+            background: #e9ecef;
+            color: var(--primary-color);
+        }
+
+        .tab-button.active {
+            background: white;
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+        }
+
+        .tab-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .tab-content {
+            padding: 30px;
+            min-height: 200px;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .answer-section {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin: 20px 0;
+            padding: 30px;
+        }
+
+        .answer-options {
+            margin: 20px 0;
+        }
+
+        .answer-option {
+            margin: 10px 0;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .answer-option:hover {
+            border-color: var(--primary-color);
+            background: #f8f9ff;
+        }
+
+        .answer-option.selected {
+            border-color: var(--primary-color);
+            background: #e3f2fd;
+        }
+
+        .navigation-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .btn-custom {
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary-custom {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary-custom:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .btn-success-custom {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-success-custom:hover {
+            background: #1e7e34;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary-custom {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-secondary-custom:hover {
+            background: #545b62;
+            transform: translateY(-2px);
+        }
+
+        .progress-info {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .progress-bar-custom {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--info-color));
+            transition: width 0.3s ease;
+        }
+
+        .math-content {
+            font-size: 1.1rem;
+            line-height: 1.8;
+        }
+
+        .math-content .math {
+            display: inline-block;
+            margin: 0 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: var(--secondary-color);
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .question-content {
+                padding: 20px;
+            }
+            
+            .tab-content {
+                padding: 20px;
+            }
+            
+            .navigation-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn-custom {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+
+        /* MathLive 스타일 커스터마이징 */
+        .mathlive-input {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 1.1rem;
+            min-height: 50px;
+        }
+
+        .mathlive-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- 헤더 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="question-container">
+                    <div class="question-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h1 class="question-title" id="questionTitle">문제 로딩 중...</h1>
+                                <div class="question-meta" id="questionMeta">
+                                    <span><i class="fas fa-book"></i> 과목: <span id="subject">-</span></span>
+                                    <span><i class="fas fa-graduation-cap"></i> 학년: <span id="grade">-</span></span>
+                                    <span><i class="fas fa-layer-group"></i> 난이도: <span id="level">-</span></span>
+                                    <span><i class="fas fa-hashtag"></i> ID: <span id="questionId">-</span></span>
+                                </div>
+                            </div>
+                            <div class="progress-info">
+                                <div id="progressText">1 / 1</div>
+                                <div class="progress-bar-custom">
+                                    <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 문제 내용 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="question-container">
+                    <div class="question-content">
+                        <h3><i class="fas fa-file-alt"></i> 문제</h3>
+                        <hr>
+                        <div class="math-content" id="questionContent">
+                            <div class="loading">
+                                <i class="fas fa-spinner fa-spin"></i> 문제를 불러오는 중...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 탭 컨테이너 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="tab-container">
+                    <div class="tab-nav">
+                        <button class="tab-button" id="hintTab" onclick="showTab('hint')">
+                            <i class="fas fa-info-circle"></i> 힌트
+                        </button>
+                        <button class="tab-button" id="solutionTab" onclick="showTab('solution')">
+                            <i class="fas fa-check-square"></i> 해답
+                        </button>
+                        <button class="tab-button" id="answerTab" onclick="showTab('answer')">
+                            <i class="fas fa-pen-square"></i> 정답
+                        </button>
+                        <button class="tab-button" id="resourcesTab" onclick="showTab('resources')">
+                            <i class="fas fa-file-alt"></i> 자료
+                        </button>
+                    </div>
+                    
+                    <div class="tab-content">
+                        <div class="tab-panel" id="hintPanel">
+                            <div class="math-content" id="hintContent">
+                                <p class="text-muted">힌트가 없습니다.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-panel" id="solutionPanel">
+                            <div class="math-content" id="solutionContent">
+                                <p class="text-muted">해답이 없습니다.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-panel" id="answerPanel">
+                            <div class="math-content" id="answerContent">
+                                <p class="text-muted">정답이 없습니다.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-panel" id="resourcesPanel">
+                            <div class="math-content" id="resourcesContent">
+                                <p class="text-muted">추가 자료가 없습니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 답안 입력 섹션 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="answer-section">
+                    <h3><i class="fas fa-pen"></i> 답안</h3>
+                    <hr>
+                    
+                    <!-- 객관식 답안 -->
+                    <div id="multipleChoiceSection" style="display: none;">
+                        <div class="answer-options" id="answerOptions">
+                            <!-- 동적으로 생성됨 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 주관식 답안 -->
+                    <div id="subjectiveSection" style="display: none;">
+                        <div class="mb-3">
+                            <label class="form-label">수학 공식 입력:</label>
+                            <div class="mathlive-input" id="mathInput"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">텍스트 답안:</label>
+                            <textarea class="form-control" id="textAnswer" rows="3" placeholder="답안을 입력하세요..."></textarea>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="solvedCheckbox" checked>
+                            <label class="form-check-label" for="solvedCheckbox">
+                                문제를 풀었습니다
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 네비게이션 버튼 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="navigation-buttons">
+                    <button class="btn btn-custom btn-secondary-custom" onclick="saveToFavorites()">
+                        <i class="fas fa-heart"></i> 즐겨찾기
+                    </button>
+                    <button class="btn btn-custom btn-primary-custom" onclick="submitAnswer()">
+                        <i class="fas fa-arrow-right"></i> 다음 문제
+                    </button>
+                    <button class="btn btn-custom btn-secondary-custom" onclick="closeWindow()">
+                        <i class="fas fa-times"></i> 닫기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 라이브러리 -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/mathlive@0.95.0/dist/mathlive.min.js"></script>
+    <script src="https://unpkg.com/@tiptap/core@2.1.0/dist/index.umd.js"></script>
+    <script src="https://unpkg.com/@tiptap/extension-math@2.1.0/dist/index.umd.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        // 전역 변수
+        let currentQuestion = null;
+        let currentQuestionId = null;
+        let selectedAnswer = null;
+        let startTime = Date.now();
+        let mathInput = null;
+
+        // MathJax 설정
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMathLive();
+            loadQuestionFromURL();
+            setupEventListeners();
+        });
+
+        // MathLive 초기화
+        function initializeMathLive() {
+            const mathInputElement = document.getElementById('mathInput');
+            if (mathInputElement) {
+                mathInput = MathLive.makeMathField(mathInputElement, {
+                    virtualKeyboardMode: 'manual',
+                    virtualKeyboards: 'all',
+                    smartFence: true,
+                    smartSuperscript: true,
+                    removeExtraneousParentheses: true
+                });
+            }
+        }
+
+        // URL에서 문제 ID 추출
+        function loadQuestionFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const questionId = urlParams.get('id');
+            const subject = urlParams.get('subject');
+            const grade = urlParams.get('grade');
+            const category = urlParams.get('category');
+            const level = urlParams.get('level');
+            const keyword = urlParams.get('keyword');
+
+            if (questionId) {
+                loadQuestion(questionId);
+            } else {
+                loadQuestionWithFilters({ subject, grade, category, level, keyword });
+            }
+        }
+
+        // 문제 로드
+        async function loadQuestion(questionId) {
+            try {
+                showLoading();
+                const response = await fetch(`/api/questions/${questionId}`);
+                if (!response.ok) {
+                    throw new Error('문제를 불러올 수 없습니다');
+                }
+                const data = await response.json();
+                displayQuestion(data);
+            } catch (error) {
+                showError('문제를 불러오는 중 오류가 발생했습니다: ' + error.message);
+            }
+        }
+
+        // 필터로 문제 로드
+        async function loadQuestionWithFilters(filters) {
+            try {
+                showLoading();
+                const params = new URLSearchParams();
+                Object.keys(filters).forEach(key => {
+                    if (filters[key]) params.append(key, filters[key]);
+                });
+                
+                const response = await fetch(`/api/questions?${params}`);
+                if (!response.ok) {
+                    throw new Error('문제를 불러올 수 없습니다');
+                }
+                const data = await response.json();
+                displayQuestionWithNavigation(data);
+            } catch (error) {
+                showError('문제를 불러오는 중 오류가 발생했습니다: ' + error.message);
+            }
+        }
+
+        // 문제 표시
+        function displayQuestion(question) {
+            currentQuestion = question;
+            currentQuestionId = question.id;
+            startTime = Date.now();
+
+            // 헤더 정보 업데이트
+            document.getElementById('questionTitle').textContent = question.title;
+            document.getElementById('subject').textContent = question.metadata.us_subject || question.metadata.ca_subject || '-';
+            document.getElementById('grade').textContent = question.metadata.us_grade_level || question.metadata.ca_grade_level || '-';
+            document.getElementById('level').textContent = getDifficultyText(question.metadata.difficulty_score);
+            document.getElementById('questionId').textContent = question.id;
+
+            // 문제 내용 표시
+            displayMathContent('questionContent', question.content);
+
+            // 탭 내용 표시
+            displayMathContent('hintContent', question.hint || '힌트가 없습니다.');
+            displayMathContent('solutionContent', question.solution || '해답이 없습니다.');
+            displayMathContent('answerContent', question.answer || '정답이 없습니다.');
+            displayMathContent('resourcesContent', question.resources || '추가 자료가 없습니다.');
+
+            // 탭 버튼 활성화/비활성화
+            updateTabButtons(question);
+
+            // 답안 섹션 설정
+            setupAnswerSection(question);
+
+            // 진행률 업데이트
+            updateProgress(1, 1);
+        }
+
+        // 네비게이션과 함께 문제 표시
+        function displayQuestionWithNavigation(navigationData) {
+            displayQuestion(navigationData.current_question);
+            
+            // 네비게이션 정보 업데이트
+            updateProgress(navigationData.current_position, navigationData.total_questions);
+            
+            // 다음/이전 버튼 상태 업데이트
+            updateNavigationButtons(navigationData);
+        }
+
+        // 수학 내용 표시
+        function displayMathContent(elementId, content) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            if (!content || content.trim() === '') {
+                element.innerHTML = '<p class="text-muted">내용이 없습니다.</p>';
+                return;
+            }
+
+            // MathML을 LaTeX로 변환 (필요한 경우)
+            let processedContent = content;
+            
+            // MathML 태그를 MathJax 형식으로 변환
+            processedContent = processedContent.replace(/<math[^>]*>/g, '\\[');
+            processedContent = processedContent.replace(/<\/math>/g, '\\]');
+            
+            // Wiris MathML을 LaTeX로 변환 (간단한 예시)
+            processedContent = processedContent.replace(/<m:math[^>]*>(.*?)<\/m:math>/g, '\\[$1\\]');
+            
+            element.innerHTML = processedContent;
+            
+            // MathJax 렌더링
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise([element]).catch(err => {
+                    console.error('MathJax 렌더링 오류:', err);
+                });
+            }
+        }
+
+        // 탭 버튼 업데이트
+        function updateTabButtons(question) {
+            const tabs = [
+                { id: 'hintTab', content: question.hint },
+                { id: 'solutionTab', content: question.solution },
+                { id: 'answerTab', content: question.answer },
+                { id: 'resourcesTab', content: question.resources }
+            ];
+
+            tabs.forEach(tab => {
+                const button = document.getElementById(tab.id);
+                if (button) {
+                    if (tab.content && tab.content.trim() !== '') {
+                        button.disabled = false;
+                        button.style.opacity = '1';
+                    } else {
+                        button.disabled = true;
+                        button.style.opacity = '0.5';
+                    }
+                }
+            });
+        }
+
+        // 답안 섹션 설정
+        function setupAnswerSection(question) {
+            const multipleChoiceSection = document.getElementById('multipleChoiceSection');
+            const subjectiveSection = document.getElementById('subjectiveSection');
+
+            if (question.answer_type === 1) {
+                // 객관식
+                multipleChoiceSection.style.display = 'block';
+                subjectiveSection.style.display = 'none';
+                setupMultipleChoice(question.examples || []);
+            } else {
+                // 주관식
+                multipleChoiceSection.style.display = 'none';
+                subjectiveSection.style.display = 'block';
+            }
+        }
+
+        // 객관식 설정
+        function setupMultipleChoice(examples) {
+            const container = document.getElementById('answerOptions');
+            container.innerHTML = '';
+
+            examples.forEach((example, index) => {
+                const option = document.createElement('div');
+                option.className = 'answer-option';
+                option.onclick = () => selectAnswer(index + 1);
+                
+                option.innerHTML = `
+                    <input type="radio" name="answer" value="${index + 1}" id="option${index + 1}">
+                    <label for="option${index + 1}">${example}</label>
+                `;
+                
+                container.appendChild(option);
+            });
+        }
+
+        // 답안 선택
+        function selectAnswer(answer) {
+            selectedAnswer = answer;
+            
+            // 모든 옵션에서 선택 상태 제거
+            document.querySelectorAll('.answer-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // 선택된 옵션에 선택 상태 추가
+            const selectedOption = document.querySelector(`input[value="${answer}"]`).closest('.answer-option');
+            selectedOption.classList.add('selected');
+        }
+
+        // 탭 표시
+        function showTab(tabName) {
+            // 모든 탭 패널 숨기기
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            
+            // 모든 탭 버튼 비활성화
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // 선택된 탭 표시
+            document.getElementById(tabName + 'Panel').classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        // 진행률 업데이트
+        function updateProgress(current, total) {
+            const progressText = document.getElementById('progressText');
+            const progressBar = document.getElementById('progressBar');
+            
+            if (progressText) {
+                progressText.textContent = `${current} / ${total}`;
+            }
+            
+            if (progressBar) {
+                const percentage = (current / total) * 100;
+                progressBar.style.width = percentage + '%';
+            }
+        }
+
+        // 네비게이션 버튼 업데이트
+        function updateNavigationButtons(navigationData) {
+            // 다음 문제 버튼 텍스트 업데이트
+            const nextButton = document.querySelector('button[onclick="submitAnswer()"]');
+            if (nextButton) {
+                if (navigationData.next_question_id) {
+                    nextButton.innerHTML = '<i class="fas fa-arrow-right"></i> 다음 문제';
+                } else {
+                    nextButton.innerHTML = '<i class="fas fa-check"></i> 완료';
+                }
+            }
+        }
+
+        // 답안 제출
+        async function submitAnswer() {
+            if (!currentQuestion) return;
+
+            const timeTaken = Math.round((Date.now() - startTime) / 1000);
+            let answer = null;
+            let isCorrect = false;
+
+            if (currentQuestion.answer_type === 1) {
+                // 객관식
+                if (!selectedAnswer) {
+                    alert('답안을 선택해주세요.');
+                    return;
+                }
+                answer = selectedAnswer.toString();
+                isCorrect = (answer === currentQuestion.answer);
+            } else {
+                // 주관식
+                const solvedCheckbox = document.getElementById('solvedCheckbox');
+                if (!solvedCheckbox.checked) {
+                    alert('문제를 풀었다고 체크해주세요.');
+                    return;
+                }
+                
+                const mathAnswer = mathInput ? mathInput.getValue() : '';
+                const textAnswer = document.getElementById('textAnswer').value;
+                answer = mathAnswer + (textAnswer ? ' | ' + textAnswer : '');
+                isCorrect = true; // 주관식은 항상 정답으로 처리
+            }
+
+            // 시도 기록 저장
+            try {
+                await fetch('/api/attempts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question_id: currentQuestionId,
+                        user_id: getCurrentUserId(),
+                        is_correct: isCorrect,
+                        time_taken_sec: timeTaken,
+                        answer: answer
+                    })
+                });
+            } catch (error) {
+                console.error('시도 기록 저장 오류:', error);
+            }
+
+            // 다음 문제로 이동 또는 완료
+            const urlParams = new URLSearchParams(window.location.search);
+            const nextQuestionId = urlParams.get('next_id');
+            
+            if (nextQuestionId) {
+                window.location.href = `?id=${nextQuestionId}`;
+            } else {
+                alert('문제 풀이가 완료되었습니다!');
+                window.close();
+            }
+        }
+
+        // 즐겨찾기에 저장
+        async function saveToFavorites() {
+            if (!currentQuestion) return;
+
+            try {
+                const response = await fetch('/api/favorites', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question_id: currentQuestionId,
+                        user_id: getCurrentUserId(),
+                        subject: currentQuestion.metadata.us_subject || currentQuestion.metadata.ca_subject,
+                        grade: currentQuestion.metadata.us_grade_level || currentQuestion.metadata.ca_grade_level,
+                        category: 'default',
+                        level: getDifficultyText(currentQuestion.metadata.difficulty_score)
+                    })
+                });
+
+                if (response.ok) {
+                    showSuccess('즐겨찾기에 저장되었습니다!');
+                } else {
+                    throw new Error('저장 실패');
+                }
+            } catch (error) {
+                showError('즐겨찾기 저장 중 오류가 발생했습니다: ' + error.message);
+            }
+        }
+
+        // 창 닫기
+        function closeWindow() {
+            if (confirm('정말로 닫으시겠습니까?')) {
+                window.close();
+            }
+        }
+
+        // 유틸리티 함수들
+        function getDifficultyText(score) {
+            if (score < 0.3) return '쉬움';
+            if (score < 0.7) return '보통';
+            return '어려움';
+        }
+
+        function getCurrentUserId() {
+            // 실제 구현에서는 인증 시스템에서 사용자 ID를 가져옴
+            return 'user_' + Date.now();
+        }
+
+        function showLoading() {
+            document.getElementById('questionContent').innerHTML = 
+                '<div class="loading"><i class="fas fa-spinner fa-spin"></i> 문제를 불러오는 중...</div>';
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            document.getElementById('questionContent').innerHTML = '';
+            document.getElementById('questionContent').appendChild(errorDiv);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+            document.body.insertBefore(successDiv, document.body.firstChild);
+            
+            // 3초 후 자동 제거
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+
+        function setupEventListeners() {
+            // 키보드 단축키
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    switch(e.key) {
+                        case 's':
+                            e.preventDefault();
+                            saveToFavorites();
+                            break;
+                        case 'Enter':
+                            e.preventDefault();
+                            submitAnswer();
+                            break;
+                    }
+                }
+            });
+
+            // 우클릭 방지
+            document.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+            });
+
+            // 복사/붙여넣기 방지
+            document.addEventListener('copy paste cut', function(e) {
+                e.preventDefault();
+            });
+        }
+    </script>
+</body>
+</html>

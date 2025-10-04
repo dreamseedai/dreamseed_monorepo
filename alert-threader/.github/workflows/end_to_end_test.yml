@@ -1,0 +1,188 @@
+name: End-to-End Test
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install pytest requests
+      
+      - name: Create E2E test
+        run: |
+          cat > test_e2e.py << 'EOF'
+          import pytest
+          import requests
+          import time
+          import json
+          
+          class TestThreaderE2E:
+              def __init__(self):
+                  self.base_url = "http://192.168.68.116:9009"
+                  self.timeout = 30
+              
+              def test_health_endpoint(self):
+                  """Test health endpoint responds correctly"""
+                  response = requests.get(f"{self.base_url}/health", timeout=self.timeout)
+                  assert response.status_code == 200
+                  assert response.json()["status"] == "ok"
+              
+              def test_alert_endpoint(self):
+                  """Test alert processing"""
+                  alert_data = {
+                      "alerts": [{
+                          "status": "firing",
+                          "labels": {
+                              "alertname": "TestAlert",
+                              "severity": "warning"
+                          },
+                          "annotations": {
+                              "summary": "Test alert for E2E",
+                              "description": "This is a test alert"
+                          }
+                      }]
+                  }
+                  
+                  response = requests.post(
+                      f"{self.base_url}/alert",
+                      json=alert_data,
+                      timeout=self.timeout
+                  )
+                  assert response.status_code == 200
+              
+              def test_metrics_endpoint(self):
+                  """Test metrics endpoint"""
+                  response = requests.get(f"{self.base_url}/metrics", timeout=self.timeout)
+                  assert response.status_code == 200
+                  assert "http_requests_total" in response.text
+              
+              def test_thread_persistence(self):
+                  """Test that threads are persisted correctly"""
+                  # Send initial alert
+                  alert_data = {
+                      "alerts": [{
+                          "status": "firing",
+                          "labels": {"alertname": "ThreadTest", "severity": "info"}
+                      }]
+                  }
+                  
+                  response1 = requests.post(f"{self.base_url}/alert", json=alert_data)
+                  assert response1.status_code == 200
+                  
+                  # Wait a bit
+                  time.sleep(2)
+                  
+                  # Send resolved alert
+                  alert_data["alerts"][0]["status"] = "resolved"
+                  response2 = requests.post(f"{self.base_url}/alert", json=alert_data)
+                  assert response2.status_code == 200
+              
+              def test_error_handling(self):
+                  """Test error handling"""
+                  # Test invalid JSON
+                  response = requests.post(
+                      f"{self.base_url}/alert",
+                      data="invalid json",
+                      headers={"Content-Type": "application/json"}
+                  )
+                  assert response.status_code == 400
+              
+              def test_concurrent_requests(self):
+                  """Test concurrent request handling"""
+                  import threading
+                  import queue
+                  
+                  results = queue.Queue()
+                  
+                  def send_alert(alert_id):
+                      alert_data = {
+                          "alerts": [{
+                              "status": "firing",
+                              "labels": {"alertname": f"ConcurrentTest{alert_id}"}
+                          }]
+                      }
+                      response = requests.post(f"{self.base_url}/alert", json=alert_data)
+                      results.put(response.status_code)
+                  
+                  # Send 5 concurrent requests
+                  threads = []
+                  for i in range(5):
+                      thread = threading.Thread(target=send_alert, args=(i,))
+                      threads.append(thread)
+                      thread.start()
+                  
+                  for thread in threads:
+                      thread.join()
+                  
+                  # Check all requests succeeded
+                  while not results.empty():
+                      assert results.get() == 200
+          
+          if __name__ == "__main__":
+              test = TestThreaderE2E()
+              test.test_health_endpoint()
+              test.test_alert_endpoint()
+              test.test_metrics_endpoint()
+              test.test_thread_persistence()
+              test.test_error_handling()
+              test.test_concurrent_requests()
+              print("All E2E tests passed!")
+          EOF
+      
+      - name: Run E2E tests
+        run: python test_e2e.py
+      
+      - name: Run with pytest for better reporting
+        run: |
+          cat > test_e2e_pytest.py << 'EOF'
+          import pytest
+          import requests
+          import time
+          import json
+          
+          @pytest.fixture
+          def threader_client():
+              return requests.Session()
+          
+          @pytest.fixture
+          def base_url():
+              return "http://192.168.68.116:9009"
+          
+          def test_health_endpoint(threader_client, base_url):
+              response = threader_client.get(f"{base_url}/health", timeout=30)
+              assert response.status_code == 200
+              assert response.json()["status"] == "ok"
+          
+          def test_alert_processing(threader_client, base_url):
+              alert_data = {
+                  "alerts": [{
+                      "status": "firing",
+                      "labels": {"alertname": "E2ETest", "severity": "warning"},
+                      "annotations": {"summary": "E2E test alert"}
+                  }]
+              }
+              response = threader_client.post(f"{base_url}/alert", json=alert_data, timeout=30)
+              assert response.status_code == 200
+          
+          def test_metrics_availability(threader_client, base_url):
+              response = threader_client.get(f"{base_url}/metrics", timeout=30)
+              assert response.status_code == 200
+              assert "http_requests_total" in response.text
+          EOF
+          
+          pytest test_e2e_pytest.py -v --tb=short
+
+

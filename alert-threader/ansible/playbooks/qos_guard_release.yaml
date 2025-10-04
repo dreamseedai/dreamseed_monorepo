@@ -1,0 +1,176 @@
+---
+- name: Release QoS guard-window when SLOs are stable
+  hosts: all
+  become: true
+  vars:
+    prom_url: "{{ prometheus_url | default('http://prometheus.local:9090') }}"
+    loki_url: "{{ loki_url | default('http://loki.local:3100') }}"
+    job: "{{ threader_job | default('threader') }}"
+    max_5xx_ratio: "{{ max_5xx_ratio | default(0.01) }}"
+    min_health_ratio: "{{ min_health_ratio | default(0.995) }}"
+    max_error_logs_per_min: "{{ max_error_logs_per_min | default(1) }}"
+    window: "{{ stability_window | default('15m') }}"
+    guard_script: "{{ qos_guard_script | default('/usr/local/sbin/qos_guard.sh') }}"
+  
+  tasks:
+    - name: Check if QoS guard-window is locked
+      shell: "{{ guard_script }} status"
+      register: guard_status
+      failed_when: false
+      changed_when: false
+
+    - name: Skip if guard-window is not locked
+      meta: end_play
+      when: guard_status.rc == 0
+
+    - name: Query Prometheus - 5xx error ratio over window
+      uri:
+        url: "{{ prom_url }}/api/v1/query"
+        method: GET
+        body_format: form-urlencoded
+        body:
+          query: "avg_over_time(job:http_5xx_ratio_1m{job=\"{{ job }}\"}[{{ window }}])"
+        return_content: true
+        status_code: 200
+      register: prom_5xx
+      failed_when: false
+
+    - name: Set 5xx ratio fact
+      set_fact:
+        five_xx: "{{ (prom_5xx.json.data.result | first).value[1] | float | default(0.0) }}"
+      when: prom_5xx.json.data.result is defined and prom_5xx.json.data.result | length > 0
+
+    - name: Set default 5xx ratio
+      set_fact:
+        five_xx: 0.0
+      when: prom_5xx.json.data.result is not defined or prom_5xx.json.data.result | length == 0
+
+    - name: Query Prometheus - health ratio over window
+      uri:
+        url: "{{ prom_url }}/api/v1/query"
+        method: GET
+        body_format: form-urlencoded
+        body:
+          query: "avg_over_time(job:health_ok_ratio_1m{job=\"{{ job }}\"}[{{ window }}])"
+        return_content: true
+        status_code: 200
+      register: prom_health
+      failed_when: false
+
+    - name: Set health ratio fact
+      set_fact:
+        health: "{{ (prom_health.json.data.result | first).value[1] | float | default(1.0) }}"
+      when: prom_health.json.data.result is defined and prom_health.json.data.result | length > 0
+
+    - name: Set default health ratio
+      set_fact:
+        health: 1.0
+      when: prom_health.json.data.result is not defined or prom_health.json.data.result | length == 0
+
+    - name: Query Loki - error log rate over window
+      uri:
+        url: "{{ loki_url }}/loki/api/v1/query"
+        method: GET
+        body_format: form-urlencoded
+        body:
+          query: "avg_over_time(sum(rate({job=\"{{ job }}\"} |~ \"ERROR|Exception|Traceback\"[1m])[{{ window }}])"
+        return_content: true
+        status_code: 200
+      register: loki_errors
+      failed_when: false
+
+    - name: Set error log rate fact
+      set_fact:
+        error_logs: "{{ (loki_errors.json.data.result | first).value[1] | float | default(0.0) }}"
+      when: loki_errors.json.data.result is defined and loki_errors.json.data.result | length > 0
+
+    - name: Set default error log rate
+      set_fact:
+        error_logs: 0.0
+      when: loki_errors.json.data.result is not defined or loki_errors.json.data.result | length == 0
+
+    - name: Display current SLO metrics
+      debug:
+        msg: |
+          Current SLO metrics over {{ window }}:
+          - 5xx error ratio: {{ "%.4f" | format(five_xx) }} (max: {{ max_5xx_ratio }})
+          - Health ratio: {{ "%.4f" | format(health) }} (min: {{ min_health_ratio }})
+          - Error logs/min: {{ "%.2f" | format(error_logs) }} (max: {{ max_error_logs_per_min }})
+
+    - name: Check SLO compliance
+      set_fact:
+        slo_violated: "{{ five_xx > max_5xx_ratio or health < min_health_ratio or error_logs > max_error_logs_per_min }}"
+
+    - name: Create Jira issue on SLO breach
+      when: slo_violated and jira_enabled | default(false)
+      command: >
+        /usr/local/sbin/create_jira_issue.sh
+        JIRA_BASE="{{ jira_base }}"
+        JIRA_USER="{{ jira_user }}"
+        JIRA_TOKEN="{{ jira_token }}"
+        JIRA_PROJECT="{{ jira_project }}"
+        SUMMARY="SLO breach detected on {{ inventory_hostname }}"
+        DESC="SLO metrics exceeded thresholds:
+        - 5xx error ratio: {{ five_xx }} (threshold: {{ max_5xx_ratio }})
+        - Health ratio: {{ health }} (threshold: {{ min_health_ratio }})
+        - Error logs/min: {{ error_logs }} (threshold: {{ max_error_logs_per_min }})
+        
+        Environment: {{ environment | default('unknown') }}
+        Host: {{ inventory_hostname }}
+        Time: {{ ansible_date_time.iso8601 }}
+        
+        Please investigate the system stability and consider manual intervention."
+        JIRA_PRIORITY="{{ jira_priority | default('High') }}"
+        JIRA_LABELS="{{ jira_labels | default('slo-breach,auto-generated') }}"
+      register: jira_result
+      failed_when: false
+
+    - name: Create GitHub issue on SLO breach
+      when: slo_violated and github_issue_enabled | default(false)
+      command: >
+        /usr/local/sbin/create_github_issue.sh
+        GH_REPO="{{ gh_repo }}"
+        GH_TOKEN="{{ gh_token }}"
+        TITLE="SLO breach detected on {{ inventory_hostname }}"
+        BODY="SLO metrics exceeded thresholds:
+        - 5xx error ratio: {{ five_xx }} (threshold: {{ max_5xx_ratio }})
+        - Health ratio: {{ health }} (threshold: {{ min_health_ratio }})
+        - Error logs/min: {{ error_logs }} (threshold: {{ max_error_logs_per_min }})
+        
+        Environment: {{ environment | default('unknown') }}
+        Host: {{ inventory_hostname }}
+        Time: {{ ansible_date_time.iso8601 }}
+        
+        Please investigate the system stability and consider manual intervention."
+        GH_LABELS="{{ gh_labels | default('slo-breach,auto-generated') }}"
+        GH_ASSIGNEES="{{ gh_assignees | default('') }}"
+      register: github_result
+      failed_when: false
+
+    - name: Notify Slack thread about SLO breach
+      when: slo_violated and slack_thread_ts is defined
+      shell: >
+        curl -s -H 'Authorization: Bearer {{ slack_bot_token }}' -H 'Content-Type: application/json'
+        --data '{
+          "channel": "{{ slack_channel_id }}",
+          "thread_ts": "{{ slack_thread_ts }}",
+          "text": "❌ SLO breach detected on {{ inventory_hostname }}
+        5xx={{ five_xx }}, health={{ health }}, err/min={{ error_logs }}
+        {% if jira_result is defined and jira_result.stdout %}Jira: {{ jira_result.stdout }}{% endif %}
+        {% if github_result is defined and github_result.stdout %}GitHub: {{ github_result.stdout }}{% endif %}"
+        }'
+        https://slack.com/api/chat.postMessage >/dev/null
+      failed_when: false
+
+    - name: Assert SLO pass
+      fail:
+        msg: "SLO not met: 5xx={{ five_xx }}, health={{ health }}, err/min={{ error_logs }}"
+      when: slo_violated
+
+    - name: Release QoS guard-window
+      shell: "{{ guard_script }} unlock"
+      register: unlock_result
+
+    - name: Confirm guard-window release
+      debug:
+        msg: "✅ QoS guard-window released - SLOs are stable"

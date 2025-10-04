@@ -1,0 +1,30 @@
+{
+  "total_questions": 54,
+  "questions_with_mathml": 1,
+  "total_mathml_tags": 47780,
+  "average_mathml_per_question": 47780.0,
+  "subject_breakdown": {
+    "math": 50,
+    "physics": 8,
+    "chemistry": 2,
+    "biology": 0
+  },
+  "wrs_classes": {
+    "wrs_chemistry": 0,
+    "wrs_math": 0,
+    "wrs_physics": 0,
+    "wrs_biology": 0,
+    "wrs_general": 0,
+    "total": 0
+  },
+  "mathml_complexity": {
+    "simple": 37407,
+    "complex": 6054,
+    "chemistry": 6
+  },
+  "conversion_estimate": {
+    "total_mathml_tags": 47780,
+    "questions_to_convert": 1,
+    "estimated_time_minutes": 398.1666666666667
+  }
+}

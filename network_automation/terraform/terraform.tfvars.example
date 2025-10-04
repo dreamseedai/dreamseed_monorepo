@@ -1,0 +1,39 @@
+# Dream Seed VPC Subnet CIDR Reader - Terraform Variables Example
+# 이 파일을 terraform.tfvars로 복사하고 값을 수정하세요
+
+# AWS 설정
+aws_region = "ap-northeast-2"
+environment = "prod"
+
+# IAM 리소스 이름
+role_name = "DreamSeedVpcSubnetReader"
+policy_name = "DescribeVpcSubnetsPolicy"
+instance_profile_name = "DreamSeedVpcSubnetReaderProfile"
+
+# 보안 설정
+restrict_to_region = true
+multi_region = false
+allowed_regions = ["ap-northeast-2", "us-east-1", "eu-west-1"]
+
+# 리전 제한 옵션:
+# 1. 단일 리전 제한: restrict_to_region = true, multi_region = false
+# 2. 멀티 리전 허용: restrict_to_region = false, multi_region = true
+# 3. 모든 리전 허용: restrict_to_region = false, multi_region = false
+
+# 생성 옵션
+create_instance_profile = true
+create_policy = true
+
+# 설명
+policy_description = "Allow only ec2:DescribeSubnets and ec2:DescribeVpcs for Dream Seed VPC subnet CIDR reading"
+role_description = "Dream Seed VPC Subnet CIDR Reader Role for ALB/NLB environments"
+
+# 추가 태그
+tags = {
+  Project     = "DreamSeed"
+  Environment = "prod"
+  Purpose     = "VPCSubnetCIDRReader"
+  ManagedBy   = "Terraform"
+  Owner       = "DevOps Team"
+  CostCenter  = "Engineering"
+}

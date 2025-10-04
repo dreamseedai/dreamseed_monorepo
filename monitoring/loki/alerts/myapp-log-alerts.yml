@@ -1,0 +1,13 @@
+groups:
+  - name: myapp.log.alerts
+    rules:
+      - alert: ThreaderLogErrorsSpike
+        expr: sum by (job) (rate({job="threader"}|~"ERROR|Exception|Traceback"[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Error logs >5/min for 5m"
+          description: "Pause/abort promotion; check new version logs"
+
+

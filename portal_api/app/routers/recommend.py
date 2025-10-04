@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 
 
-router = APIRouter(prefix="/recommend", tags=["recommend"])
+router = APIRouter(prefix="/recommend", tags=["recommend"], redirect_slashes=False)
 
 
-@router.get("/")
+@router.get("")
 def recommend(db: Session = Depends(get_db)):
     recs = []
     recs.append({"id": 1, "title": "Starter Assessment (5Q)", "reason": "first_login"})

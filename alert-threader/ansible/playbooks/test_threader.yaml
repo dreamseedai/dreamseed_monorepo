@@ -1,0 +1,25 @@
+---
+- name: Verify Alert Threader instances
+  hosts: all
+  become: true
+  tasks:
+    - name: Check if instances are running and healthy
+      uri:
+        url: "http://127.0.0.1:{{ item.port }}/health"
+        status_code: 200
+        validate_certs: no
+      loop: "{{ threader_instances }}"
+      loop_control:
+        label: "Health check for {{ item.name }} on port {{ item.port }}"
+      register: health_checks
+      until: health_checks.json.status == 'ok'
+      retries: 10
+      delay: 5
+      failed_when: health_checks.json.status != 'ok'
+      changed_when: false
+
+    - name: Display health check results
+      debug:
+        msg: "Instance {{ item.item.name }} ({{ item.item.impl }}) on port {{ item.item.port }} is healthy."
+      loop: "{{ health_checks.results }}"
+      when: item.json.status == 'ok'

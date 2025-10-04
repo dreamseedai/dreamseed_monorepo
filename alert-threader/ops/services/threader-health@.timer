@@ -1,0 +1,13 @@
+[Unit]
+Description=Healthcheck timer for threader (%i)
+
+[Timer]
+OnBootSec=2m
+OnUnitActiveSec=1m
+RandomizedDelaySec=15
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
+

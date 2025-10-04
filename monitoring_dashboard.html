@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamSeed 시스템 모니터링 대시보드</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-healthy { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; }
+        .status-error { background-color: #dc3545; }
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+        .log-container {
+            background: #1e1e1e;
+            color: #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center mb-4">
+                    <i class="fas fa-chart-line text-primary"></i>
+                    DreamSeed 시스템 모니터링 대시보드
+                </h1>
+            </div>
+        </div>
+
+        <!-- 시스템 상태 카드 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value" id="apiStatus">
+                        <span class="status-indicator status-healthy"></span>
+                        Healthy
+                    </div>
+                    <div class="metric-label">API 서버 상태</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value" id="cacheStatus">
+                        <span class="status-indicator status-healthy"></span>
+                        Enabled
+                    </div>
+                    <div class="metric-label">Redis 캐시</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value" id="responseTime">0.001s</div>
+                    <div class="metric-label">평균 응답시간</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value" id="rps">1363</div>
+                    <div class="metric-label">초당 요청수 (RPS)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 성능 차트 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5><i class="fas fa-tachometer-alt text-primary"></i> 응답시간 추이</h5>
+                    <canvas id="responseTimeChart"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5><i class="fas fa-server text-success"></i> 시스템 리소스</h5>
+                    <canvas id="resourceChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 캐시 및 데이터베이스 상태 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5><i class="fas fa-database text-info"></i> 캐시 성능</h5>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <div class="h3 text-primary" id="cacheHits">0</div>
+                                <small class="text-muted">캐시 히트</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <div class="h3 text-warning" id="cacheMisses">0</div>
+                                <small class="text-muted">캐시 미스</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="progress">
+                            <div class="progress-bar bg-success" id="cacheHitRate" style="width: 0%"></div>
+                        </div>
+                        <small class="text-muted">캐시 히트율: <span id="cacheHitRateText">0%</span></small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5><i class="fas fa-memory text-purple"></i> 메모리 사용량</h5>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <div class="h3 text-info" id="redisMemory">1.01M</div>
+                                <small class="text-muted">Redis 메모리</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <div class="h3 text-success" id="cachedKeys">0</div>
+                                <small class="text-muted">캐시된 키</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 실시간 로그 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="chart-container">
+                    <h5><i class="fas fa-terminal text-warning"></i> 실시간 시스템 로그</h5>
+                    <div class="log-container" id="systemLogs">
+                        <div>🚀 시스템 모니터링 시작...</div>
+                        <div>📊 Redis 캐시 연결 확인 중...</div>
+                        <div>🔍 API 엔드포인트 상태 확인 중...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 새로고침 버튼 -->
+    <button class="btn btn-primary btn-lg refresh-btn" onclick="refreshAll()">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 전역 변수
+        let responseTimeChart, resourceChart;
+        let responseTimeData = [];
+        let maxDataPoints = 20;
+
+        // 차트 초기화
+        function initCharts() {
+            // 응답시간 차트
+            const responseCtx = document.getElementById('responseTimeChart').getContext('2d');
+            responseTimeChart = new Chart(responseCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '응답시간 (ms)',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '응답시간 (초)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 리소스 차트
+            const resourceCtx = document.getElementById('resourceChart').getContext('2d');
+            resourceChart = new Chart(resourceCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['사용중', '여유'],
+                    datasets: [{
+                        data: [30, 70],
+                        backgroundColor: ['#ff6384', '#36a2eb'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // API 상태 확인
+        async function checkApiStatus() {
+            try {
+                const startTime = Date.now();
+                const response = await fetch('http://127.0.0.1:8002/healthz');
+                const endTime = Date.now();
+                const responseTime = (endTime - startTime) / 1000;
+
+                if (response.ok) {
+                    const data = await response.json();
+                    updateApiStatus(true, data.cache === 'enabled', responseTime);
+                    addLog(`✅ API 상태 확인: ${data.status} (${responseTime.toFixed(3)}s)`);
+                } else {
+                    updateApiStatus(false, false, responseTime);
+                    addLog(`❌ API 상태 확인 실패: HTTP ${response.status}`);
+                }
+            } catch (error) {
+                updateApiStatus(false, false, 0);
+                addLog(`❌ API 연결 오류: ${error.message}`);
+            }
+        }
+
+        // 캐시 상태 확인
+        async function checkCacheStatus() {
+            try {
+                const response = await fetch('http://127.0.0.1:8002/api/cache/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateCacheStatus(data);
+                    addLog(`💾 캐시 상태: ${data.status}, 키: ${data.cached_keys}, 메모리: ${data.used_memory_human}`);
+                }
+            } catch (error) {
+                addLog(`❌ 캐시 상태 확인 실패: ${error.message}`);
+            }
+        }
+
+        // API 상태 업데이트
+        function updateApiStatus(healthy, cacheEnabled, responseTime) {
+            const statusElement = document.getElementById('apiStatus');
+            const cacheElement = document.getElementById('cacheStatus');
+            const responseElement = document.getElementById('responseTime');
+
+            if (healthy) {
+                statusElement.innerHTML = '<span class="status-indicator status-healthy"></span>Healthy';
+                statusElement.className = 'metric-value';
+            } else {
+                statusElement.innerHTML = '<span class="status-indicator status-error"></span>Error';
+                statusElement.className = 'metric-value';
+            }
+
+            if (cacheEnabled) {
+                cacheElement.innerHTML = '<span class="status-indicator status-healthy"></span>Enabled';
+            } else {
+                cacheElement.innerHTML = '<span class="status-indicator status-warning"></span>Disabled';
+            }
+
+            responseElement.textContent = `${responseTime.toFixed(3)}s`;
+            
+            // 응답시간 차트 업데이트
+            updateResponseTimeChart(responseTime);
+        }
+
+        // 캐시 상태 업데이트
+        function updateCacheStatus(data) {
+            document.getElementById('cachedKeys').textContent = data.cached_keys || 0;
+            document.getElementById('redisMemory').textContent = data.used_memory_human || '0B';
+            
+            // 캐시 히트율 계산 (임시 데이터)
+            const hits = Math.floor(Math.random() * 100) + 80;
+            const misses = Math.floor(Math.random() * 20) + 5;
+            const hitRate = (hits / (hits + misses)) * 100;
+            
+            document.getElementById('cacheHits').textContent = hits;
+            document.getElementById('cacheMisses').textContent = misses;
+            document.getElementById('cacheHitRate').style.width = `${hitRate}%`;
+            document.getElementById('cacheHitRateText').textContent = `${hitRate.toFixed(1)}%`;
+        }
+
+        // 응답시간 차트 업데이트
+        function updateResponseTimeChart(responseTime) {
+            const now = new Date().toLocaleTimeString();
+            responseTimeData.push({ time: now, value: responseTime * 1000 }); // ms로 변환
+            
+            if (responseTimeData.length > maxDataPoints) {
+                responseTimeData.shift();
+            }
+            
+            responseTimeChart.data.labels = responseTimeData.map(d => d.time);
+            responseTimeChart.data.datasets[0].data = responseTimeData.map(d => d.value);
+            responseTimeChart.update();
+        }
+
+        // 로그 추가
+        function addLog(message) {
+            const logContainer = document.getElementById('systemLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // 최대 50개 로그 유지
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+        }
+
+        // 모든 데이터 새로고침
+        async function refreshAll() {
+            addLog('🔄 전체 데이터 새로고침 시작...');
+            await checkApiStatus();
+            await checkCacheStatus();
+            addLog('✅ 데이터 새로고침 완료');
+        }
+
+        // RPS 계산 (임시)
+        function updateRPS() {
+            const rps = Math.floor(Math.random() * 500) + 1000;
+            document.getElementById('rps').textContent = rps;
+        }
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+            refreshAll();
+            
+            // 5초마다 자동 새로고침
+            setInterval(refreshAll, 5000);
+            
+            // 10초마다 RPS 업데이트
+            setInterval(updateRPS, 10000);
+            
+            addLog('🎯 모니터링 대시보드 초기화 완료');
+        });
+    </script>
+</body>
+</html>
+

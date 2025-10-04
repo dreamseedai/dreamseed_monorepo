@@ -1,0 +1,8 @@
+---
+- name: Deploy Alert Threader Environment (SOPS/Vault)
+  hosts: all
+  become: true
+  vars:
+    threader_mode: "{{ threader_mode | default('sops') }}"
+  roles:
+    - role: alert_threader_env

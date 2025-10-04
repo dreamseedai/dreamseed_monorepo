@@ -1,0 +1,29 @@
+[Unit]
+Description=Alertmanager -> Slack Threader (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 인스턴스 변수 파일(선택): /etc/alert-threader.d/%i.env 에 PORT 등 주입 가능
+EnvironmentFile=-/etc/alert-threader.d/%i.env
+EnvironmentFile={{ threader_envfile }}
+WorkingDirectory={{ threader_workdir_base }}/alert-threader-%i
+
+# 런타임 준비(언어별 분기 없이 공통 최소 준비만)
+ExecStartPre=/usr/bin/env bash -lc 'mkdir -p /var/lib/alert-threader && chown {{ threader_user }}:{{ threader_group }} /var/lib/alert-threader'
+
+# 각 인스턴스 디렉터리에 배포된 실행 스크립트를 호출(사전 배포 필요)
+User={{ threader_user }}
+Group={{ threader_group }}
+ExecStart=/usr/bin/env bash -lc './start-instance.sh'
+Restart=always
+RestartSec=5
+NoNewPrivileges={{ threader_security.no_new_privileges | default(true) }}
+PrivateTmp={{ threader_security.private_tmp | default(true) }}
+ProtectSystem={{ threader_security.protect_system | default("full") }}
+ProtectHome={{ threader_security.protect_home | default(true) }}
+LimitNOFILE={{ threader_security.limit_nofile | default(65535) }}
+
+[Install]
+WantedBy=multi-user.target

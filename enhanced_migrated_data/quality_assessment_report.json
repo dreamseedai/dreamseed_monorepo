@@ -1,0 +1,17 @@
+{
+  "content_quality": {
+    "high": 3239,
+    "medium": 15659,
+    "low": 0
+  },
+  "math_accuracy": {
+    "high": 0,
+    "medium": 18897,
+    "low": 1
+  },
+  "pedagogical_value": {
+    "high": 682,
+    "medium": 18216,
+    "low": 0
+  }
+}

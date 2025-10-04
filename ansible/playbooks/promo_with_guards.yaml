@@ -1,0 +1,63 @@
+---
+- name: Promote Green -> Blue with metric/log guards
+  hosts: all
+  become: true
+  vars:
+    # 지표/Loki 쿼리는 환경에 맞게 조정
+    prom_url: http://prometheus.local:9090
+    loki_url: http://loki.local:3100
+    job: threader
+    max_5xx_ratio: 0.05        # 5%
+    min_health_ratio: 0.98
+    max_error_logs_per_min: 5
+
+  tasks:
+    - name: Query Prometheus — 5xx ratio (1m)
+      uri:
+        url: "{{ prom_url }}/api/v1/query?query=job:http_5xx_ratio_1m%7Bjob%3D%22{{ job }}%22%7D"
+        return_content: true
+      register: prom_5xx
+
+    - name: Parse 5xx ratio
+      set_fact:
+        five_xx_ratio: "{{ (prom_5xx.json.data.result | first).value[1] | float | default(0.0) }}"
+
+    - name: Guard — high 5xx ratio
+      when: five_xx_ratio | float > max_5xx_ratio
+      fail:
+        msg: "Abort promotion: 5xx ratio={{ five_xx_ratio }} > {{ max_5xx_ratio }}"
+
+    - name: Query Prometheus — health OK ratio (1m)
+      uri:
+        url: "{{ prom_url }}/api/v1/query?query=job:health_ok_ratio_1m%7Bjob%3D%22{{ job }}%22%7D"
+        return_content: true
+      register: prom_health
+
+    - name: Parse health ratio
+      set_fact:
+        health_ratio: "{{ (prom_health.json.data.result | first).value[1] | float | default(1.0) }}"
+
+    - name: Guard — low health ratio
+      when: health_ratio | float < min_health_ratio
+      fail:
+        msg: "Abort promotion: health ratio={{ health_ratio }} < {{ min_health_ratio }}"
+
+    - name: Query Loki — recent error logs
+      uri:
+        url: "{{ loki_url }}/loki/api/v1/query?query=sum(rate({job%3D%22{{ job }}%22}%7C~%22ERROR%7CException%7CTraceback%22%5B1m%5D))"
+        return_content: true
+      register: loki_err
+
+    - name: Parse error rate
+      set_fact:
+        err_rate: "{{ (loki_err.json.data.result | first).value[1] | float | default(0.0) }}"
+
+    - name: Guard — high error rate
+      when: err_rate | float > max_error_logs_per_min
+      fail:
+        msg: "Abort promotion: log error rate={{ err_rate }}/min > {{ max_error_logs_per_min }}"
+
+    - name: All guards passed — proceed to blue‑green switch
+      debug: msg="Guards OK (5xx={{ five_xx_ratio }}, health={{ health_ratio }}, log_err={{ err_rate }})"
+
+

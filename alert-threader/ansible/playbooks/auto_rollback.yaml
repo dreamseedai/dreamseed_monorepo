@@ -1,0 +1,49 @@
+---
+- name: Deploy with backup & rollback
+  hosts: all
+  become: true
+  vars:
+    bin_path: /opt/alert-threader-go/threader
+    new_bin:  /tmp/threader.new
+    health_url: http://127.0.0.1:9011/healthz
+  tasks:
+    - name: Backup current
+      shell: cp -a {{ bin_path }} {{ bin_path }}.bak.$(date +%s)
+      args: { warn: false }
+
+    - name: Put new binary
+      copy:
+        src: files/threader-new
+        dest: "{{ new_bin }}"
+        mode: '0755'
+
+    - name: Swap
+      shell: mv {{ new_bin }} {{ bin_path }}
+
+    - name: Restart
+      systemd:
+        name: alert-threader-go
+        state: restarted
+
+    - name: Health check
+      uri:
+        url: "{{ health_url }}"
+        status_code: 200
+        validate_certs: no
+      register: res
+      until: res.status == 200
+      retries: 15
+      delay: 6
+
+    - name: Rollback on failure
+      when: res.status is not defined or res.status != 200
+      block:
+        - name: Restore previous
+          shell: ls -1t {{ bin_path }}.bak.* | head -n1 | xargs -I{} cp -af {} {{ bin_path }}
+        - name: Restart old
+          systemd:
+            name: alert-threader-go
+            state: restarted
+        - name: Fail play
+          fail:
+            msg: "Deployment failed and rolled back"

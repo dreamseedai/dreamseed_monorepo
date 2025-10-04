@@ -1,0 +1,11 @@
+DreamSeedAI Migration Report
+==================================================
+
+Migration Date: 2025-10-01 18:59:04.765824
+Total Questions: 18898
+Mathematics: 18898
+Physics: 0
+Chemistry: 0
+Biology: 0
+MathML Conversions: 3183
+Errors: 0

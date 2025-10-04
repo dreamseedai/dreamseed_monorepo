@@ -1,0 +1,51 @@
+name: Playwright Smoke Tests
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Target URL for testing'
+        required: true
+        default: 'https://staging.dreamseedai.com'
+      environment:
+        description: 'Environment (staging/prod)'
+        required: true
+        default: 'staging'
+        type: choice
+        options: ['staging', 'prod']
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          
+      - name: Install dependencies
+        working-directory: webtests
+        run: npm ci
+        
+      - name: Install browsers
+        working-directory: webtests
+        run: npm run install:browsers
+        
+      - name: Run smoke tests
+        env:
+          TARGET_URL: ${{ github.event.inputs.target_url || 'https://staging.dreamseedai.com' }}
+          ENV: ${{ github.event.inputs.environment || 'staging' }}
+          ALLOW_SELF_SIGNED: ${{ github.event.inputs.environment == 'staging' && 'true' || 'false' }}
+        working-directory: webtests
+        run: npm test
+        
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: webtests/playwright-report
+
+

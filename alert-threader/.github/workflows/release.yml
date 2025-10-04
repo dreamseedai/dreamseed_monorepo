@@ -1,0 +1,119 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          release_name: Release v${{ steps.version.outputs.version }}
+          body: |
+            ## Changes in this Release
+            
+            ### Features
+            - Alert Threader automation system
+            - Multi-instance deployment support
+            - Health check automation
+            - Canary and Blue-Green deployments
+            - Comprehensive monitoring stack
+            
+            ### Security
+            - SOPS/Vault integration for secrets management
+            - Automated security scanning
+            - Performance testing
+            
+            ### CI/CD
+            - GitHub Actions workflows
+            - GitLab CI integration
+            - End-to-end testing
+            
+            ## Installation
+            
+            ```bash
+            # Deploy environment and threader
+            ansible-playbook -i inventory/hosts.yaml playbooks/deploy_env.yaml
+            ansible-playbook -i inventory/hosts.yaml playbooks/deploy_threader.yaml
+            ```
+            
+            ## Documentation
+            
+            See [README-automation.md](ansible/README-automation.md) for detailed usage instructions.
+          draft: false
+          prerelease: false
+
+  build-artifacts:
+    needs: create-release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [linux, windows, darwin]
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      
+      - name: Build Go threader
+        run: |
+          cd alert-threader/threaders/go
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o threader-${{ matrix.os }}-${{ matrix.arch }} .
+      
+      - name: Upload Go binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: alert-threader/threaders/go/threader-${{ matrix.os }}-${{ matrix.arch }}
+          asset_name: threader-${{ matrix.os }}-${{ matrix.arch }}
+          asset_content_type: application/octet-stream
+
+  deploy-staging:
+    needs: create-release
+    uses: ./.github/workflows/_ansible-runner.yml
+    with:
+      playbook: ansible/playbooks/deploy_threader.yaml
+      extra_vars: "threader_impl=multi environment=staging"
+    secrets: inherit
+
+  deploy-production:
+    needs: [create-release, deploy-staging]
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/_ansible-runner.yml
+    with:
+      playbook: ansible/playbooks/deploy_threader.yaml
+      extra_vars: "threader_impl=multi environment=production"
+    secrets: inherit
+
+

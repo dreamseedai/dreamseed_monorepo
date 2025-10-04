@@ -27,6 +27,11 @@ const STAGES: Stage[] = [
 
 export default function CategoryGrid({ country = 'us' }: { country?: 'us' | 'ca' }) {
   const base = country.toLowerCase() === 'ca' ? '/guides/ca' : '/guides/us';
+  
+  // 기존 라우팅으로 복구
+  const getCategoryUrl = (category: Category) => {
+    return `${base}/${category.slug}`;
+  };
 
   // Large screens: 2D matrix (stages x categories, first 4 columns visible for brevity)
   // Small screens: category cards list (1-2-3-4 responsive columns)
@@ -39,7 +44,7 @@ export default function CategoryGrid({ country = 'us' }: { country?: 'us' | 'ca'
         {CATEGORIES.map((c) => (
           <a
             key={c.id}
-            href={`${base}/${c.slug}`}
+            href={getCategoryUrl(c)}
             className="bg-white/70 border border-gray-200/60 backdrop-blur rounded-lg shadow-sm p-4 hover:shadow-md transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600"
             aria-label={`Open ${c.name} guides`}
           >
@@ -65,7 +70,7 @@ export default function CategoryGrid({ country = 'us' }: { country?: 'us' | 'ca'
                 {CATEGORIES.slice(0, 4).map((c) => (
                   <a
                     key={`${s.id}-${c.id}`}
-                    href={`${base}/${c.slug}`}
+                    href={getCategoryUrl(c)}
                     title={`${s.label} · ${c.name}`}
                     aria-label={`${s.label} · ${c.name}`}
                   className="m-2 block rounded-lg border border-gray-200/60 bg-white/70 backdrop-blur p-3 hover:shadow-md transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600"

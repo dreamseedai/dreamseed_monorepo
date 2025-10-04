@@ -1,0 +1,8 @@
+---
+- name: Deploy alert-threader template instances
+  hosts: all
+  become: true
+  roles:
+    - role: threader_install
+  vars:
+    threader_impl: multi # Ensure multi-instance logic is triggered

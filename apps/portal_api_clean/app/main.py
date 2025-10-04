@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 from app.core.config import get_settings
-from app.routers import auth, content, recommend
+from app.routers import auth, content, recommend, personalized
 from app.routers import billing_stripe, export
 import logging
 import time
@@ -40,9 +40,18 @@ api.add_middleware(
 def api_ok():
     return {"ok": True, "env": settings.app_env}
 
+@api.get("/version")
+def api_version():
+    return {"version": "1.0.0", "env": settings.app_env}
+
+@api.get("/api/version")
+def api_version_with_prefix():
+    return {"version": "1.0.0", "env": settings.app_env}
+
 api.include_router(auth.router)
 api.include_router(content.router)
 api.include_router(recommend.router)
+api.include_router(personalized.router)
 api.include_router(billing_stripe.router)
 api.include_router(export.router)
 

@@ -1,0 +1,27 @@
+---
+# =============================
+# Ansible Requirements
+# =============================
+# 필요한 Ansible 컬렉션과 역할을 정의합니다.
+
+collections:
+  - name: community.general
+    version: ">=5.0.0"
+  - name: community.crypto
+    version: ">=2.0.0"
+  - name: ansible.posix
+    version: ">=1.0.0"
+  - name: kubernetes.core
+    version: ">=2.0.0"
+    when: kubernetes_deployment | default(false)
+
+roles:
+  - name: geerlingguy.security
+    version: ">=1.0.0"
+    when: security_hardening | default(false)
+  - name: geerlingguy.docker
+    version: ">=6.0.0"
+    when: docker_deployment | default(false)
+  - name: geerlingguy.nginx
+    version: ">=3.0.0"
+    when: nginx_deployment | default(false)

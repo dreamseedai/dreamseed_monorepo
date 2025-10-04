@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AP Chemistry Rendering Test</title>
+    
+    <!-- KaTeX + mhchem -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/mhchem.min.js"></script>
+    
+    <!-- MathLive -->
+    <script src="https://unpkg.com/mathlive/dist/mathlive.min.js"></script>
+    
+    <!-- ChemDoodle Web Components -->
+    <script src="https://web.chemdoodle.com/install/ChemDoodleWeb.js"></script>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .chemistry-example {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .rendering-test {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .success { background-color: #e8f5e8; }
+        .error { background-color: #ffe8e8; }
+        .warning { background-color: #fff3cd; }
+        
+        .katex-display {
+            font-size: 1.2em;
+            margin: 10px 0;
+        }
+        
+        .chemdoodle-canvas {
+            border: 1px solid #ccc;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>AP Chemistry 복잡도 테스트</h1>
+    <p>AP Chemistry의 복잡한 화학 표기법을 다양한 오픈 소스 도구로 렌더링 테스트</p>
+
+    <div class="test-section">
+        <h2>1. 기본 화학 공식 (MathLive 테스트)</h2>
+        
+        <div class="chemistry-example">
+            <h3>물 (H₂O)</h3>
+            <math-field id="water">H_2O</math-field>
+            <div class="rendering-test" id="water-result"></div>
+        </div>
+
+        <div class="chemistry-example">
+            <h3>암모니아 (NH₃)</h3>
+            <math-field id="ammonia">NH_3</math-field>
+            <div class="rendering-test" id="ammonia-result"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 중급 화학 표기법 (KaTeX + mhchem 테스트)</h2>
+        
+        <div class="chemistry-example">
+            <h3>화학 반응식</h3>
+            <div id="reaction1" class="katex-display"></div>
+            <div class="rendering-test" id="reaction1-result"></div>
+        </div>
+
+        <div class="chemistry-example">
+            <h3>산-염기 평형</h3>
+            <div id="acid-base" class="katex-display"></div>
+            <div class="rendering-test" id="acid-base-result"></div>
+        </div>
+
+        <div class="chemistry-example">
+            <h3>배위 화합물</h3>
+            <div id="coordination" class="katex-display"></div>
+            <div class="rendering-test" id="coordination-result"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 고급 유기 화학 (KaTeX + mhchem 테스트)</h2>
+        
+        <div class="chemistry-example">
+            <h3>벤젠 고리</h3>
+            <div id="benzene" class="katex-display"></div>
+            <div class="rendering-test" id="benzene-result"></div>
+        </div>
+
+        <div class="chemistry-example">
+            <h3>에탄올</h3>
+            <div id="ethanol" class="katex-display"></div>
+            <div class="rendering-test" id="ethanol-result"></div>
+        </div>
+
+        <div class="chemistry-example">
+            <h3>SN2 반응 메커니즘</h3>
+            <div id="sn2" class="katex-display"></div>
+            <div class="rendering-test" id="sn2-result"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. 3D 분자 구조 (ChemDoodle 테스트)</h2>
+        
+        <div class="chemistry-example">
+            <h3>메탄 (CH₄)</h3>
+            <div id="methane-canvas" class="chemdoodle-canvas"></div>
+            <div class="rendering-test" id="methane-result"></div>
+        </div>
+
+        <div class="chemistry-example">
+            <h3>벤젠 (C₆H₆)</h3>
+            <div id="benzene-canvas" class="chemdoodle-canvas"></div>
+            <div class="rendering-test" id="benzene-3d-result"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. 복잡한 AP Chemistry 예시</h2>
+        
+        <div class="chemistry-example">
+            <h3>전기화학 셀</h3>
+            <div id="electrochemical" class="katex-display"></div>
+            <div class="rendering-test" id="electrochemical-result"></div>
+        </div>
+
+        <div class="chemistry-example">
+            <h3>분자 궤도 이론</h3>
+            <div id="molecular-orbital" class="katex-display"></div>
+            <div class="rendering-test" id="molecular-orbital-result"></div>
+        </div>
+
+        <div class="chemistry-example">
+            <h3>친전자성 방향족 치환</h3>
+            <div id="electrophilic" class="katex-display"></div>
+            <div class="rendering-test" id="electrophilic-result"></div>
+        </div>
+    </div>
+
+    <script>
+        // MathLive 초기화
+        function initializeMathLive() {
+            const mathFields = document.querySelectorAll('math-field');
+            mathFields.forEach(field => {
+                field.addEventListener('input', (ev) => {
+                    const resultId = field.id + '-result';
+                    const resultDiv = document.getElementById(resultId);
+                    const latex = field.getValue();
+                    resultDiv.innerHTML = `<strong>LaTeX:</strong> ${latex}`;
+                    resultDiv.className = 'rendering-test success';
+                });
+                field.dispatchEvent(new Event('input'));
+            });
+        }
+
+        // KaTeX + mhchem 렌더링
+        function renderWithKaTeX() {
+            const examples = [
+                {
+                    id: 'reaction1',
+                    latex: '\\ce{2H2 + O2 -> 2H2O}',
+                    description: '기본 화학 반응식'
+                },
+                {
+                    id: 'acid-base',
+                    latex: '\\ce{HA + H2O <=> H3O+ + A-}',
+                    description: '산-염기 평형'
+                },
+                {
+                    id: 'coordination',
+                    latex: '\\ce{[Cu(NH3)4]^2+ + 4H+ -> Cu^2+ + 4NH4+}',
+                    description: '배위 화합물'
+                },
+                {
+                    id: 'benzene',
+                    latex: '\\ce{C6H6}',
+                    description: '벤젠 고리'
+                },
+                {
+                    id: 'ethanol',
+                    latex: '\\ce{CH3CH2OH}',
+                    description: '에탄올'
+                },
+                {
+                    id: 'sn2',
+                    latex: '\\ce{R-X + Nu^- -> R-Nu + X^-}',
+                    description: 'SN2 반응 메커니즘'
+                },
+                {
+                    id: 'electrochemical',
+                    latex: '\\ce{Zn(s) | Zn^2+(aq) || Cu^2+(aq) | Cu(s)}',
+                    description: '전기화학 셀'
+                },
+                {
+                    id: 'molecular-orbital',
+                    latex: '\\ce{sigma} 결합, \\ce{pi} 결합, sp^3 혼성 궤도',
+                    description: '분자 궤도 이론'
+                },
+                {
+                    id: 'electrophilic',
+                    latex: '\\ce{Ar-H + E^+ -> Ar-E + H^+}',
+                    description: '친전자성 방향족 치환'
+                }
+            ];
+
+            examples.forEach(example => {
+                try {
+                    katex.render(example.latex, document.getElementById(example.id), {
+                        displayMode: true,
+                        throwOnError: false
+                    });
+                    
+                    const resultDiv = document.getElementById(example.id + '-result');
+                    resultDiv.innerHTML = `<strong>성공:</strong> ${example.description}`;
+                    resultDiv.className = 'rendering-test success';
+                } catch (error) {
+                    const resultDiv = document.getElementById(example.id + '-result');
+                    resultDiv.innerHTML = `<strong>오류:</strong> ${error.message}`;
+                    resultDiv.className = 'rendering-test error';
+                }
+            });
+        }
+
+        // ChemDoodle 3D 분자 구조
+        function renderWithChemDoodle() {
+            // 메탄 (CH₄)
+            try {
+                const methaneCanvas = new ChemDoodle.SketchCanvas('methane-canvas', 300, 300);
+                const methane = new ChemDoodle.Molecule();
+                methane.addAtom(new ChemDoodle.Atom(0, 0, 0, 'C'));
+                methane.addAtom(new ChemDoodle.Atom(1, 1, 1, 'H'));
+                methane.addAtom(new ChemDoodle.Atom(1, -1, -1, 'H'));
+                methane.addAtom(new ChemDoodle.Atom(-1, 1, -1, 'H'));
+                methane.addAtom(new ChemDoodle.Atom(-1, -1, 1, 'H'));
+                methaneCanvas.loadMolecule(methane);
+                
+                document.getElementById('methane-result').innerHTML = '<strong>성공:</strong> 메탄 3D 구조';
+                document.getElementById('methane-result').className = 'rendering-test success';
+            } catch (error) {
+                document.getElementById('methane-result').innerHTML = `<strong>오류:</strong> ${error.message}`;
+                document.getElementById('methane-result').className = 'rendering-test error';
+            }
+
+            // 벤젠 (C₆H₆)
+            try {
+                const benzeneCanvas = new ChemDoodle.SketchCanvas('benzene-canvas', 300, 300);
+                const benzene = new ChemDoodle.Molecule();
+                // 벤젠 고리 구조 생성
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i * Math.PI) / 3;
+                    const x = Math.cos(angle);
+                    const y = Math.sin(angle);
+                    benzene.addAtom(new ChemDoodle.Atom(x, y, 0, 'C'));
+                }
+                benzeneCanvas.loadMolecule(benzene);
+                
+                document.getElementById('benzene-3d-result').innerHTML = '<strong>성공:</strong> 벤젠 3D 구조';
+                document.getElementById('benzene-3d-result').className = 'rendering-test success';
+            } catch (error) {
+                document.getElementById('benzene-3d-result').innerHTML = `<strong>오류:</strong> ${error.message}`;
+                document.getElementById('benzene-3d-result').className = 'rendering-test error';
+            }
+        }
+
+        // 페이지 로드 시 모든 테스트 실행
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('AP Chemistry 렌더링 테스트 시작');
+            
+            // MathLive 초기화
+            initializeMathLive();
+            
+            // KaTeX + mhchem 렌더링
+            renderWithKaTeX();
+            
+            // ChemDoodle 3D 구조
+            renderWithChemDoodle();
+            
+            console.log('모든 테스트 완료');
+        });
+    </script>
+</body>
+</html>
