@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import UserStatus from './UserStatus';
+import LanguageSelector from './LanguageSelector';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function Header() {
   const [dark, setDark] = useState(false);
+  const { t } = useLanguage();
+
   useEffect(() => {
     const html = document.documentElement;
     if (dark) html.classList.add('dark'); else html.classList.remove('dark');
@@ -13,19 +17,20 @@ export default function Header() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <a href="/" className="no-underline font-bold text-slate-900 dark:text-slate-100">DreamSeedAI</a>
           <nav role="navigation" aria-label="Primary" className="hidden sm:flex gap-3 text-sm">
-            <a href="/" className="text-slate-600 dark:text-slate-300 no-underline">Home</a>
-            <a href="/guides/us" className="text-slate-600 dark:text-slate-300 no-underline">US Guides</a>
-            <a href="/guides/ca" className="text-slate-600 dark:text-slate-300 no-underline">CA Guides</a>
-            <a href="/plans" className="text-slate-600 dark:text-slate-300 no-underline">Plans</a>
-            <a href="/saved" className="text-slate-600 dark:text-slate-300 no-underline">Saved Plans</a>
-            <a href="/content/list" className="text-slate-600 dark:text-slate-300 no-underline">Content</a>
+            <a href="/" className="text-slate-600 dark:text-slate-300 no-underline">{t('nav.home')}</a>
+            <a href="/guides/us" className="text-slate-600 dark:text-slate-300 no-underline">{t('nav.guides')}</a>
+            <a href="/guides/ca" className="text-slate-600 dark:text-slate-300 no-underline">{t('nav.guides')}</a>
+            <a href="/pricing" className="text-slate-600 dark:text-slate-300 no-underline">{t('nav.plans')}</a>
+            <a href="/saved" className="text-slate-600 dark:text-slate-300 no-underline">{t('nav.saved')}</a>
+            <a href="/content/list" className="text-slate-600 dark:text-slate-300 no-underline">{t('nav.content')}</a>
           </nav>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <LanguageSelector />
           <button aria-label="Toggle dark mode" onClick={() => setDark(v=>!v)} className="border px-2 py-1 rounded-md text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600">
             {dark ? 'Light' : 'Dark'}
           </button>
-          <a href="/login" className="border px-2 py-1 rounded-md text-sm no-underline">Login</a>
+          <a href="/login" className="border px-2 py-1 rounded-md text-sm no-underline">{t('nav.login')}</a>
           <UserStatus />
         </div>
       </div>

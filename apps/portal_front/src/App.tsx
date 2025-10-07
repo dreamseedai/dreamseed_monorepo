@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { LanguageProvider } from './contexts/LanguageContext';
 import UserStatus from './components/UserStatus';
 import ExpiringCard from './components/ExpiringCard';
 import ExpiringListPage from './pages/ExpiringList';
@@ -21,11 +22,13 @@ import USExamsAP from './pages/guides/USExamsAP';
 import USExamsACT from './pages/guides/USExamsACT';
 import USExamsOUAC from './pages/guides/USExamsOUAC';
 import CheckoutDummy from './pages/CheckoutDummy';
+import CheckoutSuccess from './pages/CheckoutSuccess';
 import PlansCompare from './pages/PlansCompare';
 import PlanResult from './pages/PlanResult';
 import SavedPlans from './pages/SavedPlans';
+import PricingPage from './pages/Pricing';
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const location = useLocation();
   const [me, setMe] = useState<string>('(anon)');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -78,8 +81,14 @@ export const App: React.FC = () => {
   if (location.pathname === '/checkout') {
     return <CheckoutDummy />;
   }
+  if (location.pathname === '/checkout/success') {
+    return <CheckoutSuccess />;
+  }
   if (location.pathname === '/plans') {
     return <PlansCompare />;
+  }
+  if (location.pathname === '/pricing') {
+    return <PricingPage />;
   }
   if (location.pathname === '/plan') {
     return <PlanResult />;
@@ -138,5 +147,13 @@ uvicorn portal_api.app:app --port 8000 --reload`}
 
       <OpsModal open={opsOpen} onClose={() => setOpsOpen(false)} />
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 };
