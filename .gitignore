@@ -1,52 +1,28 @@
-portal_api/alembic.ini.local
-node_modules/
-dist/
-.env
-.env.*
-.envs/
-*.log
-__pycache__/
-*.pyc
-
-# Virtual environments
-.venv/
-venv/
-env/
-portal_api/.venv/
-.precommit-env/
-
-# Cache directories
-.npm-cache/
-portal_front/.npm-cache/
-.cache/
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-node_modules/
 # Dependencies
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+package-lock.json
+yarn.lock
 
 # Build outputs
 dist/
 build/
 *.min.js
 *.min.css
+*.bundle.js
 
 # Cache directories
 .cache/
 .parcel-cache/
 .next/
 .nuxt/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 
 # Environment files
 .env
@@ -54,6 +30,8 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+*.env
+*.env.example
 
 # IDE files
 .vscode/
@@ -61,15 +39,264 @@ build/
 *.swp
 *.swo
 *~
+.project
+.settings/
 
 # OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
 # Logs
 *.log
 logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Temporary files
 *.tmp
 *.temp
+*.bak
+*.backup
+*~
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+dreamseed_*.db
+mpcstudy_*.db
+
+# Documentation files (except main README)
+*.md
+!README.md
+!CHANGELOG.md
+
+# Configuration files
+.editorconfig
+.eslintrc.*
+.prettierrc*
+tsconfig.json
+babel.config.*
+webpack.config.*
+rollup.config.*
+
+# Version files
+=*
+version.txt
+
+# Guide files
+*_GUIDE.md
+*_OVERVIEW.md
+*_RULES.md
+*_STATUS.md
+*_GUIDE.md
+*_DEPLOYMENT.md
+*_SETUP.md
+
+# Test files
+test_*.html
+test_*.py
+test_*.js
+*_test.*
+*_spec.*
+
+# Admin files
+admin/*.html
+admin/*.js
+admin/*.css
+
+# API files
+api/
+portal_api/
+backend/
+apps/
+
+# Static files
+static/
+assets/
+images/
+
+# Scripts
+*.sh
+deploy*.sh
+install*.sh
+run*.sh
+
+# System files
+systemd-*.service
+nginx-*.conf
+*.service
+
+# Converter files
+*converter*
+*conversion*
+*_converter.*
+
+# OpenResty files
+openresty-*
+
+# Python files
+requirements*.txt
+*.py
+!mock_api.py
+
+# HTML test files
+*test*.html
+*debug*.html
+*simple*.html
+
+# JSON files
+*.json
+!package.json
+!tsconfig.json
+
+# Lua files
+*.lua
+
+# SQL files
+*.sql
+schema.sql
+
+# YAML files
+*.yml
+*.yaml
+!docker-compose.yml
+
+# TypeScript files
+*.ts
+*.tsx
+
+# React files
+src/
+portal_front/
+
+# Tools
+tools/
+kekule_*
+map_*
+search_*
+math_*
+
+# Alembic
+alembic/
+alembic.ini
+
+# Health checks
+health.spec.ts
+
+# Proxy
+proxy_server.js
+
+# Simple servers
+simple_*.py
+simple_*.html
+
+# Real data
+real_*.py
+
+# Final files
+final_*.py
+
+# Checkpoint files
+*checkpoint*
+*_checkpoint.*
+
+# Log files
+*_log_*
+conversion_log_*
+conversion_errors_*
+
+# JSONL files
+*.jsonl
+
+# Index files
+index*.html
+!index.html
+
+# Backup files
+*backup*
+*_backup.*
+
+# Broken files
+*broken*
+*_broken.*
+
+# Clean files
+*clean*
+*_clean.*
+
+# Fixed files
+*fixed*
+*_fixed.*
+
+# Minimal files
+*minimal*
+*_minimal.*
+
+# Ultimate files
+*ultimate*
+*_ultimate.*
+
+# Enhanced files
+*enhanced*
+*_enhanced.*
+
+# Enterprise files
+*enterprise*
+*_enterprise.*
+
+# Plus files
+*plus*
+*_plus.*
+
+# Demo files
+*demo*
+*_demo.*
+
+# Debug files
+*debug*
+*_debug.*
+
+# Simple files
+*simple*
+*_simple.*
+
+# Test files
+*test*
+*_test.*
+
+# HTML files (except main ones)
+*.html
+!question_editor_quill.html
+!index.html
+
+# JavaScript files
+*.js
+!mock_api.py
+
+# CSS files
+*.css
+
+# Other files
+TenantAdminGuard.tsx
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Database environments
+db_env/
+
+# Logrotate configs
+logrotate-*.conf
+
+# TypeScript config (if not needed)
+tsconfig.json
