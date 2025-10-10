@@ -3,15 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DreamSeedAI Question Editor - Quill.js + ChemDoodle</title>
-    
+    <title>DreamSeedAI Question Editor - Quill.js + MathJax + Kekule.js</title>
+
     <!-- Quill.js CSS -->
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <link href="https://cdn.quilljs.com/1.3.6/quill.bubble.css" rel="stylesheet">
+
+    <!-- Kekule.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/kekule/dist/themes/default/kekule.css" />
     
-    <!-- ChemDoodle CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/chemdoodle@9.3.0/ChemDoodleWeb.css">
-    
+    <!-- ChemDoodle 스타일 추가 -->
+    <style>
+        .chem-structure {
+            display: inline-block;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 5px;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .chem-structure:hover {
+            background: #e9ecef;
+            border-color: #0056b3;
+        }
+        .chem-canvas {
+            display: block;
+            margin: 0 auto;
+        }
+        .chem-blot {
+            display: inline-block;
+            margin: 5px;
+            text-align: center;
+        }
+
+        /* ChemDoodle Modal */
+        .chem-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 1000;
+        }
+
+        .chem-modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .chem-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+
+        .chem-modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6c757d;
+        }
+
+        .chem-modal-close:hover {
+            color: #dc3545;
+        }
+
+        .chem-sketcher-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .chem-modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .chem-modal-actions button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .chem-modal-actions button:first-child {
+            background: #007bff;
+            color: white;
+        }
+
+        .chem-modal-actions button:first-child:hover {
+            background: #0056b3;
+        }
+
+        .chem-modal-actions button:last-child {
+            background: #6c757d;
+            color: white;
+        }
+
+        .chem-modal-actions button:last-child:hover {
+            background: #545b62;
+        }
+    </style>
+
     <!-- MathJax Configuration -->
     <script>
         window.MathJax = {
@@ -29,11 +140,11 @@
             }
         };
     </script>
-    
+
     <!-- MathJax Script -->
-    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" 
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
             onerror="loadLocalMathJax()"></script>
-    
+
     <style>
         :root {
             --bg-primary: #ffffff;
@@ -72,12 +183,20 @@
             background: var(--bg-primary);
             color: var(--text-primary);
             line-height: 1.6;
+            overflow-x: hidden; /* 가로 스크롤 방지 */
         }
 
         .container {
             display: flex;
             height: 100vh;
             overflow: hidden;
+        }
+        
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto; /* 세로 스크롤 추가 */
         }
 
         .left-panel {
@@ -113,12 +232,12 @@
             margin-bottom: 0.5rem;
             flex-wrap: wrap;
         }
-        
+
         .input-group input {
             flex: 1;
             min-width: 80px;
         }
-        
+
         .input-group button {
             white-space: nowrap;
             min-width: 60px;
@@ -234,7 +353,7 @@
         .ql-toolbar button:hover {
             background: var(--bg-primary);
         }
-        
+
         /* Custom Toolbar Buttons */
         .ql-toolbar button[title="수식 삽입"],
         .ql-toolbar button[title="화학 구조 삽입"] {
@@ -245,7 +364,7 @@
             margin: 0 2px;
             font-weight: bold;
         }
-        
+
         .ql-toolbar button[title="수식 삽입"]:hover,
         .ql-toolbar button[title="화학 구조 삽입"]:hover {
             background: #0056b3;
@@ -375,11 +494,11 @@
             cursor: col-resize;
             transition: background 0.2s;
         }
-        
+
         .resize-handle:hover {
             background: var(--accent-color);
         }
-        
+
         /* Inline Editing */
         .editable-content {
             position: relative;
@@ -389,17 +508,44 @@
             padding: 0.5rem;
             transition: all 0.2s;
         }
-        
+
         .editable-content:hover {
             border-color: var(--accent-color);
             background: var(--bg-secondary);
         }
-        
+
         .editable-content.editing {
             border-color: var(--accent-color);
             background: var(--bg-primary);
         }
         
+        /* Ensure Quill toolbar is visible */
+        .ql-toolbar {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        .editor-container .ql-toolbar {
+            border: 1px solid var(--border-color);
+            border-radius: 4px 4px 0 0;
+            background: var(--bg-secondary);
+        }
+        
+        .editor-container .ql-container {
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            background: var(--bg-primary);
+            max-height: 400px; /* 최대 높이 제한 */
+            overflow-y: auto; /* 에디터 내부 스크롤 */
+        }
+        
+        .editor-container {
+            max-height: 500px; /* 전체 에디터 컨테이너 높이 제한 */
+            overflow-y: auto; /* 컨테이너 스크롤 */
+        }
+
         .edit-indicator {
             position: absolute;
             top: 0.25rem;
@@ -409,11 +555,11 @@
             opacity: 0;
             transition: opacity 0.2s;
         }
-        
+
         .editable-content:hover .edit-indicator {
             opacity: 1;
         }
-        
+
         /* Section Headers */
         .section-header {
             display: flex;
@@ -423,29 +569,29 @@
             padding-bottom: 0.25rem;
             border-bottom: 1px solid var(--border-color);
         }
-        
+
         .section-title {
             font-weight: bold;
             color: var(--text-primary);
         }
-        
+
         .section-actions {
             display: flex;
             gap: 0.25rem;
         }
-        
+
         .section-actions button {
             padding: 0.25rem 0.5rem;
             font-size: 0.75rem;
             min-width: auto;
         }
-        
+
         /* Responsive */
         @media (max-width: 768px) {
             .container {
                 flex-direction: column;
             }
-            
+
             .left-panel {
                 width: 100%;
                 height: 200px;
@@ -461,7 +607,7 @@
                 <h3>Question Editor</h3>
                 <button id="themeToggle" onclick="toggleTheme()">🌙</button>
             </div>
-            
+
             <div class="search-section">
                 <div class="input-group">
                     <input type="text" id="searchInput" placeholder="Original ID" value="11384">
@@ -470,7 +616,7 @@
                     <button onclick="searchRangeList()">리스트</button>
                 </div>
             </div>
-            
+
             <div class="status-bar">
                 <div class="status-item">
                     <span>MathJax:</span>
@@ -485,21 +631,21 @@
                     <span id="networkStatus" class="status-loading">Loading...</span>
                 </div>
             </div>
-            
+
             <div id="listContainer" style="flex: 1; overflow-y: auto; padding: 1rem;">
                 <!-- List items will be populated here -->
             </div>
         </div>
-        
+
         <!-- Resize Handle -->
         <div class="resize-handle" id="resizeHandle"></div>
-        
+
         <!-- Right Panel -->
         <div class="right-panel" id="rightPanel">
             <div class="header">
                 <h3 id="questionTitle">Question Editor</h3>
             </div>
-            
+
             <div class="content-area">
                 <div class="tabs">
                     <div class="tab active" onclick="switchTab('view')">View</div>
@@ -507,14 +653,14 @@
                     <div class="tab" onclick="switchTab('preview')">Preview</div>
                     <div class="tab" onclick="switchTab('raw')">Raw JSON</div>
                 </div>
-                
+
                 <!-- View Tab -->
                 <div id="viewTab" class="tab-content active">
                     <div id="viewContent">
                         <p>검색하여 문제를 선택하세요.</p>
                     </div>
                 </div>
-                
+
                 <!-- Edit Tab -->
                 <div id="editTab" class="tab-content">
                     <div class="editor-container" id="questionEditor"></div>
@@ -523,14 +669,14 @@
                         <button onclick="resetEditor()">원복</button>
                     </div>
                 </div>
-                
+
                 <!-- Preview Tab -->
                 <div id="previewTab" class="tab-content">
                     <div id="previewContent" class="preview-content">
                         <p>편집 내용을 미리보기합니다.</p>
                     </div>
                 </div>
-                
+
                 <!-- Raw JSON Tab -->
                 <div id="rawTab" class="tab-content">
                     <pre id="rawContent" style="background: var(--bg-secondary); padding: 1rem; border-radius: 4px; overflow: auto; max-height: 500px;"></pre>
@@ -538,7 +684,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- ChemDoodle Modal -->
     <div id="chemModal" class="chem-modal">
         <div class="chem-modal-content">
@@ -546,7 +692,9 @@
                 <h3>화학 구조 편집</h3>
                 <button class="chem-modal-close" onclick="closeChemModal()">&times;</button>
             </div>
-            <div id="chemSketcher" class="chem-sketcher-container"></div>
+            <div id="chemSketcher" class="chem-sketcher-container">
+                <canvas id="chem-sketch" width="520" height="360"></canvas>
+            </div>
             <div class="chem-modal-actions">
                 <button onclick="insertChemStructure()">삽입</button>
                 <button onclick="closeChemModal()">취소</button>
@@ -556,8 +704,9 @@
 
     <!-- Scripts -->
     <script src="https://cdn.quilljs.com/1.3.6/quill.min.js" onerror="loadLocalQuill()"></script>
-    <script src="https://unpkg.com/chemdoodle@9.3.0/ChemDoodleWeb.js" onerror="loadLocalChemDoodle()"></script>
-    
+    <!-- Kekule.js JS -->
+    <script defer src="https://cdn.jsdelivr.net/npm/kekule/dist/kekule.min.js"></script>
+
     <script>
         // Global variables
         let quill;
@@ -566,14 +715,14 @@
         let mathjaxReady = false;
         let chemReady = false;
         let networkOnline = false;
-        
+
         // API Configuration
         const API_BASE = 'http://127.0.0.1:8008/api';
         const IMG_BASE = '/images/editor/';
-        
+
         // ChemDoodle Sketcher
         let chemSketcher = null;
-        
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             initTheme();
@@ -583,14 +732,14 @@
             checkNetworkStatus();
             loadInitialData();
         });
-        
+
         // Theme Management
         function initTheme() {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
             updateThemeButton(savedTheme);
         }
-        
+
         function toggleTheme() {
             const currentTheme = document.documentElement.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -598,14 +747,14 @@
             localStorage.setItem('theme', newTheme);
             updateThemeButton(newTheme);
         }
-        
+
         function updateThemeButton(theme) {
             const button = document.getElementById('themeToggle');
             button.textContent = theme === 'dark' ? '☀️' : '🌙';
         }
-        
+
         // MathJax Initialization
-        function initMathJax() {
+        window.initMathJax = function() {
             if (window.MathJax && window.MathJax.typesetPromise) {
                 mathjaxReady = true;
                 document.getElementById('mathjaxStatus').innerHTML = '<span class="status-ok">OK</span>';
@@ -613,7 +762,7 @@
                 setTimeout(initMathJax, 100);
             }
         }
-        
+
         function loadLocalMathJax() {
             console.warn('[MATHJAX] CDN 실패, 로컬 로드 시도');
             const script = document.createElement('script');
@@ -624,38 +773,37 @@
             };
             document.head.appendChild(script);
         }
-        
-        // ChemDoodle Initialization
-        function initChemDoodle() {
-            if (window.ChemDoodle) {
-                chemReady = true;
+
+        // Kekule.js 초기화
+        window.initChemDoodle = function() {
+            console.log('[CHEM] Kekule.js 초기화 시작');
+            
+            // Kekule.js 로드 확인
+            if (window.Kekule && window.Kekule.ChemWidget) {
+                console.log('[CHEM] Kekule.js 로드 완료');
                 document.getElementById('chemStatus').innerHTML = '<span class="status-ok">OK</span>';
+                chemReady = true;
             } else {
+                console.log('[CHEM] Kekule.js 로드 대기 중...');
+                document.getElementById('chemStatus').innerHTML = '<span class="status-loading">Loading...</span>';
+                // 100ms 후 재시도
                 setTimeout(initChemDoodle, 100);
             }
         }
-        
+
         function loadLocalChemDoodle() {
-            console.warn('[CHEM] CDN 실패, 로컬 로드 시도');
-            const css = document.createElement('link');
-            css.rel = 'stylesheet';
-            css.href = '/assets/chemdoodle/ChemDoodleWeb.css';
-            document.head.appendChild(css);
-            
-            const script = document.createElement('script');
-            script.src = '/assets/chemdoodle/ChemDoodleWeb.js';
-            script.onerror = () => {
-                console.error('[CHEM] 로컬 로드도 실패');
-                document.getElementById('chemStatus').innerHTML = '<span class="status-fail">FAIL</span>';
-            };
-            document.head.appendChild(script);
+            console.warn('[CHEM] CDN 실패, ChemDoodle 없이 계속 진행');
+            // ChemDoodle가 없어도 에디터는 작동하도록 함
+            document.getElementById('chemStatus').innerHTML = '<span class="status-warning">CDN FAIL</span>';
+            // ChemDoodle 관련 기능 비활성화
+            window.ChemDoodle = null;
         }
-        
+
         // Quill Editor Initialization
         function initQuill() {
             // Register custom blots
             registerCustomBlots();
-            
+
             // Initialize Quill
             quill = new Quill('#questionEditor', {
                 theme: 'snow',
@@ -672,21 +820,22 @@
                 },
                 placeholder: '문제 내용을 입력하세요...'
             });
-            
+
             // Add custom toolbar handlers
             const toolbar = quill.getModule('toolbar');
-            
+
             // Add custom buttons to toolbar
             const formulaButton = document.createElement('button');
             formulaButton.innerHTML = 'fx';
             formulaButton.title = '수식 삽입';
             formulaButton.onclick = insertMathFormula;
-            
+
+            // 화학 구조 삽입 버튼 추가
             const chemButton = document.createElement('button');
             chemButton.innerHTML = '🧪';
             chemButton.title = '화학 구조 삽입';
             chemButton.onclick = openChemModal;
-            
+
             // Insert custom buttons into toolbar
             const toolbarContainer = quill.container.querySelector('.ql-toolbar');
             if (toolbarContainer) {
@@ -699,11 +848,11 @@
                     toolbarContainer.appendChild(chemButton);
                 }
             }
-            
+
             // Listen for content changes
             quill.on('text-change', updatePreview);
         }
-        
+
         function loadLocalQuill() {
             console.warn('[QUILL] CDN 실패, 로컬 로드 시도');
             const script = document.createElement('script');
@@ -713,73 +862,80 @@
             };
             document.head.appendChild(script);
         }
-        
+
         // Custom Blots Registration
         function registerCustomBlots() {
             // MathJax Formula Blot
             const MathJaxBlot = Quill.import('blots/embed');
-            
+
             class MathJaxFormula extends MathJaxBlot {
                 static create(value) {
                     const node = super.create();
                     node.setAttribute('class', 'ql-mathjax');
                     node.setAttribute('data-latex', value);
                     node.contentEditable = false;
-                    
+
                     // Render with MathJax
                     if (mathjaxReady) {
                         renderMathJaxFormula(node, value);
                     } else {
                         node.innerHTML = `$${value}$`;
                     }
-                    
+
                     return node;
                 }
-                
+
                 static value(node) {
                     return node.getAttribute('data-latex');
                 }
             }
-            
+
             MathJaxFormula.blotName = 'mathjax';
             MathJaxFormula.tagName = 'span';
             Quill.register(MathJaxFormula);
-            
-            // ChemDoodle Structure Blot
+
+            // ChemDoodle 대안 - 간단한 화학 구조 Blot
             const ChemBlot = Quill.import('blots/embed');
-            
+
             class ChemStructure extends ChemBlot {
                 static create(value) {
                     const node = super.create();
-                    node.setAttribute('class', 'ql-chem');
+                    node.setAttribute('class', 'ql-chem chem-structure');
                     node.setAttribute('data-smiles', value);
                     node.contentEditable = false;
-                    
-                    // Render with ChemDoodle
-                    if (chemReady) {
-                        renderChemStructure(node, value);
-                    } else {
-                        node.innerHTML = `[Chem: ${value}]`;
-                    }
-                    
+                    node.title = '화학 구조 - 클릭하여 편집';
+
+                    // ChemDoodle 렌더링 컨테이너 생성
+                    const container = document.createElement('div');
+                    container.className = 'chem-blot';
+                    node.appendChild(container);
+
+                    // ChemDoodle 렌더링
+                    renderChemStructure(container, value, 300, 200);
+
+                    // 클릭 이벤트 추가
+                    node.addEventListener('click', function() {
+                        editChemStructure(this);
+                    });
+
                     return node;
                 }
-                
+
                 static value(node) {
                     return node.getAttribute('data-smiles');
                 }
             }
-            
+
             ChemStructure.blotName = 'chem';
             ChemStructure.tagName = 'img';
             Quill.register(ChemStructure);
         }
-        
+
         // MathJax Rendering
         function renderMathJaxFormula(node, latex) {
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = `$$${latex}$$`;
-            
+
             MathJax.typesetPromise([tempDiv]).then(() => {
                 const mathElement = tempDiv.querySelector('.MathJax');
                 if (mathElement) {
@@ -791,96 +947,861 @@
                 node.innerHTML = `$$${latex}$$`;
             });
         }
-        
+
         // ChemDoodle Rendering
-        function renderChemStructure(node, smiles) {
-            if (!window.ChemDoodle) {
-                node.innerHTML = `[Chem: ${smiles}]`;
+        function renderChemStructure(container, smiles, width = 420, height = 300) {
+            const K = window.Kekule;
+            
+            // Kekule.js가 아직 로드되지 않았으면 재시도
+            if (!K || !K.ChemWidget || !K.IO) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Loading Kekule.js...</div>';
+                setTimeout(() => renderChemStructure(container, smiles, width, height), 250);
                 return;
             }
+
+            // 컨테이너 초기화
+            container.innerHTML = '';
             
             try {
-                // Create a temporary canvas
-                const canvas = new ChemDoodle.ViewerCanvas('tempChemCanvas', 200, 150);
-                canvas.styles.backgroundColor = 'transparent';
+                // SMILES 파싱 - 다양한 포맷 시도
+                let chemObj = null;
                 
-                // Parse SMILES and draw
-                ChemDoodle.iChemLabs.readSMILES(smiles, {}, function(data) {
-                    if (data && data.molecules && data.molecules[0]) {
-                        canvas.loadMolecule(data.molecules[0]);
-                        const pngData = ChemDoodle.io.png.string(canvas);
-                        node.src = pngData;
-                    } else {
-                        node.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+                // 먼저 'smi' 포맷 시도
+                try {
+                    chemObj = K.IO.loadFormatData(smiles, 'smi');
+                } catch (e1) {
+                    console.log('[CHEM] smi 포맷 실패, 다른 포맷 시도:', e1.message);
+                    
+                    // 'smiles' 포맷 시도
+                    try {
+                        chemObj = K.IO.loadFormatData(smiles, 'smiles');
+                    } catch (e2) {
+                        console.log('[CHEM] smiles 포맷 실패, mol 포맷 시도:', e2.message);
+                        
+                        // 'mol' 포맷 시도
+                        try {
+                            chemObj = K.IO.loadFormatData(smiles, 'mol');
+                        } catch (e3) {
+                            console.log('[CHEM] mol 포맷 실패, 기본 파싱 시도:', e3.message);
+                            
+                            // 기본 파싱 시도
+                            try {
+                                chemObj = K.IO.loadFormatData(smiles);
+                            } catch (e4) {
+                                console.error('[CHEM] 모든 포맷 실패:', e4.message);
+                                throw e4;
+                            }
+                        }
                     }
-                });
-            } catch (error) {
-                console.warn('[CHEM] 렌더링 실패:', error);
-                node.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+                }
+                
+                if (chemObj) {
+                    // Kekule 뷰어 생성
+                    const viewer = new K.ChemWidget.Viewer(container);
+                    viewer.setDimension(width, height);
+                    viewer.setChemObj(chemObj);
+                    console.log('[CHEM] 화학 구조 렌더링 성공:', smiles);
+                } else {
+                    container.innerHTML = `<div style="padding: 20px; text-align: center; color: #dc3545;">Invalid SMILES: ${smiles}</div>`;
+                }
+            } catch (e) {
+                console.error('Kekule.js rendering error:', e);
+                // 대안: 간단한 텍스트 표시
+                container.innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #666; border: 1px solid #ddd; border-radius: 4px;">
+                        <p><strong>화학 구조:</strong> ${smiles}</p>
+                        <p style="font-size: 12px; color: #999;">SMILES 표기법</p>
+                    </div>
+                `;
             }
         }
-        
+
         // Custom Toolbar Handlers
         function insertMathFormula() {
-            const range = quill.getSelection(true);
-            const latex = prompt('LaTeX 수식을 입력하세요:', 'E = mc^2');
+            openMathEditor();
+        }
+
+        function openMathEditor() {
+            // 수식 편집기 모달 생성
+            const modal = document.createElement('div');
+            modal.id = 'mathModal';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 1000; display: flex;
+                align-items: center; justify-content: center;
+            `;
             
-            if (latex) {
-                quill.deleteText(range.index, range.length);
-                quill.insertEmbed(range.index, 'mathjax', latex, Quill.sources.USER);
-                quill.insertText(range.index + 1, ' ', Quill.sources.SILENT);
-                quill.setSelection(range.index + 2);
+            modal.innerHTML = `
+                <div style="background: white; padding: 20px; border-radius: 8px; width: 80%; max-width: 800px; max-height: 80%; overflow-y: auto;">
+                    <h3>수식 편집기</h3>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                            <button onclick="showMathTab('student')" class="math-tab-btn active" style="padding: 8px 16px; border: 1px solid #ddd; background: #28a745; color: white; cursor: pointer; border-radius: 4px; font-weight: bold;">🎓 학생용</button>
+                            <button onclick="showMathTab('basic')" class="math-tab-btn" style="padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 4px;">기본</button>
+                            <button onclick="showMathTab('advanced')" class="math-tab-btn" style="padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 4px;">고급</button>
+                            <button onclick="showMathTab('greek')" class="math-tab-btn" style="padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 4px;">그리스</button>
+                            <button onclick="showMathTab('symbols')" class="math-tab-btn" style="padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 4px;">기호</button>
+                            <button onclick="showMathTab('functions')" class="math-tab-btn" style="padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 4px;">함수</button>
+                            <button onclick="showMathTab('matrices')" class="math-tab-btn" style="padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 4px;">행렬</button>
+                            <button onclick="showMathTab('geometry')" class="math-tab-btn" style="padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 4px;">기하학</button>
+                            <button onclick="showMathTab('operators')" class="math-tab-btn" style="padding: 8px 16px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 4px;">연산자</button>
+                        </div>
+                        
+                        <!-- 학생용 탭 -->
+                        <div id="math-tab-student" class="math-tab-content" style="display: block;">
+                            <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #28a745;">
+                                <h4 style="margin: 0 0 10px 0; color: #155724;">🎓 Grade 10 학생들을 위한 간단한 수학 기호</h4>
+                                <p style="margin: 0; color: #155724; font-size: 14px;">아래 버튼을 클릭하면 자주 사용하는 수학 기호가 자동으로 입력됩니다!</p>
+                            </div>
+                            
+                            <!-- 기본 연산 -->
+                            <div style="margin-bottom: 20px;">
+                                <h5 style="color: #333; margin-bottom: 10px;">➕ 기본 연산</h5>
+                                <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 15px; border: 2px solid #28a745; border-radius: 8px; background: #f8fff8;">
+                                    <button class="math-btn" onclick="insertMathSymbol('\\\\frac{a}{b}')" style="padding: 10px 15px; border: 2px solid #28a745; background: #28a745; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">분수</button>
+                                    <button class="math-btn" onclick="insertMathSymbol('x^2')" style="padding: 10px 15px; border: 2px solid #28a745; background: #28a745; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">제곱</button>
+                                    <button class="math-btn" onclick="insertMathSymbol('\\\\sqrt{x}')" style="padding: 10px 15px; border: 2px solid #28a745; background: #28a745; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">루트</button>
+                                    <button class="math-btn" onclick="insertMathSymbol('\\\\sqrt[3]{x}')" style="padding: 10px 15px; border: 2px solid #28a745; background: #28a745; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">세제곱근</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 삼각함수 -->
+                            <div style="margin-bottom: 20px;">
+                                <h5 style="color: #333; margin-bottom: 10px;">📐 삼각함수</h5>
+                                <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 15px; border: 2px solid #17a2b8; border-radius: 8px; background: #f0f8ff;">
+                                    <button class="math-btn" onclick="insertMathSymbol('\\\\sin x')" style="padding: 10px 15px; border: 2px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">sin x</button>
+                                    <button class="math-btn" onclick="insertMathSymbol('\\\\cos x')" style="padding: 10px 15px; border: 2px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">cos x</button>
+                                    <button class="math-btn" onclick="insertMathSymbol('\\\\tan x')" style="padding: 10px 15px; border: 2px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">tan x</button>
+                                    <button class="math-btn" onclick="insertMathSymbol('\\\\sin^2 x')" style="padding: 10px 15px; border: 2px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">sin²x</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 기하학 -->
+                            <div style="margin-bottom: 20px;">
+                                <h5 style="color: #333; margin-bottom: 10px;">📏 기하학</h5>
+                                <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 15px; border: 2px solid #ffc107; border-radius: 8px; background: #fffdf0;">
+                                    <button class="math-btn" onclick="insertMathSymbol('\\\\angle A')" style="padding: 10px 15px; border: 2px solid #ffc107; background: #ffc107; color: #333; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">각 A</button>
+                                    <button class="math-btn" onclick="insertMathSymbol('\\\\overline{AB}')" style="padding: 10px 15px; border: 2px solid #ffc107; background: #ffc107; color: #333; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">선분 AB</button>
+                                    <button class="math-btn" onclick="insertMathSymbol('\\\\triangle ABC')" style="padding: 10px 15px; border: 2px solid #ffc107; background: #ffc107; color: #333; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">삼각형</button>
+                                    <button class="math-btn" onclick="insertMathSymbol('\\\\pi')" style="padding: 10px 15px; border: 2px solid #ffc107; background: #ffc107; color: #333; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">π (파이)</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 대수학 공식 -->
+                            <div style="margin-bottom: 20px;">
+                                <h5 style="color: #333; margin-bottom: 10px;">📐 대수학 공식</h5>
+                                <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 15px; border: 2px solid #dc3545; border-radius: 8px; background: #fff5f5;">
+                                    <button class="math-btn" onclick="insertMathTemplate('\\\\frac{-b \\\\pm \\\\sqrt{b^2 - 4ac}}{2a}')" style="padding: 10px 15px; border: 2px solid #dc3545; background: #dc3545; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">근의공식</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('(a + b)^2 = a^2 + 2ab + b^2')" style="padding: 10px 15px; border: 2px solid #dc3545; background: #dc3545; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">완전제곱</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('a^2 - b^2 = (a + b)(a - b)')" style="padding: 10px 15px; border: 2px solid #dc3545; background: #dc3545; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">차의제곱</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('(a + b)^3 = a^3 + 3a^2b + 3ab^2 + b^3')" style="padding: 10px 15px; border: 2px solid #dc3545; background: #dc3545; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">세제곱공식</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 기하학 공식 -->
+                            <div style="margin-bottom: 20px;">
+                                <h5 style="color: #333; margin-bottom: 10px;">📏 기하학 공식</h5>
+                                <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 15px; border: 2px solid #fd7e14; border-radius: 8px; background: #fff8f0;">
+                                    <button class="math-btn" onclick="insertMathTemplate('\\\\sqrt{x^2 + y^2}')" style="padding: 10px 15px; border: 2px solid #fd7e14; background: #fd7e14; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">거리공식</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('A = \\\\pi r^2')" style="padding: 10px 15px; border: 2px solid #fd7e14; background: #fd7e14; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">원의넓이</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('C = 2\\\\pi r')" style="padding: 10px 15px; border: 2px solid #fd7e14; background: #fd7e14; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">원의둘레</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('V = \\\\frac{4}{3}\\\\pi r^3')" style="padding: 10px 15px; border: 2px solid #fd7e14; background: #fd7e14; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">구의부피</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 삼각함수 공식 -->
+                            <div style="margin-bottom: 20px;">
+                                <h5 style="color: #333; margin-bottom: 10px;">📐 삼각함수 공식</h5>
+                                <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 15px; border: 2px solid #20c997; border-radius: 8px; background: #f0fff8;">
+                                    <button class="math-btn" onclick="insertMathTemplate('\\\\sin^2 x + \\\\cos^2 x = 1')" style="padding: 10px 15px; border: 2px solid #20c997; background: #20c997; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">피타고라스</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('\\\\sin(A + B) = \\\\sin A \\\\cos B + \\\\cos A \\\\sin B')" style="padding: 10px 15px; border: 2px solid #20c997; background: #20c997; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">덧셈정리</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('\\\\sin 2x = 2\\\\sin x \\\\cos x')" style="padding: 10px 15px; border: 2px solid #20c997; background: #20c997; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">배각공식</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('\\\\sin x \\\\Big|_{0}^{\\\\pi}')" style="padding: 10px 15px; border: 2px solid #20c997; background: #20c997; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">정적분</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 유기화학 구조 템플릿 -->
+                            <div style="margin-bottom: 20px;">
+                                <h5 style="color: #333; margin-bottom: 10px;">🧪 유기화학 구조</h5>
+                                <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 15px; border: 2px solid #e83e8c; border-radius: 8px; background: #fff0f5;">
+                                    <button class="math-btn" onclick="insertChemTemplate('c1ccccc1')" style="padding: 10px 15px; border: 2px solid #e83e8c; background: #e83e8c; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">벤젠</button>
+                                    <button class="math-btn" onclick="insertChemTemplate('CC')" style="padding: 10px 15px; border: 2px solid #e83e8c; background: #e83e8c; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">에탄</button>
+                                    <button class="math-btn" onclick="insertChemTemplate('C=C')" style="padding: 10px 15px; border: 2px solid #e83e8c; background: #e83e8c; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">에틸렌</button>
+                                    <button class="math-btn" onclick="insertChemTemplate('C#C')" style="padding: 10px 15px; border: 2px solid #e83e8c; background: #e83e8c; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">아세틸렌</button>
+                                </div>
+                                <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 15px; border: 2px solid #e83e8c; border-radius: 8px; background: #fff0f5;">
+                                    <button class="math-btn" onclick="insertChemTemplate('Cc1ccccc1')" style="padding: 10px 15px; border: 2px solid #e83e8c; background: #e83e8c; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">톨루엔</button>
+                                    <button class="math-btn" onclick="insertChemTemplate('Oc1ccccc1')" style="padding: 10px 15px; border: 2px solid #e83e8c; background: #e83e8c; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">페놀</button>
+                                    <button class="math-btn" onclick="insertChemTemplate('CC(=O)O')" style="padding: 10px 15px; border: 2px solid #e83e8c; background: #e83e8c; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">아세트산</button>
+                                    <button class="math-btn" onclick="insertChemTemplate('CCO')" style="padding: 10px 15px; border: 2px solid #e83e8c; background: #e83e8c; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">에탄올</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 완성된 수식 템플릿 -->
+                            <div style="margin-bottom: 20px;">
+                                <h5 style="color: #333; margin-bottom: 10px;">✨ 기타 유용한 공식</h5>
+                                <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 15px; border: 2px solid #6f42c1; border-radius: 8px; background: #f8f5ff;">
+                                    <button class="math-btn" onclick="insertMathTemplate('\\\\frac{x^2 + 1}{x - 1}')" style="padding: 10px 15px; border: 2px solid #6f42c1; background: #6f42c1; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">분수식</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('\\\\log_a b = \\\\frac{\\\\log b}{\\\\log a}')" style="padding: 10px 15px; border: 2px solid #6f42c1; background: #6f42c1; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">로그공식</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('e^{\\\\ln x} = x')" style="padding: 10px 15px; border: 2px solid #6f42c1; background: #6f42c1; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">지수로그</button>
+                                    <button class="math-btn" onclick="insertMathTemplate('\\\\lim_{x \\\\to 0} \\\\frac{\\\\sin x}{x} = 1')" style="padding: 10px 15px; border: 2px solid #6f42c1; background: #6f42c1; color: white; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 14px;">극한공식</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 기본 탭 -->
+                        <div id="math-tab-basic" class="math-tab-content" style="display: none;">
+                            <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\frac{a}{b}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">분수</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sqrt{x}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">제곱근</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sqrt[n]{x}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">n제곱근</button>
+                                <button class="math-btn" onclick="insertMathSymbol('x^2')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">제곱</button>
+                                <button class="math-btn" onclick="insertMathSymbol('x_1')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">아래첨자</button>
+                                <button class="math-btn" onclick="insertMathSymbol('x^{n}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">위첨자</button>
+                                <button class="math-btn" onclick="insertMathSymbol('x_{i}^{j}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">위아래첨자</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\pm')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">±</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\mp')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∓</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\cdot')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">·</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\times')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">×</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\div')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">÷</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 고급 탭 -->
+                        <div id="math-tab-advanced" class="math-tab-content" style="display: none;">
+                            <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sum_{i=1}^{n}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">합계</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\prod_{i=1}^{n}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">곱셈</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\int_{a}^{b}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">적분</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\int_{0}^{\\\\pi} \\\\sin x \\\\, dx')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">정적분</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\int_{0}^{\\\\infty} f(x) \\\\, dx')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">무한적분</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\int_{-\\\\infty}^{\\\\infty} f(x) \\\\, dx')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">양방향무한</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sin x \\\\Big|_{0}^{\\\\pi}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">sinx막대</button>
+                                <button class="math-btn" onclick="insertMathSymbol('f(x) \\\\Big|_{a}^{b}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">함수막대</button>
+                                <button class="math-btn" onclick="insertMathSymbol('x^2 \\\\Big|_{0}^{1}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">x²막대</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\iint_{D}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">이중적분</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\iiint_{V}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">삼중적분</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\oint_{C}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">선적분</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\lim_{x \\\\to \\\\infty}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">극한</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\lim_{x \\\\to a}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">극한(a)</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\max')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">최대</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\min')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">최소</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sup')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">상한</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\inf')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">하한</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 그리스 문자 탭 -->
+                        <div id="math-tab-greek" class="math-tab-content" style="display: none;">
+                            <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\alpha')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">α</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\beta')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">β</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\gamma')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">γ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\delta')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">δ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\epsilon')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">ε</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\zeta')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">ζ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\eta')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">η</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\theta')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">θ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\iota')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">ι</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\kappa')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">κ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\lambda')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">λ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\mu')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">μ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\nu')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">ν</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\xi')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">ξ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\pi')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">π</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\rho')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">ρ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sigma')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">σ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\tau')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">τ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\upsilon')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">υ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\phi')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">φ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\chi')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">χ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\psi')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">ψ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\omega')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">ω</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\Gamma')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">Γ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\Delta')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">Δ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\Theta')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">Θ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\Lambda')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">Λ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\Pi')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">Π</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\Sigma')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">Σ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\Phi')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">Φ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\Omega')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">Ω</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 기호 탭 -->
+                        <div id="math-tab-symbols" class="math-tab-content" style="display: none;">
+                            <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\infty')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∞</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\leq')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≤</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\geq')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≥</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\neq')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≠</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\approx')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≈</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\equiv')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≡</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\propto')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∝</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sim')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∼</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\simeq')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≃</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\cong')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≅</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\ll')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≪</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\gg')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≫</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\in')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∈</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\notin')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∉</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\subset')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">⊂</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\supset')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">⊃</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\subseteq')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">⊆</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\supseteq')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">⊇</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\cup')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∪</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\cap')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∩</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\emptyset')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∅</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\varnothing')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∅</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\rightarrow')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">→</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\leftarrow')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">←</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\leftrightarrow')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">↔</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\Rightarrow')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">⇒</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\Leftarrow')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">⇐</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\Leftrightarrow')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">⇔</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 함수 탭 -->
+                        <div id="math-tab-functions" class="math-tab-content" style="display: none;">
+                            <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sin')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">sin</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\cos')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">cos</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\tan')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">tan</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\cot')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">cot</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sec')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">sec</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\csc')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">csc</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\arcsin')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">arcsin</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\arccos')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">arccos</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\arctan')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">arctan</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sinh')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">sinh</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\cosh')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">cosh</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\tanh')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">tanh</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\log')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">log</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\ln')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">ln</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\lg')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">lg</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\exp')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">exp</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\det')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">det</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\dim')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">dim</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\ker')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">ker</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\deg')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">deg</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\gcd')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">gcd</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\lcm')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">lcm</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 행렬 탭 -->
+                        <div id="math-tab-matrices" class="math-tab-content" style="display: none;">
+                            <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\begin{pmatrix} a & b \\\\\\\\ c & d \\\\end{pmatrix}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">2×2행렬</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\begin{pmatrix} a & b & c \\\\\\\\ d & e & f \\\\\\\\ g & h & i \\\\end{pmatrix}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">3×3행렬</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\begin{bmatrix} a & b \\\\\\\\ c & d \\\\end{bmatrix}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">[2×2]</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\begin{vmatrix} a & b \\\\\\\\ c & d \\\\end{vmatrix}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">|2×2|</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\begin{Vmatrix} a & b \\\\\\\\ c & d \\\\end{Vmatrix}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">‖2×2‖</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\begin{pmatrix} a \\\\\\\\ b \\\\\\\\ c \\\\end{pmatrix}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">열벡터</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\begin{pmatrix} a & b & c \\\\end{pmatrix}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">행벡터</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\begin{cases} x = a \\\\\\\\ y = b \\\\end{cases}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">연립방정식</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\begin{align} x &= a \\\\\\\\ y &= b \\\\end{align}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">정렬방정식</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 기하학 탭 -->
+                        <div id="math-tab-geometry" class="math-tab-content" style="display: none;">
+                            <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\angle A')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∠A</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\angle ABC')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∠ABC</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\measuredangle A')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∡A</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\measuredangle ABC')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∡ABC</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sphericalangle A')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∢A</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sphericalangle ABC')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∢ABC</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\overline{AB}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">AB</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\overline{CD}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">CD</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\overrightarrow{AB}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">→AB</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\overleftarrow{AB}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">←AB</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\overleftrightarrow{AB}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">↔AB</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\vec{a}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⃗</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\vec{AB}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">AB⃗</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\vec{v}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">v⃗</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\vec{u}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">u⃗</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\vec{i}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">i⃗</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\vec{j}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">j⃗</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\vec{k}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">k⃗</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\widehat{AB}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">AB̂</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\widehat{ABC}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">ABĈ</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\overset{\\\\frown}{AB}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">AB⌢</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\overset{\\\\frown}{BX}')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">BX⌢</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\triangle ABC')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">△ABC</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\square ABCD')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">□ABCD</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\diamond ABCD')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">◇ABCD</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\circle A')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">○A</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\odot A')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">⊙A</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\perp')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">⊥</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\parallel')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∥</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\cong')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≅</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\sim')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">∼</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\equiv')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≡</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\not\\equiv')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≢</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\approx')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≈</button>
+                                <button class="math-btn" onclick="insertMathSymbol('\\\\not\\approx')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">≉</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 연산자 탭 -->
+                        <div id="math-tab-operators" class="math-tab-content" style="display: none;">
+                            <div class="math-toolbar" style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\oplus b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊕b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\ominus b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊖b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\otimes b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊗b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\odot b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊙b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\boxplus b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊞b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\boxminus b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊟b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\boxtimes b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊠b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\boxdot b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊡b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\star b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⋆b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\bullet b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a•b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\circ b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a∘b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\diamond b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⋄b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\wedge b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a∧b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\vee b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a∨b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\cap b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a∩b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\cup b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a∪b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\sqcap b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊓b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\sqcup b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊔b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\uplus b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊎b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\amalg b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⨿b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\bigtriangleup b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a△b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\bigtriangledown b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a▽b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\triangleleft b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a◁b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\triangleright b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a▷b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\lhd b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊲b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\rhd b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊳b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\unlhd b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊴b</button>
+                                <button class="math-btn" onclick="insertMathSymbol('a \\\\unrhd b')" style="padding: 5px 10px; border: 1px solid #ddd; background: #f5f5f5; cursor: pointer; border-radius: 3px;">a⊵b</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; margin: 10px 0;">
+                        <div style="flex: 1;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold;">LaTeX 코드:</label>
+                            <textarea id="mathInput" style="width: 100%; height: 100px; border: 1px solid #ccc; padding: 10px; font-family: monospace; resize: vertical;" placeholder="LaTeX 수식을 입력하세요...">E = mc^2</textarea>
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold;">수식 미리보기:</label>
+                            <div id="mathPreview" style="border: 1px solid #ddd; padding: 10px; min-height: 100px; background: #f9f9f9; overflow: auto;">
+                                <!-- 수식 미리보기가 여기에 표시됩니다 -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin: 10px 0; padding: 10px; background: #f0f8ff; border-radius: 4px;">
+                        <h4 style="margin: 0 0 10px 0; color: #0066cc;">🎯 WYSIWYG 수식 편집 팁:</h4>
+                        <div style="font-size: 14px; line-height: 1.4;">
+                            <p><strong>1. 분수:</strong> 분수 버튼 클릭 → <code>a</code>와 <code>b</code>를 원하는 값으로 변경</p>
+                            <p><strong>2. 제곱/첨자:</strong> 제곱 버튼 클릭 → <code>x</code>와 <code>2</code>를 원하는 값으로 변경</p>
+                            <p><strong>3. 복합 수식:</strong> 여러 버튼을 조합하여 복잡한 수식 생성</p>
+                            <p><strong>4. 실시간 미리보기:</strong> 오른쪽에서 수식이 즉시 렌더링됨</p>
+                            <p><strong>5. 텍스트 선택:</strong> 텍스트를 선택하고 버튼을 클릭하면 선택된 텍스트가 심볼로 감싸집니다</p>
+                        </div>
+                    </div>
+                    
+                    <div style="margin: 10px 0; padding: 10px; background: #fff3cd; border-radius: 4px;">
+                        <h4 style="margin: 0 0 10px 0; color: #856404;">⌨️ 키보드 단축키:</h4>
+                        <div style="font-size: 14px; line-height: 1.4;">
+                            <p><strong>Ctrl + /:</strong> 주석 토글</p>
+                            <p><strong>Ctrl + Z:</strong> 실행 취소</p>
+                            <p><strong>Ctrl + Y:</strong> 다시 실행</p>
+                            <p><strong>Tab:</strong> 다음 편집 위치로 이동</p>
+                            <p><strong>Shift + Tab:</strong> 이전 편집 위치로 이동</p>
+                        </div>
+                    </div>
+                    
+                    <div style="margin: 10px 0; padding: 10px; background: #d1ecf1; border-radius: 4px;">
+                        <h4 style="margin: 0 0 10px 0; color: #0c5460;">🔧 편집 도우미:</h4>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button onclick="insertMathTemplate('\\frac{}{}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 분수</button>
+                            <button onclick="insertMathTemplate('^{}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 위첨자</button>
+                            <button onclick="insertMathTemplate('_{}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 아래첨자</button>
+                            <button onclick="insertMathTemplate('\\sqrt{}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 제곱근</button>
+                            <button onclick="insertMathTemplate('\\left(\\right)')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 괄호</button>
+                            <button onclick="insertMathTemplate('\\left[\\right]')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 대괄호</button>
+                            <button onclick="insertMathTemplate('\\left|\\right|')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 절댓값</button>
+                            <button onclick="insertMathTemplate('\\left\\{\\right\\}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 중괄호</button>
+                            <button onclick="insertMathTemplate('\\angle{}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 각</button>
+                            <button onclick="insertMathTemplate('\\overline{}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 선분</button>
+                            <button onclick="insertMathTemplate('\\widehat{}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 호</button>
+                            <button onclick="insertMathTemplate('\\vec{}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 벡터</button>
+                            <button onclick="insertMathTemplate('\\overrightarrow{}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">빈 방향벡터</button>
+                            <button onclick="insertMathTemplate('a \\oplus b')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">a⊕b</button>
+                            <button onclick="insertMathTemplate('a \\odot b')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">a⊙b</button>
+                            <button onclick="insertMathTemplate('a \\circ b')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">a∘b</button>
+                            <button onclick="insertMathTemplate('\\int_{}^{} f(x) \\, dx')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">정적분</button>
+                            <button onclick="insertMathTemplate('\\int_{0}^{\\pi} \\sin x \\, dx')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">sinx정적분</button>
+                            <button onclick="insertMathTemplate('f(x) \\Big|_{a}^{b}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">함수막대</button>
+                            <button onclick="insertMathTemplate('\\sin x \\Big|_{0}^{\\pi}')" style="padding: 5px 10px; border: 1px solid #17a2b8; background: #17a2b8; color: white; cursor: pointer; border-radius: 3px; font-size: 12px;">sinx막대</button>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: right; margin-top: 10px;">
+                        <button onclick="closeMathModal()" style="padding: 8px 16px; margin-right: 10px; border: 1px solid #ccc; background: #f5f5f5; cursor: pointer; border-radius: 4px;">취소</button>
+                        <button onclick="insertMathFromEditor()" style="padding: 8px 16px; border: 1px solid #007cba; background: #007cba; color: white; cursor: pointer; border-radius: 4px;">삽입</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 수식 미리보기 초기화
+            updateMathPreview();
+            
+            // 실시간 미리보기
+            const mathInput = document.getElementById('mathInput');
+            mathInput.addEventListener('input', updateMathPreview);
+            
+            // 키보드 단축키
+            mathInput.addEventListener('keydown', handleMathKeyboard);
+        }
+
+        function insertMathSymbol(symbol) {
+            const mathInput = document.getElementById('mathInput');
+            const cursorPos = mathInput.selectionStart;
+            const textBefore = mathInput.value.substring(0, cursorPos);
+            const textAfter = mathInput.value.substring(mathInput.selectionEnd);
+            
+            // 선택된 텍스트가 있으면 심볼로 감싸기
+            const selectedText = mathInput.value.substring(mathInput.selectionStart, mathInput.selectionEnd);
+            let newSymbol = symbol;
+            
+            if (selectedText && symbol.includes('a') && symbol.includes('b')) {
+                // 분수나 비슷한 구조에서 선택된 텍스트 활용
+                if (symbol.includes('\\frac{a}{b}')) {
+                    newSymbol = `\\frac{${selectedText}}{b}`;
+                } else if (symbol.includes('x^2')) {
+                    newSymbol = `${selectedText}^2`;
+                } else if (symbol.includes('x_1')) {
+                    newSymbol = `${selectedText}_1`;
+                } else if (symbol.includes('\\sqrt{x}')) {
+                    newSymbol = `\\sqrt{${selectedText}}`;
+                }
+            }
+            
+            mathInput.value = textBefore + newSymbol + textAfter;
+            mathInput.focus();
+            
+            // 커서를 적절한 위치로 이동
+            let newCursorPos = cursorPos + newSymbol.length;
+            if (newSymbol.includes('{') && newSymbol.includes('}')) {
+                // 중괄호 안의 첫 번째 위치로 커서 이동
+                const firstBrace = newSymbol.indexOf('{');
+                newCursorPos = cursorPos + firstBrace + 1;
+            }
+            
+            mathInput.setSelectionRange(newCursorPos, newCursorPos);
+            updateMathPreview();
+        }
+
+        function insertMathTemplate(template) {
+            const mathInput = document.getElementById('mathInput');
+            const cursorPos = mathInput.selectionStart;
+            const textBefore = mathInput.value.substring(0, cursorPos);
+            const textAfter = mathInput.value.substring(mathInput.selectionEnd);
+            
+            mathInput.value = textBefore + template + textAfter;
+            mathInput.focus();
+            
+            // 템플릿의 첫 번째 편집 가능한 위치로 커서 이동
+            let newCursorPos = cursorPos + template.length;
+            if (template.includes('a')) {
+                newCursorPos = cursorPos + template.indexOf('a');
+            } else if (template.includes('x')) {
+                newCursorPos = cursorPos + template.indexOf('x');
+            }
+            
+            mathInput.setSelectionRange(newCursorPos, newCursorPos);
+            updateMathPreview();
+        }
+
+        function updateMathPreview() {
+            const mathInput = document.getElementById('mathInput');
+            const mathPreview = document.getElementById('mathPreview');
+            const latex = mathInput.value;
+            
+            if (latex.trim()) {
+                mathPreview.innerHTML = `$$${latex}$$`;
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    MathJax.typesetPromise([mathPreview]).catch(err => {
+                        mathPreview.innerHTML = `<span style="color: red;">오류: ${err.message}</span>`;
+                    });
+                }
+            } else {
+                mathPreview.innerHTML = '';
             }
         }
-        
-        function openChemModal() {
-            if (!chemReady) {
-                alert('ChemDoodle이 로드되지 않았습니다.');
+
+        function insertMathFromEditor() {
+            const mathInput = document.getElementById('mathInput');
+            const formula = mathInput.value.trim();
+            if (formula) {
+                const range = quill.getSelection(true);
+                quill.deleteText(range.index, range.length);
+                quill.insertEmbed(range.index, 'mathjax', formula, Quill.sources.USER);
+                quill.insertText(range.index + 1, ' ', Quill.sources.SILENT);
+                quill.setSelection(range.index + 2);
+                closeMathModal();
+            }
+        }
+
+        function closeMathModal() {
+            const modal = document.getElementById('mathModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        function showMathTab(tabName) {
+            // 모든 탭 콘텐츠 숨기기
+            const tabContents = document.querySelectorAll('.math-tab-content');
+            tabContents.forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // 모든 탭 버튼 비활성화
+            const tabButtons = document.querySelectorAll('.math-tab-btn');
+            tabButtons.forEach(btn => {
+                if (btn.textContent.includes('🎓 학생용')) {
+                    btn.style.background = '#f5f5f5';
+                    btn.style.color = '#333';
+                } else {
+                    btn.style.background = '#f5f5f5';
+                    btn.style.color = '#333';
+                }
+            });
+            
+            // 선택된 탭 콘텐츠 보이기
+            const selectedContent = document.getElementById(`math-tab-${tabName}`);
+            if (selectedContent) {
+                selectedContent.style.display = 'block';
+            }
+            
+            // 선택된 탭 버튼 활성화
+            const selectedButton = event.target;
+            if (selectedButton.textContent.includes('🎓 학생용')) {
+                selectedButton.style.background = '#28a745';
+                selectedButton.style.color = 'white';
+            } else {
+                selectedButton.style.background = '#007cba';
+                selectedButton.style.color = 'white';
+            }
+        }
+
+        function handleMathKeyboard(event) {
+            const mathInput = event.target;
+            const cursorPos = mathInput.selectionStart;
+            const text = mathInput.value;
+            
+            // Ctrl + / : 주석 토글
+            if (event.ctrlKey && event.key === '/') {
+                event.preventDefault();
+                const lines = text.split('\n');
+                const currentLine = text.substring(0, cursorPos).split('\n').length - 1;
+                if (lines[currentLine].trim().startsWith('%')) {
+                    lines[currentLine] = lines[currentLine].replace(/^%/, '');
+                } else {
+                    lines[currentLine] = '%' + lines[currentLine];
+                }
+                mathInput.value = lines.join('\n');
+                updateMathPreview();
+                return;
+            }
+
+            // Tab : 다음 편집 위치로 이동
+            if (event.key === 'Tab') {
+                event.preventDefault();
+                const nextPos = findNextEditPosition(text, cursorPos);
+                if (nextPos !== -1) {
+                    mathInput.setSelectionRange(nextPos, nextPos);
+                }
                 return;
             }
             
-            const modal = document.getElementById('chemModal');
-            const container = document.getElementById('chemSketcher');
-            
-            // Initialize ChemDoodle Sketcher
-            if (!chemSketcher) {
-                chemSketcher = new ChemDoodle.SketcherCanvas('chemSketcher', 580, 300);
-                chemSketcher.styles.backgroundColor = 'white';
+            // Shift + Tab : 이전 편집 위치로 이동
+            if (event.key === 'Tab' && event.shiftKey) {
+                event.preventDefault();
+                const prevPos = findPrevEditPosition(text, cursorPos);
+                if (prevPos !== -1) {
+                    mathInput.setSelectionRange(prevPos, prevPos);
+                }
+                return;
             }
             
-            modal.style.display = 'block';
-        }
-        
-        function closeChemModal() {
-            document.getElementById('chemModal').style.display = 'none';
-        }
-        
-        function insertChemStructure() {
-            if (!chemSketcher) return;
+            // 자동 괄호 완성
+            if (event.key === '(') {
+                event.preventDefault();
+                insertMathTemplate('\\left(\\right)');
+                return;
+            }
             
-            const molecule = chemSketcher.getMolecule();
-            if (molecule && molecule.atoms.length > 0) {
-                // Convert to SMILES
-                ChemDoodle.iChemLabs.writeSMILES([molecule], [], {}, function(smiles) {
+            if (event.key === '[') {
+                event.preventDefault();
+                insertMathTemplate('\\left[\\right]');
+                return;
+            }
+            
+            if (event.key === '{') {
+                event.preventDefault();
+                insertMathTemplate('\\left\\{\\right\\}');
+                return;
+            }
+        }
+
+        function findNextEditPosition(text, currentPos) {
+            // 다음 편집 가능한 위치 찾기 (빈 중괄호, 괄호 등)
+            const patterns = [
+                /\{\}/g,  // 빈 중괄호
+                /\\left\(\\right\)/g,  // 빈 괄호
+                /\\left\[\\right\]/g,  // 빈 대괄호
+                /\\left\\{\\right\\}/g,  // 빈 중괄호
+                /\\left\|\\right\|/g   // 빈 절댓값
+            ];
+            
+            for (let pattern of patterns) {
+                let match;
+                while ((match = pattern.exec(text)) !== null) {
+                    if (match.index > currentPos) {
+                        return match.index + 1; // 중괄호 안의 첫 번째 위치
+                    }
+                }
+            }
+            return -1;
+        }
+
+        function findPrevEditPosition(text, currentPos) {
+            // 이전 편집 가능한 위치 찾기
+            const patterns = [
+                /\{\}/g,
+                /\\left\(\\right\)/g,
+                /\\left\[\\right\]/g,
+                /\\left\\{\\right\\}/g,
+                /\\left\|\\right\|/g
+            ];
+            
+            let lastMatch = -1;
+            for (let pattern of patterns) {
+                let match;
+                while ((match = pattern.exec(text)) !== null) {
+                    if (match.index < currentPos) {
+                        lastMatch = match.index + 1;
+                    }
+                }
+            }
+            return lastMatch;
+        }
+
+        function openChemModal() {
+            const modal = document.getElementById('chemModal');
+            const canvas = document.getElementById('chem-sketch');
+
+            modal.style.display = 'block';
+
+            // Kekule.js Composer 초기화
+            if (window.Kekule && window.Kekule.Editor) {
+                try {
+                    // Canvas 대신 div 컨테이너 사용
+                    const container = document.createElement('div');
+                    container.id = 'chem-sketch-container';
+                    container.style.width = '520px';
+                    container.style.height = '360px';
+                    container.style.border = '1px solid #ccc';
+                    container.style.borderRadius = '4px';
+                    
+                    // 기존 canvas를 container로 교체
+                    canvas.parentNode.replaceChild(container, canvas);
+                    
+                    // Kekule Composer 초기화
+                    chemSketcher = new window.Kekule.Editor.Composer(container);
+                    chemSketcher.setDimension(520, 360);
+                    
+                    console.log('[CHEM] Kekule.js Composer 초기화 성공');
+                } catch (e) {
+                    console.error('Kekule.js Composer 초기화 실패:', e);
+                    // 대안: 간단한 텍스트 입력으로 대체
+                    const container = document.createElement('div');
+                    container.innerHTML = `
+                        <p>화학 구조 그리기 도구를 사용할 수 없습니다.</p>
+                        <p>SMILES 표기법을 직접 입력하세요:</p>
+                        <input type="text" id="smiles-input" placeholder="예: c1ccccc1 (벤젠)" style="width: 100%; padding: 8px; margin: 10px 0;">
+                        <button onclick="insertSmilesFromInput()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px;">삽입</button>
+                    `;
+                    canvas.parentNode.replaceChild(container, canvas);
+                }
+            } else {
+                console.warn('Kekule.js가 아직 로드되지 않았습니다.');
+                setTimeout(() => openChemModal(), 250);
+            }
+        }
+
+        function closeChemModal() {
+            const modal = document.getElementById('chemModal');
+            modal.style.display = 'none';
+            chemSketcher = null;
+        }
+
+        function insertChemStructure() {
+            if (!chemSketcher) {
+                alert('스케처가 초기화되지 않았습니다.');
+                return;
+            }
+
+            try {
+                const chemObj = chemSketcher.getChemObj();
+                if (chemObj) {
+                    // SMILES로 변환
+                    const smiles = window.Kekule.IO.saveFormatData(chemObj, 'smi');
                     if (smiles) {
                         const range = quill.getSelection(true);
-                        quill.deleteText(range.index, range.length);
                         quill.insertEmbed(range.index, 'chem', smiles, Quill.sources.USER);
-                        quill.insertText(range.index + 1, ' ', Quill.sources.SILENT);
-                        quill.setSelection(range.index + 2);
+                        quill.setSelection(range.index + 1);
+                        closeChemModal();
+                    } else {
+                        alert('화학 구조를 SMILES로 변환할 수 없습니다.');
                     }
-                });
+                } else {
+                    alert('화학 구조를 그려주세요.');
+                }
+            } catch (e) {
+                console.error('화학 구조 삽입 오류:', e);
+                alert('화학 구조를 삽입하는 중 오류가 발생했습니다.');
             }
-            
-            closeChemModal();
         }
-        
+
+        function editChemStructure(node) {
+            const currentValue = node.getAttribute('data-smiles');
+            
+            // 모달 열기
+            openChemModal();
+            
+            // 기존 구조를 스케처에 로드
+            setTimeout(() => {
+                if (chemSketcher && currentValue && window.Kekule) {
+                    try {
+                        const chemObj = window.Kekule.IO.loadFormatData(currentValue, 'smi');
+                        if (chemObj) {
+                            chemSketcher.setChemObj(chemObj);
+                        }
+                    } catch (e) {
+                        console.warn('기존 구조 로드 실패:', e);
+                    }
+                }
+            }, 500);
+        }
+
         // Network Status
         function checkNetworkStatus() {
             fetch(`${API_BASE}/questions/admin/questions?page=1&page_size=1`)
                 .then(response => {
                     networkOnline = response.ok;
-                    document.getElementById('networkStatus').innerHTML = 
+                    document.getElementById('networkStatus').innerHTML =
                         networkOnline ? '<span class="status-ok">online</span>' : '<span class="status-fail">offline</span>';
                 })
                 .catch(() => {
@@ -888,12 +1809,12 @@
                     document.getElementById('networkStatus').innerHTML = '<span class="status-fail">offline</span>';
                 });
         }
-        
+
         // API Functions
         async function fetchWithTimeout(url, options = {}, timeout = 10000) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeout);
-            
+
             try {
                 const response = await fetch(url, {
                     ...options,
@@ -907,24 +1828,24 @@
                 throw error;
             }
         }
-        
-        async function searchByOriginalId() {
+
+        window.searchByOriginalId = async function() {
             const originalId = document.getElementById('searchInput').value.trim();
             if (!originalId) return;
-            
+
             try {
                 console.log('[SEARCH] 검색 시작, ID:', originalId);
                 const response = await fetchWithTimeout(
                     `${API_BASE}/questions/admin/questions?original_id=${originalId}`
                 );
-                
+
                 console.log('[SEARCH] Response status:', response.status);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
+
                 const data = await response.json();
                 console.log('[SEARCH] API 응답:', data);
                 console.log('[SEARCH] 데이터 타입:', typeof data, '배열인가?', Array.isArray(data));
-                
+
                 // API 응답이 배열인 경우 (mock API)
                 if (Array.isArray(data) && data.length > 0) {
                     console.log('[SEARCH] 배열 응답 처리, 첫 번째 항목:', data[0]);
@@ -943,57 +1864,49 @@
                 alert('검색 중 오류가 발생했습니다: ' + error.message);
             }
         }
-        
-        async function searchRangeList() {
+
+        window.searchRangeList = async function() {
             const originalId = document.getElementById('searchInput').value.trim();
             const count = document.getElementById('rangeCount').value;
-            
+
             if (!originalId) return;
-            
+
             try {
                 const endId = count ? parseInt(originalId) + parseInt(count) - 1 : originalId;
                 const promises = [];
-                
+
                 for (let id = parseInt(originalId); id <= endId; id++) {
                     promises.push(
-                        fetchWithTimeout(`${API_BASE}/questions/admin/questions?original_id=${id}`)
+                        fetchWithTimeout(`${API_BASE}/questions/${id}`)
                             .then(response => response.ok ? response.json() : null)
                             .catch(() => null)
                     );
                 }
-                
+
                 const results = await Promise.all(promises);
                 console.log('[LIST] API 응답들:', results);
+
+                // 유효한 결과만 필터링
+                const validResults = results.filter(r => r && r.id);
                 
-                // 배열 응답과 객체 응답 모두 처리
-                const validResults = results.filter(r => {
-                    if (!r) return false;
-                    // 배열인 경우
-                    if (Array.isArray(r) && r.length > 0) return true;
-                    // 객체이고 questions 배열을 가진 경우
-                    if (r.questions && r.questions.length > 0) return true;
-                    return false;
-                });
-                
-                const questions = validResults.map(r => {
-                    // 배열인 경우 첫 번째 요소
-                    if (Array.isArray(r)) return r[0];
-                    // 객체인 경우 questions 배열의 첫 번째 요소
-                    return r.questions[0];
-                });
-                
+                const questions = validResults.map(r => ({
+                    id: r.id,
+                    que_en_title: r.que_en_title || `Question ${r.id}`,
+                    que_class: r.que_class || 'N/A'
+                }));
+
                 renderList(questions);
             } catch (error) {
                 console.error('[LIST] 목록 로드 실패:', error);
                 alert('목록 로드 중 오류가 발생했습니다.');
             }
         }
-        
+
         async function loadQuestionDetail(id) {
             try {
                 const response = await fetchWithTimeout(`${API_BASE}/questions/${id}`);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
+
                 const data = await response.json();
                 currentData = data;
                 renderQuestionDetail(data);
@@ -1003,7 +1916,7 @@
                 alert('문제 로드 중 오류가 발생했습니다.');
             }
         }
-        
+
         function renderList(questions) {
             const container = document.getElementById('listContainer');
             container.innerHTML = questions.map(q => `
@@ -1013,10 +1926,10 @@
                 </div>
             `).join('');
         }
-        
+
         function renderQuestionDetail(data) {
             document.getElementById('questionTitle').textContent = data.que_en_title || 'Question';
-            
+
             const viewContent = document.getElementById('viewContent');
             viewContent.innerHTML = `
                 <div style="margin-bottom: 1rem;">
@@ -1025,10 +1938,21 @@
                     </div>
                     <p><strong>ID:</strong> ${data.id}</p>
                     <p><strong>Original ID:</strong> ${data.que_id}</p>
-                    <p><strong>제목:</strong> ${data.que_en_title || 'N/A'}</p>
                     <p><strong>과목:</strong> ${data.que_class || 'N/A'}</p>
                     <p><strong>학년:</strong> ${data.que_grade || 'N/A'}</p>
                     <p><strong>난이도:</strong> ${data.que_level || 'N/A'}</p>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <div class="section-header">
+                        <h4 class="section-title">제목</h4>
+                        <div class="section-actions">
+                            <button onclick="editInline('title')">편집</button>
+                        </div>
+                    </div>
+                    <div class="editable-content" id="titleContent" onclick="startInlineEdit('title')">
+                        <div class="edit-indicator">✏️ 클릭하여 편집</div>
+                        ${data.que_en_title || '제목이 없습니다.'}
+                    </div>
                 </div>
                 <div style="margin-bottom: 1rem;">
                     <div class="section-header">
@@ -1068,57 +1992,69 @@
                     </div>
                 </div>
                 ` : ''}
+                <div style="margin-bottom: 1rem;">
+                    <div class="section-header">
+                        <h4 class="section-title">리소스</h4>
+                        <div class="section-actions">
+                            <button onclick="editInline('resource')">편집</button>
+                        </div>
+                    </div>
+                    <div class="editable-content" id="resourceContent" onclick="startInlineEdit('resource')">
+                        <div class="edit-indicator">✏️ 클릭하여 편집</div>
+                        ${renderField(data.que_en_resource || '리소스가 없습니다.')}
+                    </div>
+                </div>
             `;
-            
+
             // Render MathJax in view content
             if (mathjaxReady) {
                 MathJax.typesetPromise([viewContent]);
             }
         }
-        
+
         function renderField(content) {
             if (!content) return '<em>내용이 없습니다.</em>';
-            
+
             // Process images
             let processedContent = content.replace(/\[이미지:\s*([^\]]+)\]/g, (match, imageName) => {
                 return `<img src="${IMG_BASE}${imageName}" alt="${imageName}" style="max-width: 100%; height: auto; border: 1px solid var(--border-color); border-radius: 5px;">`;
             });
-            
+
             return processedContent;
         }
-        
+
         function loadEditorContent(data) {
             if (!quill) return;
-            
+
             const content = data.question_en || '';
             quill.setContents([]);
             quill.pasteHTML(content);
             originalContent = quill.getContents();
         }
-        
+
         function updatePreview() {
             if (!quill) return;
-            
+
             const content = quill.root.innerHTML;
             const previewContent = document.getElementById('previewContent');
             previewContent.innerHTML = content;
-            
+
             // Re-render MathJax in preview
             if (mathjaxReady) {
                 MathJax.typesetPromise([previewContent]);
             }
         }
-        
+
         async function saveCurrent() {
             if (!currentData || !quill) return;
-            
+
             try {
                 const content = quill.root.innerHTML;
                 const updateData = {
                     ...currentData,
                     question_en: content
                 };
-                
+
                 const response = await fetchWithTimeout(`${API_BASE}/questions/${currentData.id}`, {
                     method: 'PUT',
                     headers: {
@@ -1126,7 +2062,7 @@
                     },
                     body: JSON.stringify(updateData)
                 });
-                
+
                 if (response.ok) {
                     alert('저장되었습니다.');
                     originalContent = quill.getContents();
@@ -1138,14 +2074,14 @@
                 alert('저장 중 오류가 발생했습니다.');
             }
         }
-        
+
         function resetEditor() {
             if (quill && originalContent) {
                 quill.setContents(originalContent);
             }
         }
-        
-        function switchTab(tabName) {
+
+        window.switchTab = function(tabName) {
             // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
@@ -1153,17 +2089,17 @@
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
             });
-            
+
             // Show selected tab
             document.getElementById(tabName + 'Tab').classList.add('active');
             event.target.classList.add('active');
-            
+
             // Update content based on tab
             if (tabName === 'raw' && currentData) {
                 document.getElementById('rawContent').textContent = JSON.stringify(currentData, null, 2);
             }
         }
-        
+
         function loadInitialData() {
             // Load initial question if search input has value
             const searchInput = document.getElementById('searchInput');
@@ -1171,96 +2107,146 @@
                 searchByOriginalId();
             }
         }
-        
+
         // Inline Editing Functions
         let currentEditingField = null;
         let inlineEditor = null;
-        
+
         function startInlineEdit(fieldType) {
-            if (currentEditingField === fieldType) return;
+            console.log('[EDIT] 편집 시작:', fieldType);
+            
+            // Check if Quill is loaded
+            if (typeof Quill === 'undefined') {
+                console.error('[EDIT] Quill이 로드되지 않았습니다!');
+                alert('에디터가 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');
+                return;
+            }
+            console.log('[EDIT] Quill 로드 확인됨:', Quill);
+            
+            if (currentEditingField === fieldType) {
+                console.log('[EDIT] 이미 편집 중:', fieldType);
+                return;
+            }
             
             const contentElement = document.getElementById(fieldType + 'Content');
-            if (!contentElement) return;
-            
+            if (!contentElement) {
+                console.error('[EDIT] 요소를 찾을 수 없음:', fieldType + 'Content');
+                return;
+            }
+            console.log('[EDIT] 요소 찾음:', contentElement);
+
             // Create inline editor
             const editorContainer = document.createElement('div');
             editorContainer.className = 'editor-container';
-            editorContainer.style.height = '300px';
+            editorContainer.style.height = '400px'; // 높이 증가
             editorContainer.style.marginTop = '0.5rem';
+            editorContainer.style.maxHeight = '500px'; // 최대 높이 설정
+            editorContainer.style.overflowY = 'auto'; // 스크롤 활성화
             
-            // Initialize Quill for inline editing
-            inlineEditor = new Quill(editorContainer, {
-                theme: 'snow',
-                modules: {
-                    toolbar: [
-                        ['bold', 'italic', 'underline', 'strike'],
-                        [{ 'header': [1, 2, 3, false] }],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['blockquote', 'code-block'],
-                        ['link', 'image'],
-                        ['formula', 'chem'],
-                        ['clean']
-                    ]
-                }
-            });
-            
-            // Register custom blots for inline editor
-            registerCustomBlots();
-            const toolbar = inlineEditor.getModule('toolbar');
-            
-            // Add custom buttons to inline editor toolbar
-            const formulaButton = document.createElement('button');
-            formulaButton.innerHTML = 'fx';
-            formulaButton.title = '수식 삽입';
-            formulaButton.onclick = insertMathFormula;
-            
-            const chemButton = document.createElement('button');
-            chemButton.innerHTML = '🧪';
-            chemButton.title = '화학 구조 삽입';
-            chemButton.onclick = openChemModal;
-            
-            // Insert custom buttons into inline editor toolbar
-            const toolbarContainer = inlineEditor.container.querySelector('.ql-toolbar');
-            if (toolbarContainer) {
-                const cleanButton = toolbarContainer.querySelector('.ql-clean');
-                if (cleanButton) {
-                    cleanButton.parentNode.insertBefore(formulaButton, cleanButton);
-                    cleanButton.parentNode.insertBefore(chemButton, cleanButton);
-                } else {
-                    toolbarContainer.appendChild(formulaButton);
-                    toolbarContainer.appendChild(chemButton);
-                }
-            }
-            
-            // Set content
-            const currentContent = currentData[fieldType + '_en'] || '';
-            inlineEditor.pasteHTML(currentContent);
-            
-            // Replace content
+            // Add container to DOM first
             contentElement.innerHTML = '';
             contentElement.appendChild(editorContainer);
             contentElement.classList.add('editing');
-            
-            // Add save/cancel buttons
-            const buttonContainer = document.createElement('div');
-            buttonContainer.style.marginTop = '0.5rem';
-            buttonContainer.innerHTML = `
-                <button onclick="saveInlineEdit('${fieldType}')">저장</button>
-                <button onclick="cancelInlineEdit('${fieldType}')">취소</button>
-            `;
-            contentElement.appendChild(buttonContainer);
-            
-            currentEditingField = fieldType;
+
+            // Wait for DOM to be ready
+            setTimeout(() => {
+                // Initialize Quill for inline editing
+                console.log('[EDIT] Quill 에디터 생성 중...');
+                try {
+                    inlineEditor = new Quill(editorContainer, {
+                        theme: 'snow',
+                        modules: {
+                            toolbar: [
+                                ['bold', 'italic', 'underline', 'strike'],
+                                [{ 'header': [1, 2, 3, false] }],
+                                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                                ['blockquote', 'code-block'],
+                                ['link', 'image'],
+                                ['formula', 'chem'], // MathJax와 ChemDoodle 버튼 추가
+                                ['clean']
+                            ]
+                        }
+                    });
+                    console.log('[EDIT] Quill 에디터 생성 완료:', inlineEditor);
+                    
+                    // Add custom buttons to inline editor toolbar
+                    addCustomButtonsToInlineEditor();
+                    
+                    // Continue with content setting
+                    setEditorContent();
+                } catch (error) {
+                    console.error('[EDIT] Quill 에디터 생성 실패:', error);
+                    return;
+                }
+            }, 100);
+
+            // Function to set editor content after Quill is initialized
+            function setEditorContent() {
+                // Check if toolbar is visible
+                console.log('[EDIT] 툴바 확인 중...');
+                const toolbarContainer = inlineEditor.container.parentElement.querySelector('.ql-toolbar');
+                if (toolbarContainer) {
+                    console.log('[EDIT] 툴바 컨테이너 찾음:', toolbarContainer);
+                    console.log('[EDIT] 툴바 스타일:', window.getComputedStyle(toolbarContainer));
+                    console.log('[EDIT] 툴바 표시:', toolbarContainer.style.display);
+                } else {
+                    console.log('[EDIT] 툴바 컨테이너를 찾을 수 없음 - 정상일 수 있음');
+                }
+
+                // Set content based on field type
+                let currentContent = '';
+                if (fieldType === 'title') {
+                    currentContent = currentData.que_en_title || '';
+                } else if (fieldType === 'resource') {
+                    currentContent = currentData.que_en_resource || '';
+                } else {
+                    currentContent = currentData[fieldType + '_en'] || '';
+                }
+                inlineEditor.pasteHTML(currentContent);
+                console.log('[EDIT] 에디터 내용 설정 완료');
+
+                // Add save/cancel buttons
+                const buttonContainer = document.createElement('div');
+                buttonContainer.style.marginTop = '0.5rem';
+                buttonContainer.innerHTML = `
+                    <button onclick="saveInlineEdit('${fieldType}')">저장</button>
+                    <button onclick="cancelInlineEdit('${fieldType}')">취소</button>
+                `;
+                contentElement.appendChild(buttonContainer);
+
+                currentEditingField = fieldType;
+            }
         }
-        
+
         function saveInlineEdit(fieldType) {
-            if (!inlineEditor || !currentData) return;
+            console.log('[EDIT] 저장 시작:', fieldType);
+            
+            if (!inlineEditor || !currentData) {
+                console.error('[EDIT] 저장 실패: 에디터 또는 데이터 없음');
+                return;
+            }
             
             const content = inlineEditor.root.innerHTML;
-            currentData[fieldType + '_en'] = content;
+            console.log('[EDIT] 저장할 내용:', content);
+            
+            // Update data based on field type
+            if (fieldType === 'title') {
+                currentData.que_en_title = content;
+                // Update page title
+                document.getElementById('questionTitle').textContent = content || 'Question';
+            } else if (fieldType === 'resource') {
+                currentData.que_en_resource = content;
+            } else {
+                currentData[fieldType + '_en'] = content;
+            }
             
             // Update the display
             const contentElement = document.getElementById(fieldType + 'Content');
+            if (!contentElement) {
+                console.error('[EDIT] 저장할 요소를 찾을 수 없음:', fieldType + 'Content');
+                return;
+            }
+            
             contentElement.innerHTML = `
                 <div class="edit-indicator">✏️ 클릭하여 편집</div>
                 ${renderField(content)}
@@ -1274,11 +2260,29 @@
             
             currentEditingField = null;
             inlineEditor = null;
+            console.log('[EDIT] 저장 완료');
         }
-        
+
         function cancelInlineEdit(fieldType) {
+            console.log('[EDIT] 취소 시작:', fieldType);
             const contentElement = document.getElementById(fieldType + 'Content');
-            const originalContent = currentData[fieldType + '_en'] || '';
+            
+            if (!contentElement) {
+                console.error('[EDIT] 취소할 요소를 찾을 수 없음:', fieldType + 'Content');
+                return;
+            }
+            
+            // Get original content based on field type
+            let originalContent = '';
+            if (fieldType === 'title') {
+                originalContent = currentData.que_en_title || '';
+            } else if (fieldType === 'resource') {
+                originalContent = currentData.que_en_resource || '';
+            } else {
+                originalContent = currentData[fieldType + '_en'] || '';
+            }
+            
+            console.log('[EDIT] 원본 내용 복원:', originalContent);
             
             contentElement.innerHTML = `
                 <div class="edit-indicator">✏️ 클릭하여 편집</div>
@@ -1293,39 +2297,66 @@
             
             currentEditingField = null;
             inlineEditor = null;
+            console.log('[EDIT] 취소 완료');
         }
-        
+
         function editInline(fieldType) {
             startInlineEdit(fieldType);
         }
-        
+
+        // Add custom buttons to inline editor
+        function addCustomButtonsToInlineEditor() {
+            if (!inlineEditor) return;
+            
+            const toolbar = inlineEditor.getModule('toolbar');
+            const toolbarContainer = inlineEditor.container.parentElement.querySelector('.ql-toolbar');
+            
+            if (toolbarContainer) {
+                // Add MathJax button
+                const formulaButton = document.createElement('button');
+                formulaButton.innerHTML = 'fx';
+                formulaButton.title = '수식 삽입';
+                formulaButton.onclick = insertMathFormula;
+                formulaButton.style.marginLeft = '5px';
+                toolbarContainer.appendChild(formulaButton);
+                
+                // Add ChemDoodle button
+                const chemButton = document.createElement('button');
+                chemButton.innerHTML = '🧪';
+                chemButton.title = '화학 구조 삽입';
+                chemButton.onclick = openChemModal;
+                chemButton.style.marginLeft = '5px';
+                toolbarContainer.appendChild(chemButton);
+            }
+        }
+
         // Resizable Panels
         function initResizablePanels() {
             const leftPanel = document.getElementById('leftPanel');
             const rightPanel = document.getElementById('rightPanel');
             const resizeHandle = document.getElementById('resizeHandle');
-            
+
             let isResizing = false;
-            
+
             resizeHandle.addEventListener('mousedown', function(e) {
                 isResizing = true;
                 document.body.style.cursor = 'col-resize';
                 document.body.style.userSelect = 'none';
             });
-            
+
             document.addEventListener('mousemove', function(e) {
                 if (!isResizing) return;
-                
+
                 const containerWidth = document.querySelector('.container').offsetWidth;
                 const newLeftWidth = e.clientX;
                 const minWidth = 250;
                 const maxWidth = containerWidth - 250;
-                
+
                 if (newLeftWidth >= minWidth && newLeftWidth <= maxWidth) {
                     leftPanel.style.width = newLeftWidth + 'px';
                 }
             });
-            
+
             document.addEventListener('mouseup', function() {
                 if (isResizing) {
                     isResizing = false;
@@ -1334,25 +2365,45 @@
                 }
             });
         }
-        
+
         // Event Listeners
         document.getElementById('searchInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 searchByOriginalId();
             }
         });
-        
+
         // Close modal when clicking outside
         document.getElementById('chemModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeChemModal();
             }
         });
-        
+
         // Initialize resizable panels
         document.addEventListener('DOMContentLoaded', function() {
             initResizablePanels();
         });
+
+        function insertChemTemplate(smiles) {
+            // 화학 구조를 Quill 에디터에 직접 삽입
+            const range = quill.getSelection(true);
+            quill.insertEmbed(range.index, 'chem', smiles, Quill.sources.USER);
+            quill.setSelection(range.index + 1, 0, Quill.sources.USER);
+            
+            // 수식 에디터 모달 닫기
+            closeMathModal();
+        }
+
+        function insertSmilesFromInput() {
+            const input = document.getElementById('smiles-input');
+            if (input && input.value.trim()) {
+                const range = quill.getSelection(true);
+                quill.insertEmbed(range.index, 'chem', input.value.trim(), Quill.sources.USER);
+                quill.setSelection(range.index + 1, 0, Quill.sources.USER);
+                closeChemModal();
+            }
+        }
     </script>
 </body>
 </html>
