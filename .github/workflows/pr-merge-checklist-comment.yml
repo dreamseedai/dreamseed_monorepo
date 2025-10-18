@@ -12,7 +12,8 @@ permissions:
 jobs:
   comment:
     if: >-
-      ${{ github.event.pull_request.merged == true &&
+      ${{ github.event_name == 'pull_request' &&
+          github.event.pull_request.merged == true &&
           contains(github.event.pull_request.labels.*.name, 'runtime-stability') &&
           github.event.pull_request.base.ref == 'main' }}
     runs-on: ubuntu-latest
