@@ -56,6 +56,16 @@ jobs:
                     createProjectV2(input:{ownerId:$ownerId, title:$title}) {
                       projectV2 { id title }
                     }
+                  workflow_dispatch:
+                    inputs:
+                      content_type:
+                        description: "Type of content to add (issue or pull_request)"
+                        required: false
+                        default: ""
+                      content_number:
+                        description: "Issue/PR number to add"
+                        required: false
+                        default: ""
                   }
                 `;
                 try {
@@ -76,6 +86,55 @@ jobs:
             } else {
               core.setOutput("project_id", proj.id);
               core.info(`Resolved Project '${title}' id: ${proj.id}`);
+
+                      - name: Add content via manual inputs (workflow_dispatch)
+                        if: ${{ github.event_name == 'workflow_dispatch' && steps.proj.outputs.project_id != '' }}
+                        uses: actions/github-script@v7
+                        with:
+                          script: |
+                            const type = core.getInput('content_type');
+                            const numStr = core.getInput('content_number');
+                            if (!type || !numStr) {
+                              core.info('No manual content inputs provided. Skipping.');
+                              return;
+                            }
+                            const number = parseInt(numStr, 10);
+                            const owner = context.repo.owner;
+                            const repo = context.repo.repo;
+                            const projectId = "${{ steps.proj.outputs.project_id }}";
+                            let nodeId = null;
+                            if (type === 'issue') {
+                              const { data } = await github.rest.issues.get({ owner, repo, issue_number: number });
+                              nodeId = data?.node_id;
+                            } else if (type === 'pull_request') {
+                              const { data } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+                              nodeId = data?.node_id;
+                            } else {
+                              core.info(`Unknown content_type '${type}'. Skipping.`);
+                              return;
+                            }
+                            if (!nodeId) {
+                              core.warning(`Unable to resolve node_id for ${type} #${number}`);
+                              return;
+                            }
+                            const m = `
+                              mutation($projectId:ID!, $contentId:ID!) {
+                                addProjectV2ItemById(input:{projectId:$projectId, contentId:$contentId}) {
+                                  item { id }
+                                }
+                              }
+                            `;
+                            try {
+                              const r = await github.graphql(m, { projectId, contentId: nodeId });
+                              const itemId = r?.addProjectV2ItemById?.item?.id;
+                              if (itemId) {
+                                core.info(`Manually added ${type} #${number} to Project ${projectId}`);
+                              } else {
+                                core.warning(`GraphQL returned no item id when adding ${type} #${number}`);
+                              }
+                            } catch (e) {
+                              core.warning(`Failed manual add of ${type} #${number}: ${e}`);
+                            }
             }
 
       - name: Add Issue to Project
