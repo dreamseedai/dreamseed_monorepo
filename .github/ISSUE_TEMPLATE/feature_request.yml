@@ -1,0 +1,16 @@
+name: Feature request
+description: 기능 제안
+labels: ["enhancement"]
+body:
+  - type: textarea
+    attributes:
+      label: 제안 배경/목표
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 수용 기준(AC)
+      placeholder: |
+        Given ...
+        When ...
+        Then ...
