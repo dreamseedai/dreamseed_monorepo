@@ -5,6 +5,16 @@ on:
     types: [opened, labeled]
   pull_request:
     types: [opened, labeled, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      content_type:
+        description: "Type of content to add (issue or pull_request)"
+        required: false
+        default: ""
+      content_number:
+        description: "Issue/PR number to add"
+        required: false
+        default: ""
 
 jobs:
   add-to-project:
@@ -13,9 +23,9 @@ jobs:
       contents: read
       issues: write
       pull-requests: read
-      projects: write
+      repository-projects: write
     concurrency:
-      group: project-add-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number }}
+      group: project-add-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
       cancel-in-progress: true
     steps:
       - name: Resolve Project (DreamSeed) node ID (org or user)
@@ -23,7 +33,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const owner = "mpcstudy";  // 사용자 또는 조직 로그인
+            const owner = context.repo.owner;  // 사용자 또는 조직 로그인
             const title = "DreamSeed"; // Project v2 이름
             const q = `
               query($login:String!) {
@@ -38,7 +48,6 @@ jobs:
             let proj = nodes.find(n => n.title === title);
             if (!proj) {
               core.info(`Project v2 '${title}' not found for login '${owner}'. Attempting to create...`);
-              // Resolve owner node id (prefer org, else user)
               const ownerQ = `
                 query($login:String!) {
                   organization(login:$login) { id }
@@ -56,16 +65,6 @@ jobs:
                     createProjectV2(input:{ownerId:$ownerId, title:$title}) {
                       projectV2 { id title }
                     }
-                  workflow_dispatch:
-                    inputs:
-                      content_type:
-                        description: "Type of content to add (issue or pull_request)"
-                        required: false
-                        default: ""
-                      content_number:
-                        description: "Issue/PR number to add"
-                        required: false
-                        default: ""
                   }
                 `;
                 try {
@@ -86,58 +85,10 @@ jobs:
             } else {
               core.setOutput("project_id", proj.id);
               core.info(`Resolved Project '${title}' id: ${proj.id}`);
-
-                      - name: Add content via manual inputs (workflow_dispatch)
-                        if: ${{ github.event_name == 'workflow_dispatch' && steps.proj.outputs.project_id != '' }}
-                        uses: actions/github-script@v7
-                        with:
-                          script: |
-                            const type = core.getInput('content_type');
-                            const numStr = core.getInput('content_number');
-                            if (!type || !numStr) {
-                              core.info('No manual content inputs provided. Skipping.');
-                              return;
-                            }
-                            const number = parseInt(numStr, 10);
-                            const owner = context.repo.owner;
-                            const repo = context.repo.repo;
-                            const projectId = "${{ steps.proj.outputs.project_id }}";
-                            let nodeId = null;
-                            if (type === 'issue') {
-                              const { data } = await github.rest.issues.get({ owner, repo, issue_number: number });
-                              nodeId = data?.node_id;
-                            } else if (type === 'pull_request') {
-                              const { data } = await github.rest.pulls.get({ owner, repo, pull_number: number });
-                              nodeId = data?.node_id;
-                            } else {
-                              core.info(`Unknown content_type '${type}'. Skipping.`);
-                              return;
-                            }
-                            if (!nodeId) {
-                              core.warning(`Unable to resolve node_id for ${type} #${number}`);
-                              return;
-                            }
-                            const m = `
-                              mutation($projectId:ID!, $contentId:ID!) {
-                                addProjectV2ItemById(input:{projectId:$projectId, contentId:$contentId}) {
-                                  item { id }
-                                }
-                              }
-                            `;
-                            try {
-                              const r = await github.graphql(m, { projectId, contentId: nodeId });
-                              const itemId = r?.addProjectV2ItemById?.item?.id;
-                              if (itemId) {
-                                core.info(`Manually added ${type} #${number} to Project ${projectId}`);
-                              } else {
-                                core.warning(`GraphQL returned no item id when adding ${type} #${number}`);
-                              }
-                            } catch (e) {
-                              core.warning(`Failed manual add of ${type} #${number}: ${e}`);
-                            }
             }
 
       - name: Add Issue to Project
+        id: add_issue
         if: ${{ github.event_name == 'issues' && steps.proj.outputs.project_id != '' }}
         uses: actions/github-script@v7
         with:
@@ -152,13 +103,29 @@ jobs:
               }
             `;
             try {
-              await github.graphql(m, { projectId, contentId });
-              core.info(`Added issue to Project ${projectId}`);
+              const r = await github.graphql(m, { projectId, contentId });
+              const itemId = r?.addProjectV2ItemById?.item?.id;
+              core.setOutput('added', itemId ? 'true' : 'false');
+              core.info(`Added issue to Project ${projectId}, item: ${itemId || 'unknown'}`);
             } catch (e) {
               core.warning(`Failed to add issue to Project: ${e}`);
+              core.setOutput('added', 'false');
             }
 
+      - name: Comment on Issue with result
+        if: ${{ github.event_name == 'issues' && steps.proj.outputs.project_id != '' && steps.add_issue.outputs.added == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: `✅ This issue was added to Project 'DreamSeed'.`
+            });
+
       - name: Add PR to Project
+        id: add_pr
         if: ${{ github.event_name == 'pull_request' && steps.proj.outputs.project_id != '' }}
         uses: actions/github-script@v7
         with:
@@ -173,8 +140,72 @@ jobs:
               }
             `;
             try {
-              await github.graphql(m, { projectId, contentId });
-              core.info(`Added pull request to Project ${projectId}`);
+              const r = await github.graphql(m, { projectId, contentId });
+              const itemId = r?.addProjectV2ItemById?.item?.id;
+              core.setOutput('added', itemId ? 'true' : 'false');
+              core.info(`Added pull request to Project ${projectId}, item: ${itemId || 'unknown'}`);
             } catch (e) {
               core.warning(`Failed to add pull request to Project: ${e}`);
+              core.setOutput('added', 'false');
+            }
+
+      - name: Comment on PR with result
+        if: ${{ github.event_name == 'pull_request' && steps.proj.outputs.project_id != '' && steps.add_pr.outputs.added == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `✅ This pull request was added to Project 'DreamSeed'.`
+            });
+
+      - name: Add content via manual inputs (workflow_dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.proj.outputs.project_id != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const type = core.getInput('content_type');
+            const numStr = core.getInput('content_number');
+            if (!type || !numStr) {
+              core.info('No manual content inputs provided. Skipping.');
+              return;
+            }
+            const number = parseInt(numStr, 10);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const projectId = "${{ steps.proj.outputs.project_id }}";
+            let nodeId = null;
+            if (type === 'issue') {
+              const { data } = await github.rest.issues.get({ owner, repo, issue_number: number });
+              nodeId = data?.node_id;
+            } else if (type === 'pull_request') {
+              const { data } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+              nodeId = data?.node_id;
+            } else {
+              core.info(`Unknown content_type '${type}'. Skipping.`);
+              return;
+            }
+            if (!nodeId) {
+              core.warning(`Unable to resolve node_id for ${type} #${number}`);
+              return;
+            }
+            const m = `
+              mutation($projectId:ID!, $contentId:ID!) {
+                addProjectV2ItemById(input:{projectId:$projectId, contentId:$contentId}) {
+                  item { id }
+                }
+              }
+            `;
+            try {
+              const r = await github.graphql(m, { projectId, contentId: nodeId });
+              const itemId = r?.addProjectV2ItemById?.item?.id;
+              if (itemId) {
+                core.info(`Manually added ${type} #${number} to Project ${projectId}`);
+              } else {
+                core.warning(`GraphQL returned no item id when adding ${type} #${number}`);
+              }
+            } catch (e) {
+              core.warning(`Failed manual add of ${type} #${number}: ${e}`);
             }
