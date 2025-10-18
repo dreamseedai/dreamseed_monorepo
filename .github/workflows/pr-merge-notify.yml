@@ -1,0 +1,61 @@
+name: pr-merge-notify
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  notify:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_MERGER: ${{ github.event.pull_request.merged_by.login }}
+          REPO: ${{ github.repository }}
+          SOURCE_BRANCH: ${{ github.event.pull_request.head.ref }}
+          TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq curl
+          # Extract labels and requested reviewers/teams from the event payload
+          labels=$(jq -r '[.pull_request.labels[].name] | join(", ") // ""' "$GITHUB_EVENT_PATH")
+          requested_reviewers=$(jq -r '[.pull_request.requested_reviewers[].login] | join(", ") // ""' "$GITHUB_EVENT_PATH")
+          requested_teams=$(jq -r '[.pull_request.requested_teams[].name] | join(", ") // ""' "$GITHUB_EVENT_PATH")
+
+          requested="$requested_reviewers"
+          if [ -n "$requested_teams" ]; then
+            if [ -n "$requested" ]; then
+              requested="$requested; teams: $requested_teams"
+            else
+              requested="teams: $requested_teams"
+            fi
+          fi
+
+          # Fetch approvers via GitHub API (reviews with state=APPROVED)
+          reviews=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/reviews")
+          approvers=$(echo "$reviews" | jq -r '[.[] | select(.state == "APPROVED") | .user.login] | unique | join(", ")')
+
+          # Fallback placeholders when empty
+          [ -n "$labels" ] || labels="-"
+          [ -n "$requested" ] || requested="-"
+          [ -n "$approvers" ] || approvers="-"
+
+          payload=$(jq -n \
+            --arg t ":tada: PR merged: #$PR_NUMBER - $PR_TITLE" \
+            --arg u "$PR_URL" \
+            --arg m "$PR_MERGER" \
+            --arg src "$SOURCE_BRANCH" \
+            --arg dst "$TARGET_BRANCH" \
+            --arg lbl "$labels" \
+            --arg req "$requested" \
+            --arg apr "$approvers" \
+            '{text: "\($t)\nMerged by: \($m)\nBranches: \($src) → \($dst)\nLabels: \($lbl)\nReviewers: \($req)\nApprovers: \($apr)\n\($u)"}')
+          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+

@@ -1,0 +1,71 @@
+name: Post-merge E2E Checklist Comment
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create checklist comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ev = context.eventName;
+            const pr = context.payload.pull_request || null;
+            if (ev !== 'pull_request' || !pr) {
+              core.info('Not a pull_request event. Skipping.');
+              return;
+            }
+            if (context.payload.action !== 'closed') {
+              core.info('PR action is not closed. Skipping.');
+              return;
+            }
+            if (!pr.merged) {
+              core.info('PR is not merged. Skipping.');
+              return;
+            }
+            if (pr.base.ref !== 'main') {
+              core.info(`Base branch is ${pr.base.ref}, not main. Skipping.`);
+              return;
+            }
+            const hasRuntimeStability = (pr.labels || []).some(l => l.name === 'runtime-stability');
+            if (!hasRuntimeStability) {
+              core.info('Missing runtime-stability label at merge time. Skipping.');
+              return;
+            }
+
+            const title = pr.title;
+            const number = pr.number;
+            const url = pr.html_url;
+            const merger = (pr.merged_by && pr.merged_by.login) ? pr.merged_by.login : 'unknown';
+            const source = pr.head.ref;
+            const target = pr.base.ref;
+            const labels = (pr.labels || []).map(l => l.name).join(', ') || '-';
+
+            const checklist = `✅ Post-merge E2E Checklist (Runtime Stability)\n\n` +
+`PR: #${number} - ${title}\n` +
+`Merged by: ${merger}\n` +
+`Branches: ${source} → ${target}\n` +
+`Labels: ${labels}\n` +
+`${url}\n\n` +
+`- [ ] 서비스 핵심 경로 스모크 테스트 통과\n` +
+`- [ ] 에러 로그/알림 이상 없음 (최근 30분)\n` +
+`- [ ] 대시보드 지표 정상 (에러율/응답시간/트래픽)\n` +
+`- [ ] 피처 플래그/환경변수 기대대로 동작\n` +
+`- [ ] 롤백 경로 준비 및 검증\n` +
+`- [ ] 온콜/관계자 공지 완료`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              body: checklist,
+            });
+
