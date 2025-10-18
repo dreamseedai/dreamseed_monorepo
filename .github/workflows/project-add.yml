@@ -13,7 +13,7 @@ jobs:
       contents: read
       issues: write
       pull-requests: read
-      projects: write
+      repository-projects: write
     concurrency:
       group: project-add-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number }}
       cancel-in-progress: true
@@ -80,6 +80,7 @@ jobs:
 
       - name: Add Issue to Project
         if: ${{ github.event_name == 'issues' && steps.proj.outputs.project_id != '' }}
+        id: add_issue
         uses: actions/github-script@v7
         with:
           script: |
@@ -93,14 +94,30 @@ jobs:
               }
             `;
             try {
-              await github.graphql(m, { projectId, contentId });
-              core.info(`Added issue to Project ${projectId}`);
+              const r = await github.graphql(m, { projectId, contentId });
+              const itemId = r?.addProjectV2ItemById?.item?.id;
+              core.setOutput('added', itemId ? 'true' : 'false');
+              core.info(`Added issue to Project ${projectId}, item: ${itemId || 'unknown'}`);
             } catch (e) {
               core.warning(`Failed to add issue to Project: ${e}`);
+              core.setOutput('added', 'false');
             }
+
+      - name: Comment on Issue with result
+        if: ${{ github.event_name == 'issues' && steps.proj.outputs.project_id != '' && steps.add_issue.outputs.added == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: `✅ This issue was added to Project 'DreamSeed'.`
+            });
 
       - name: Add PR to Project
         if: ${{ github.event_name == 'pull_request' && steps.proj.outputs.project_id != '' }}
+        id: add_pr
         uses: actions/github-script@v7
         with:
           script: |
@@ -114,8 +131,23 @@ jobs:
               }
             `;
             try {
-              await github.graphql(m, { projectId, contentId });
-              core.info(`Added pull request to Project ${projectId}`);
+              const r = await github.graphql(m, { projectId, contentId });
+              const itemId = r?.addProjectV2ItemById?.item?.id;
+              core.setOutput('added', itemId ? 'true' : 'false');
+              core.info(`Added pull request to Project ${projectId}, item: ${itemId || 'unknown'}`);
             } catch (e) {
               core.warning(`Failed to add pull request to Project: ${e}`);
+              core.setOutput('added', 'false');
             }
+
+      - name: Comment on PR with result
+        if: ${{ github.event_name == 'pull_request' && steps.proj.outputs.project_id != '' && steps.add_pr.outputs.added == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `✅ This pull request was added to Project 'DreamSeed'.`
+            });
