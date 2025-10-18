@@ -176,7 +176,7 @@ jobs:
             });
 
       - name: Add content via manual inputs (workflow_dispatch)
-        if: ${{ github.event_name == 'workflow_dispatch' && steps.proj.outputs.project_id != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -189,7 +189,45 @@ jobs:
             const number = parseInt(numStr, 10);
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const projectId = "${{ steps.proj.outputs.project_id }}";
+            let projectId = "${{ steps.proj.outputs.project_id }}";
+            // If project id wasn't resolved earlier, resolve/create now
+            if (!projectId) {
+              const title = 'DreamSeed';
+              // try user first
+              const userQ = `query($login:String!){ user(login:$login){ id projectsV2(first:100){ nodes{ id title } } } }`;
+              let nodes = [];
+              let ownerId = null;
+              try {
+                const userRes = await github.graphql(userQ, { login: owner });
+                nodes = userRes.user?.projectsV2?.nodes || [];
+                ownerId = userRes.user?.id || null;
+              } catch {}
+              if (!nodes.length) {
+                try {
+                  const orgQ = `query($login:String!){ organization(login:$login){ id projectsV2(first:100){ nodes{ id title } } } }`;
+                  const orgRes = await github.graphql(orgQ, { login: owner });
+                  nodes = orgRes.organization?.projectsV2?.nodes || [];
+                  ownerId = ownerId || orgRes.organization?.id || null;
+                } catch {}
+              }
+              const existing = nodes.find(n => n.title === title);
+              if (existing) {
+                projectId = existing.id;
+              } else if (ownerId) {
+                const createM = `mutation($ownerId:ID!, $title:String!){ createProjectV2(input:{ownerId:$ownerId, title:$title}){ projectV2 { id title } } }`;
+                try {
+                  const createRes = await github.graphql(createM, { ownerId, title });
+                  const created = createRes?.createProjectV2?.projectV2;
+                  projectId = created?.id || '';
+                } catch (e) {
+                  core.warning(`Manual path: failed to create Project '${title}': ${e}`);
+                }
+              }
+              if (!projectId) {
+                core.warning('Manual path: no projectId resolved; cannot add content.');
+                return;
+              }
+            }
             let nodeId = null;
             if (type === 'issue') {
               const { data } = await github.rest.issues.get({ owner, repo, issue_number: number });
@@ -217,6 +255,11 @@ jobs:
               const itemId = r?.addProjectV2ItemById?.item?.id;
               if (itemId) {
                 core.info(`Manually added ${type} #${number} to Project ${projectId}`);
+                if (type === 'issue') {
+                  await github.rest.issues.createComment({ owner, repo, issue_number: number, body: `✅ Issue added to Project 'DreamSeed'.`});
+                } else {
+                  await github.rest.issues.createComment({ owner, repo, issue_number: number, body: `✅ Pull request added to Project 'DreamSeed'.`});
+                }
               } else {
                 core.warning(`GraphQL returned no item id when adding ${type} #${number}`);
               }
