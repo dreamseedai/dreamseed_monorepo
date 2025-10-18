@@ -3,13 +3,20 @@ name: pr-merge-notify
 on:
   pull_request:
     types: [closed]
+  workflow_dispatch:
 
 jobs:
   notify:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
+      - name: Skip Slack notify (no webhook configured)
+        if: ${{ secrets.SLACK_WEBHOOK_URL == '' }}
+        run: |
+          echo "SLACK_WEBHOOK_URL is not set; skipping Slack notification."
+
       - name: Post to Slack
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
