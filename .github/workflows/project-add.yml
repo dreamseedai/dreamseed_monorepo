@@ -35,27 +35,41 @@ jobs:
           script: |
             const owner = context.repo.owner;  // 사용자 또는 조직 로그인
             const title = "DreamSeed"; // Project v2 이름
-            const q = `
-              query($login:String!) {
-                organization(login:$login) { projectsV2(first:100) { nodes { id title } } }
-                user(login:$login)         { projectsV2(first:100) { nodes { id title } } }
+            // Query user projects first; if not found, try organization projects.
+            let nodes = [];
+            try {
+              const userQ = `query($login:String!){ user(login:$login){ projectsV2(first:100){ nodes{ id title } } } }`;
+              const userRes = await github.graphql(userQ, { login: owner });
+              nodes = userRes.user?.projectsV2?.nodes || [];
+            } catch (e) {
+              core.info(`User projects query failed (may be fine): ${e}`);
+            }
+            if (!nodes.length) {
+              try {
+                const orgQ = `query($login:String!){ organization(login:$login){ projectsV2(first:100){ nodes{ id title } } } }`;
+                const orgRes = await github.graphql(orgQ, { login: owner });
+                nodes = orgRes.organization?.projectsV2?.nodes || [];
+              } catch (e) {
+                core.info(`Org projects query failed (owner may be a user): ${e}`);
               }
-            `;
-            const res = await github.graphql(q, { login: owner });
-            const orgNodes  = res.organization?.projectsV2?.nodes || [];
-            const userNodes = res.user?.projectsV2?.nodes || [];
-            const nodes = [...orgNodes, ...userNodes];
+            }
             let proj = nodes.find(n => n.title === title);
             if (!proj) {
               core.info(`Project v2 '${title}' not found for login '${owner}'. Attempting to create...`);
-              const ownerQ = `
-                query($login:String!) {
-                  organization(login:$login) { id }
-                  user(login:$login) { id }
-                }
-              `;
-              const ownerRes = await github.graphql(ownerQ, { login: owner });
-              const ownerId = ownerRes.organization?.id || ownerRes.user?.id;
+              // Resolve owner node id (prefer user, else org)
+              let ownerId = null;
+              try {
+                const userIdQ = `query($login:String!){ user(login:$login){ id } }`;
+                const userIdRes = await github.graphql(userIdQ, { login: owner });
+                ownerId = userIdRes.user?.id || null;
+              } catch {}
+              if (!ownerId) {
+                try {
+                  const orgIdQ = `query($login:String!){ organization(login:$login){ id } }`;
+                  const orgIdRes = await github.graphql(orgIdQ, { login: owner });
+                  ownerId = orgIdRes.organization?.id || null;
+                } catch {}
+              }
               if (!ownerId) {
                 core.warning(`Unable to resolve owner id for '${owner}'. Skipping.`);
                 core.setOutput("project_id", "");
