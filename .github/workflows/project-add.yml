@@ -1,0 +1,121 @@
+name: Add Issues/PRs to Project v2 (DreamSeed)
+
+on:
+  issues:
+    types: [opened, labeled]
+  pull_request:
+    types: [opened, labeled, ready_for_review]
+
+jobs:
+  add-to-project:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+      projects: write
+    concurrency:
+      group: project-add-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Resolve Project (DreamSeed) node ID (org or user)
+        id: proj
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = "mpcstudy";  // 사용자 또는 조직 로그인
+            const title = "DreamSeed"; // Project v2 이름
+            const q = `
+              query($login:String!) {
+                organization(login:$login) { projectsV2(first:100) { nodes { id title } } }
+                user(login:$login)         { projectsV2(first:100) { nodes { id title } } }
+              }
+            `;
+            const res = await github.graphql(q, { login: owner });
+            const orgNodes  = res.organization?.projectsV2?.nodes || [];
+            const userNodes = res.user?.projectsV2?.nodes || [];
+            const nodes = [...orgNodes, ...userNodes];
+            let proj = nodes.find(n => n.title === title);
+            if (!proj) {
+              core.info(`Project v2 '${title}' not found for login '${owner}'. Attempting to create...`);
+              // Resolve owner node id (prefer org, else user)
+              const ownerQ = `
+                query($login:String!) {
+                  organization(login:$login) { id }
+                  user(login:$login) { id }
+                }
+              `;
+              const ownerRes = await github.graphql(ownerQ, { login: owner });
+              const ownerId = ownerRes.organization?.id || ownerRes.user?.id;
+              if (!ownerId) {
+                core.warning(`Unable to resolve owner id for '${owner}'. Skipping.`);
+                core.setOutput("project_id", "");
+              } else {
+                const createM = `
+                  mutation($ownerId:ID!, $title:String!) {
+                    createProjectV2(input:{ownerId:$ownerId, title:$title}) {
+                      projectV2 { id title }
+                    }
+                  }
+                `;
+                try {
+                  const createRes = await github.graphql(createM, { ownerId, title });
+                  const created = createRes?.createProjectV2?.projectV2;
+                  if (created?.id) {
+                    core.info(`Created Project '${created.title}' id: ${created.id}`);
+                    core.setOutput("project_id", created.id);
+                  } else {
+                    core.warning(`Project creation did not return an id. Skipping.`);
+                    core.setOutput("project_id", "");
+                  }
+                } catch (e) {
+                  core.warning(`Failed to create Project '${title}': ${e}`);
+                  core.setOutput("project_id", "");
+                }
+              }
+            } else {
+              core.setOutput("project_id", proj.id);
+              core.info(`Resolved Project '${title}' id: ${proj.id}`);
+            }
+
+      - name: Add Issue to Project
+        if: ${{ github.event_name == 'issues' && steps.proj.outputs.project_id != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const projectId = "${{ steps.proj.outputs.project_id }}";
+            const contentId = context.payload.issue.node_id;
+            const m = `
+              mutation($projectId:ID!, $contentId:ID!) {
+                addProjectV2ItemById(input:{projectId:$projectId, contentId:$contentId}) {
+                  item { id }
+                }
+              }
+            `;
+            try {
+              await github.graphql(m, { projectId, contentId });
+              core.info(`Added issue to Project ${projectId}`);
+            } catch (e) {
+              core.warning(`Failed to add issue to Project: ${e}`);
+            }
+
+      - name: Add PR to Project
+        if: ${{ github.event_name == 'pull_request' && steps.proj.outputs.project_id != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const projectId = "${{ steps.proj.outputs.project_id }}";
+            const contentId = context.payload.pull_request.node_id;
+            const m = `
+              mutation($projectId:ID!, $contentId:ID!) {
+                addProjectV2ItemById(input:{projectId:$projectId, contentId:$contentId}) {
+                  item { id }
+                }
+              }
+            `;
+            try {
+              await github.graphql(m, { projectId, contentId });
+              core.info(`Added pull request to Project ${projectId}`);
+            } catch (e) {
+              core.warning(`Failed to add pull request to Project: ${e}`);
+            }

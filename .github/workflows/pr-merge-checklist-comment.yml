@@ -11,6 +11,9 @@ permissions:
 
 jobs:
   comment:
+    concurrency:
+      group: pr-merge-checklist-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
       - name: Create checklist comment
@@ -41,26 +44,40 @@ jobs:
               return;
             }
 
-            const title = pr.title;
+            // Avoid duplicate checklist comments
+            const { owner, repo } = context.repo;
             const number = pr.number;
+            const existing = await github.rest.issues.listComments({ owner, repo, issue_number: number, per_page: 100 });
+            const alreadyPosted = existing.data.some(c => (c.body || '').startsWith('✅ Post-merge E2E Checklist (Runtime Stability)'));
+            if (alreadyPosted) {
+              core.info('Checklist comment already exists. Skipping.');
+              return;
+            }
+
+            const title = pr.title;
             const url = pr.html_url;
             const merger = (pr.merged_by && pr.merged_by.login) ? pr.merged_by.login : 'unknown';
             const source = pr.head.ref;
             const target = pr.base.ref;
             const labels = (pr.labels || []).map(l => l.name).join(', ') || '-';
 
-            const checklist = `✅ Post-merge E2E Checklist (Runtime Stability)\n\n` +
-`PR: #${number} - ${title}\n` +
-`Merged by: ${merger}\n` +
-`Branches: ${source} → ${target}\n` +
-`Labels: ${labels}\n` +
-`${url}\n\n` +
-`- [ ] 서비스 핵심 경로 스모크 테스트 통과\n` +
-`- [ ] 에러 로그/알림 이상 없음 (최근 30분)\n` +
-`- [ ] 대시보드 지표 정상 (에러율/응답시간/트래픽)\n` +
-`- [ ] 피처 플래그/환경변수 기대대로 동작\n` +
-`- [ ] 롤백 경로 준비 및 검증\n` +
-`- [ ] 온콜/관계자 공지 완료`;
+            const checklistLines = [
+              '✅ Post-merge E2E Checklist (Runtime Stability)',
+              '',
+              `PR: #${number} - ${title}`,
+              `Merged by: ${merger}`,
+              `Branches: ${source} → ${target}`,
+              `Labels: ${labels}`,
+              `${url}`,
+              '',
+              '- [ ] 서비스 핵심 경로 스모크 테스트 통과',
+              '- [ ] 에러 로그/알림 이상 없음 (최근 30분)',
+              '- [ ] 대시보드 지표 정상 (에러율/응답시간/트래픽)',
+              '- [ ] 피처 플래그/환경변수 기대대로 동작',
+              '- [ ] 롤백 경로 준비 및 검증',
+              '- [ ] 온콜/관계자 공지 완료'
+            ];
+            const checklist = checklistLines.join('\n');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,

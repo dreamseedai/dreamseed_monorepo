@@ -1,0 +1,23 @@
+name: Bug report
+description: 버그 리포트
+labels: ["bug"]
+body:
+  - type: textarea
+    attributes:
+      label: 버그 설명
+      placeholder: 무엇이 문제인지?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 재현 절차
+      placeholder: |
+        1) ...
+        2) ...
+  - type: input
+    attributes:
+      label: 환경/버전
+      placeholder: prod/staging, commit SHA
+  - type: textarea
+    attributes:
+      label: 예상 동작
