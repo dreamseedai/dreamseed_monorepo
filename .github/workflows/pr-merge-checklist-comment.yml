@@ -1,0 +1,52 @@
+name: Post-merge E2E Checklist Comment
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  comment:
+    if: >-
+      ${{ github.event.pull_request.merged == true &&
+          contains(github.event.pull_request.labels.*.name, 'runtime-stability') &&
+          github.event.pull_request.base.ref == 'main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create checklist comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const title = pr.title;
+            const number = pr.number;
+            const url = pr.html_url;
+            const merger = pr.merged_by?.login || 'unknown';
+            const source = pr.head.ref;
+            const target = pr.base.ref;
+            const labels = (pr.labels || []).map(l => l.name).join(', ') || '-';
+
+            const checklist = `✅ Post-merge E2E Checklist (Runtime Stability)\n\n` +
+`PR: #${number} - ${title}\n` +
+`Merged by: ${merger}\n` +
+`Branches: ${source} → ${target}\n` +
+`Labels: ${labels}\n` +
+`${url}\n\n` +
+`- [ ] 서비스 핵심 경로 스모크 테스트 통과\n` +
+`- [ ] 에러 로그/알림 이상 없음 (최근 30분)\n` +
+`- [ ] 대시보드 지표 정상 (에러율/응답시간/트래픽)\n` +
+`- [ ] 피처 플래그/환경변수 기대대로 동작\n` +
+`- [ ] 롤백 경로 준비 및 검증\n` +
+`- [ ] 온콜/관계자 공지 완료`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              body: checklist,
+            });
+
