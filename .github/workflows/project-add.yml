@@ -32,6 +32,7 @@ jobs:
         id: proj
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.PROJECTS_TOKEN || github.token }}
           script: |
             const owner = context.repo.owner;  // 사용자 또는 조직 로그인
             const title = "DreamSeed"; // Project v2 이름
@@ -106,6 +107,7 @@ jobs:
         if: ${{ github.event_name == 'issues' && steps.proj.outputs.project_id != '' }}
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.PROJECTS_TOKEN || github.token }}
           script: |
             const projectId = "${{ steps.proj.outputs.project_id }}";
             const contentId = context.payload.issue.node_id;
@@ -130,6 +132,7 @@ jobs:
         if: ${{ github.event_name == 'issues' && steps.proj.outputs.project_id != '' && steps.add_issue.outputs.added == 'true' }}
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.PROJECTS_TOKEN || github.token }}
           script: |
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -143,6 +146,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && steps.proj.outputs.project_id != '' }}
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.PROJECTS_TOKEN || github.token }}
           script: |
             const projectId = "${{ steps.proj.outputs.project_id }}";
             const contentId = context.payload.pull_request.node_id;
@@ -167,6 +171,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && steps.proj.outputs.project_id != '' && steps.add_pr.outputs.added == 'true' }}
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.PROJECTS_TOKEN || github.token }}
           script: |
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -179,6 +184,7 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.PROJECTS_TOKEN || github.token }}
           script: |
             const type = core.getInput('content_type');
             const numStr = core.getInput('content_number');
