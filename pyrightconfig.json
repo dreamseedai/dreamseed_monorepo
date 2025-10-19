@@ -1,10 +1,10 @@
 {
   "exclude": ["portal_front", "**/node_modules", "**/__pycache__"],
-  "venvPath": ".",
-  "venv": "portal_api/.venv",
+  "venvPath": "/home/won/projects/dreamseed_monorepo",
+  "venv": ".venv",
   "executionEnvironments": [
     {
-      "root": "portal_api",
+      "root": ".",
       "extraPaths": ["."]
     }
   ]

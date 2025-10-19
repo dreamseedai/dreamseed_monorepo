@@ -27,6 +27,29 @@
 
 참고: Required status checks 이름은 최소 1회 성공 실행 후 보호 규칙 UI에서 정확히 선택하세요.
 
+### ⇨ 실전: gh CLI로 보호 규칙 즉시 적용(검증된 컨텍스트 포함)
+
+아래 커맨드는 main 브랜치에 다음 규칙을 JSON으로 적용합니다.
+- Required status checks: "Analyze (CodeQL)" 1건을 엄격(strict) 모드로 강제
+- Enforce for admins: 활성화
+- Linear history: 활성화
+- CODEOWNERS 강제는 레포 설정과 CODEOWNERS 유무에 따름(본 커맨드 범위 아님)
+
+복사-붙여넣기로 실행 가능하며, 조직/레포 이름은 본 레포에 맞춰져 있습니다.
+
+```bash
+# 브랜치 보호 JSON 생성 및 적용
+printf '%s' '{"required_status_checks":{"strict":true,"checks":[{"context":"Analyze (CodeQL)"}]},"enforce_admins":true,"required_pull_request_reviews":{"required_approving_review_count":0,"require_code_owner_reviews":false},"restrictions":null,"required_linear_history":true}' > /tmp/branch_protect.json && \
+gh api -X PUT repos/mpcstudy/dreamseed_monorepo/branches/main/protection \
+  -H "Accept: application/vnd.github+json" \
+  --input /tmp/branch_protect.json
+```
+
+확장 방법
+- 추가 체크를 강제하려면 checks 배열에 항목을 더 넣으세요. 예) `{"context":"ci-full"}`, `{"context":"web"}` 등 (정확한 Job 이름이 필요).
+- "Job 이름 수집"은 PR 한 번 실행 후 `gh run list` → `gh api repos/:owner/:repo/actions/runs/<RUN_ID>/jobs -q '.jobs[].name'` 로 확인.
+- 필요한 경우 `required_pull_request_reviews`의 승인 수·CODEOWNERS 강제 등을 정책에 맞게 조정하세요.
+
 ## 3) CODEOWNERS(권장)
 - [ ] `.github/CODEOWNERS` 추가 예시
   ```
