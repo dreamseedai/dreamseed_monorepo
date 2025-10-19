@@ -5,7 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/won/projects/dreamseed_monorepo
+# Set WORKDIR in /etc/default/dreamseed-editor, e.g., WORKDIR=/opt/dreamseed
+EnvironmentFile=/etc/default/dreamseed-editor
+WorkingDirectory=${WORKDIR}
 ExecStart=/usr/bin/env node proxy_server.js
 Restart=on-failure
 RestartSec=2

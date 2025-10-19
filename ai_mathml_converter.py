@@ -7,10 +7,9 @@ Uses GPT-4.1 mini to intelligently convert complex MathML expressions to MathLiv
 import os
 import json
 import re
-import hashlib
 import time
 from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from ai_client import get_openai_client, get_model
 
 @dataclass
@@ -19,6 +18,7 @@ class ConversionResult:
     converted_latex: str
     confidence: float
     conversion_notes: str
+    display_mode: bool = False
     error_message: Optional[str] = None
 
 class AIMathMLConverter:
@@ -154,6 +154,7 @@ Now convert the provided MathML expression:
                     converted_latex=result_data.get('latex', ''),
                     confidence=result_data.get('confidence', 0.5),
                     conversion_notes=result_data.get('notes', ''),
+                    display_mode=bool(result_data.get('display_mode', False)),
                     error_message=None
                 )
                 
@@ -214,12 +215,12 @@ Now convert the provided MathML expression:
                     content_result['mathml_expressions'].append({
                         'position': position,
                         'mathml': mathml,
-                        'conversion': conversion_result
+                        'conversion': asdict(conversion_result)
                     })
                     
                     # Replace in content
                     if conversion_result.converted_latex:
-                        if conversion_result.conversion_notes and 'display' in conversion_result.conversion_notes.lower():
+                        if getattr(conversion_result, 'display_mode', False):
                             latex_wrapper = f"\\[{conversion_result.converted_latex}\\]"
                         else:
                             latex_wrapper = f"\\({conversion_result.converted_latex}\\)"

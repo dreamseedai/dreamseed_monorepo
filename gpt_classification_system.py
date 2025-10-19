@@ -363,10 +363,12 @@ Classify this question now:
         
         for result in results:
             if 'error' not in result:
-                if result.get('ontario_classification', {}).get('confidence'):
-                    ontario_confidences.append(result['ontario_classification']['confidence'])
-                if result.get('us_classification', {}).get('confidence'):
-                    us_confidences.append(result['us_classification']['confidence'])
+                oc = result.get('ontario_classification')
+                if isinstance(oc, dict) and 'confidence' in oc and oc['confidence'] is not None:
+                    ontario_confidences.append(oc['confidence'])
+                uc = result.get('us_classification')
+                if isinstance(uc, dict) and 'confidence' in uc and uc['confidence'] is not None:
+                    us_confidences.append(uc['confidence'])
         
         # Analyze difficulty distributions
         ontario_difficulties = {}

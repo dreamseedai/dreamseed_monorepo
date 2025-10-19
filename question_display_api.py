@@ -3,15 +3,13 @@ FastAPI 백엔드: 문제 표시 및 상호작용 API
 기존 PHP runPopup.php를 FastAPI + PostgreSQL로 변환
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import json
-import uuid
 from datetime import datetime
 import logging
 import os
@@ -27,10 +25,13 @@ app = FastAPI(
 )
 
 # CORS 설정
+# CORS: 프로덕션에서는 특정 도메인으로 제한하세요.
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+allow_credentials = os.getenv("ALLOW_CREDENTIALS", "false").lower() == "true"
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 특정 도메인으로 제한
-    allow_credentials=True,
+    allow_origins=[o.strip() for o in allowed_origins if o.strip()],
+    allow_credentials=allow_credentials and allowed_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

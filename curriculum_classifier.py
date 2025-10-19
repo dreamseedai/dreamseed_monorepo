@@ -668,8 +668,14 @@ Classify this question now:
         recommendations = []
         
         # Analyze confidence scores
-        us_confidences = [r.get('us_classification', {}).get('confidence', 0) for r in results if 'us_classification' in r]
-        canada_confidences = [r.get('canada_classification', {}).get('confidence', 0) for r in results if 'canada_classification' in r]
+        us_confidences = [
+            uc['confidence'] if isinstance(uc := r.get('us_classification'), dict) and 'confidence' in uc else 0
+            for r in results if 'us_classification' in r
+        ]
+        canada_confidences = [
+            cc['confidence'] if isinstance(cc := r.get('canada_classification'), dict) and 'confidence' in cc else 0
+            for r in results if 'canada_classification' in r
+        ]
         
         if us_confidences:
             avg_us_confidence = sum(us_confidences) / len(us_confidences)

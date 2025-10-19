@@ -23,6 +23,8 @@ dependencies = [
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.11.0",
     "locust>=2.17.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.23",
 ]
 
 [project.optional-dependencies]
