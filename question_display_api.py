@@ -3,7 +3,7 @@ FastAPI 백엔드: 문제 표시 및 상호작용 API
 기존 PHP runPopup.php를 FastAPI + PostgreSQL로 변환
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -48,6 +48,16 @@ def get_db_connection():
     except Exception as e:
         logger.error(f"데이터베이스 연결 오류: {e}")
         raise HTTPException(status_code=500, detail="데이터베이스 연결 실패")
+
+# 간단한 API Key 인증 의존성 (개발 단계 기본 비활성화)
+def require_auth(x_api_key: Optional[str] = Header(default=None, alias="X-API-Key")) -> None:
+    expected = os.getenv("API_KEY", "")
+    if expected:
+        if not x_api_key or x_api_key != expected:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+    else:
+        # NOTE: API_KEY 미설정 시 개발 편의를 위해 허용. 프로덕션에선 반드시 설정하세요.
+        logger.warning("API_KEY not set; skipping auth (DEV MODE)")
 
 # Pydantic 모델들
 class QuestionRequest(BaseModel):
@@ -337,7 +347,7 @@ async def get_question_with_navigation(
         conn.close()
 
 @app.post("/api/favorites")
-async def save_to_favorites(favorite: FavoriteRequest):
+async def save_to_favorites(favorite: FavoriteRequest, _: None = Depends(require_auth)):
     """문제를 즐겨찾기에 저장"""
     conn = get_db_connection()
     try:
@@ -401,6 +411,8 @@ async def record_attempt(
     is_correct: bool,
     time_taken_sec: int,
     answer: Optional[str] = None
+    ,
+    _: None = Depends(require_auth)
 ):
     """문제 풀이 시도 기록"""
     conn = get_db_connection()

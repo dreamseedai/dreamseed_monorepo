@@ -89,7 +89,6 @@ jobs:
       TEST_PROFILE: 'fast'
       HAS_TESTS: 'false'
       HAS_COVERAGE: 'false'
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       redis:
         image: redis:7
@@ -166,14 +165,13 @@ jobs:
           fi
 
       - name: Upload coverage reports
-        if: env.TEST_PROFILE == 'full' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && env.HAS_COVERAGE == 'true' && env.CODECOV_TOKEN != ''
+        if: env.TEST_PROFILE == 'full' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && env.HAS_COVERAGE == 'true'
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
           flags: unittests
           name: unittests
           fail_ci_if_error: false
-          token: ${{ env.CODECOV_TOKEN }}
 
   # 통합 테스트
   integration-tests:
