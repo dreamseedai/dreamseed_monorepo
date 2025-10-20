@@ -8,12 +8,17 @@ on:
       - "ops/dataflow/**"
       - ".github/workflows/events-pipeline.yml"
 
+concurrency:
+  group: events-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Lint schema
+      - name: Lint schema (if present)
+        if: ${{ hashFiles('apps/seedtest-api/events/schema/exam_response_v1.json') != '' }}
         run: jq . apps/seedtest-api/events/schema/exam_response_v1.json >/dev/null
 
   dataflow-deploy:
@@ -22,15 +27,54 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    if: ${{ hashFiles('ops/dataflow/beam_pipeline.py') != '' }}
     steps:
       - uses: actions/checkout@v5
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install deps
+      - name: Install deps (requirements.txt)
+        if: ${{ hashFiles('ops/dataflow/requirements.txt') != '' }}
         run: |
           pip install -r ops/dataflow/requirements.txt
+      - name: Install deps (fallback Beam)
+        if: ${{ hashFiles('ops/dataflow/requirements.txt') == '' }}
+        run: |
+          pip install "apache-beam[gcp]~=2.57"
+      - name: Preflight variables
+        env:
+          PROJECT_ID: ${{ vars.PROJECT_ID }}
+          REGION:     ${{ vars.REGION }}
+          TEMP_BUCKET: ${{ vars.TEMP_BUCKET }}
+        run: |
+          set -euo pipefail
+          : "PROJECT_ID=$PROJECT_ID"
+          : "REGION=$REGION"
+          : "TEMP_BUCKET=$TEMP_BUCKET"
+          if [ -z "${PROJECT_ID:-}" ] || [ -z "${REGION:-}" ] || [ -z "${TEMP_BUCKET:-}" ]; then
+            echo "One or more required vars are missing. Ensure repo Variables are set: PROJECT_ID, REGION, TEMP_BUCKET" >&2
+            exit 1
+          fi
+          echo "$TEMP_BUCKET" | grep -Eq '^gs://.+' || { echo "TEMP_BUCKET must start with gs://" >&2; exit 1; }
+      - name: Validate WIF inputs
+        env:
+          WIF_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          WIF_SA: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          # Mask provider value in logs
+          echo "provider="$(printf "%s" "$WIF_PROVIDER" | sed 's/./*/g')
+          # Validate Workload Identity Provider full resource name
+          echo "$WIF_PROVIDER" | grep -Eq '^projects/[0-9]+/locations/global/workloadIdentityPools/[^/]+/providers/[^/]+' || {
+            echo 'Invalid provider format. Expected: projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID' >&2
+            exit 1
+          }
+          # Validate service account email format
+          echo "$WIF_SA" | grep -Eq '^[A-Za-z0-9_-]+@[A-Za-z0-9-]+\.iam\.gserviceaccount\.com$' || {
+            echo 'Invalid service account email. Expected: <name>@<project>.iam.gserviceaccount.com' >&2
+            exit 1
+          }
       - name: Auth to GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
