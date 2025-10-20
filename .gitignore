@@ -91,6 +91,7 @@ mpcstudy_*.db
 *.md
 !README.md
 !CHANGELOG.md
+!README_PROJECTS_AUTOMATION.md
 
 # Configuration files
 .editorconfig
@@ -189,6 +190,8 @@ schema.sql
 *.yml
 *.yaml
 !docker-compose.yml
+!.github/workflows/*.yml
+!.github/workflows/*.yaml
 
 # TypeScript files
 *.ts

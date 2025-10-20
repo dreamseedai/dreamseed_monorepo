@@ -1,0 +1,106 @@
+name: projects-add-and-update
+
+on:
+  pull_request:
+    types: [opened, labeled, reopened, synchronize]
+  issues:
+    types: [opened, labeled, reopened]
+  workflow_dispatch:
+
+concurrency:
+  group: projects-${{ github.workflow }}-${{ github.event_name }}-${{ github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  add:
+    env:
+      PROJECT_URL: ${{ vars.PROJECT_URL }}
+      PROJECTS_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ env.PROJECT_URL != '' && env.PROJECTS_TOKEN != '' }}
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: ${{ env.PROJECT_URL }}
+          github-token: ${{ env.PROJECTS_TOKEN }}
+
+  set-status:
+    runs-on: ubuntu-latest
+    needs: add
+    env:
+      PROJECT_URL: ${{ vars.PROJECT_URL }}
+      PROJECTS_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+    if: >-
+      needs.add.result == 'success' && (
+        (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'runtime-stability')) ||
+        (github.event_name == 'issues'       && contains(github.event.issue.labels.*.name, 'runtime-stability'))
+      )
+    steps:
+      - name: Update Project Status -> In Progress
+        if: ${{ env.PROJECT_URL != '' && env.PROJECTS_TOKEN != '' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ env.PROJECTS_TOKEN }}
+          script: |
+            const projectUrl = process.env.PROJECT_URL;
+            if (!projectUrl) { core.setOutput('skip', 'PROJECT_URL not set'); return; }
+            const m = projectUrl.match(/orgs\/(.+?)\/projects\/(\d+)/);
+            if (!m) throw new Error('Invalid PROJECT_URL');
+            const owner = m[1];
+            const number = parseInt(m[2], 10);
+
+            const q1 = `
+              query ($org: String!, $num: Int!) {
+                organization(login: $org) {
+                  projectV2(number: $num) {
+                    id
+                    fields(first: 50) {
+                      nodes {
+                        ... on ProjectV2Field { id name }
+                        ... on ProjectV2SingleSelectField { id name options { id name } }
+                      }
+                    }
+                  }
+                }
+              }`;
+            const r1 = await github.graphql(q1, { org: owner, num: number });
+            const project = r1.organization.projectV2;
+            const projectId = project.id;
+            const statusField = project.fields.nodes.find(f => f.name === 'Status');
+            if (!statusField) { core.info('Status field not found'); return; }
+            const inProgress = statusField.options?.find(o => o.name === 'In Progress');
+            if (!inProgress) { core.info('In Progress option not found'); return; }
+
+            const prNodeId = github.context.payload.pull_request?.node_id || github.context.payload.issue?.node_id;
+            if (!prNodeId) { core.info('No content node id'); return; }
+
+            const q2 = `
+              query($pid: ID!) {
+                node(id: $pid) {
+                  ... on ProjectV2 {
+                    items(first: 100) { nodes { id content { __typename ... on PullRequest { id } ... on Issue { id } } } }
+                  }
+                }
+              }`;
+            const r2 = await github.graphql(q2, { pid: projectId });
+            const item = r2.node.items.nodes.find(n => n.content?.id === prNodeId);
+            if (!item) { core.info('Project item not found yet (race)'); return; }
+
+            const mtn = `
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                updateProjectV2ItemFieldValue(input:{
+                  projectId: $projectId,
+                  itemId: $itemId,
+                  fieldId: $fieldId,
+                  value:{ singleSelectOptionId: $optionId }
+                }) { clientMutationId }
+              }`;
+            await github.graphql(mtn, { projectId, itemId: item.id, fieldId: statusField.id, optionId: inProgress.id });
+            core.info('Status set to In Progress');
+        env:
+          PROJECT_URL: ${{ env.PROJECT_URL }}
+
+
