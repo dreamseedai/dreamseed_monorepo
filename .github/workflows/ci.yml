@@ -420,8 +420,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Check for Dockerfile
+        id: dockerfile_check
+        run: |
+          if [ -f Dockerfile ]; then
+            echo "has_dockerfile=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_dockerfile=false" >> $GITHUB_OUTPUT
+            echo "Dockerfile not found; skipping Docker build/test"
+          fi
+
       - name: Build Docker image
         uses: docker/build-push-action@v5
+        if: steps.dockerfile_check.outputs.has_dockerfile == 'true'
         with:
           context: .
           file: ./Dockerfile
@@ -431,6 +442,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
+        if: steps.dockerfile_check.outputs.has_dockerfile == 'true'
         run: |
           docker run --rm -d --name dreamseed-test -p 8002:8002 dreamseed:test
           sleep 10
