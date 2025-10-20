@@ -144,6 +144,9 @@ images/
 deploy*.sh
 install*.sh
 run*.sh
+# Allow database scripts to be tracked
+!scripts/db/*.sh
+!scripts/db/README.md
 
 # System files
 systemd-*.service
@@ -179,6 +182,8 @@ requirements*.txt
 # SQL files
 *.sql
 schema.sql
+# Allow RLS SQL
+!db/rls/*.sql
 
 # YAML files
 *.yml
