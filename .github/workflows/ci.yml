@@ -62,7 +62,13 @@ jobs:
         run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Type checking (MyPy)
-        run: mypy api/ --ignore-missing-imports
+        run: |
+          if [ -d "api" ]; then
+            echo "Running mypy on api/"
+            mypy api/ --ignore-missing-imports
+          else
+            echo "api/ directory not found; skipping mypy"
+          fi
 
       - name: Security check (Bandit)
         run: bandit -r . -f json -o bandit-report.json || true
@@ -137,14 +143,18 @@ jobs:
           REDIS_URL: redis://localhost:6379
 
       - name: Upload coverage reports
-        if: env.TEST_PROFILE == 'full' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          flags: unittests
-          name: unittests
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
+        if: ${{ env.TEST_PROFILE == 'full' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          if [ -z "${CODECOV_TOKEN}" ]; then
+            echo "CODECOV_TOKEN not set; skipping coverage upload"
+            exit 0
+          fi
+          echo "Uploading coverage to Codecov"
+          curl -Os https://cli.codecov.io/latest/linux/codecov
+          chmod +x codecov
+          ./codecov -t "$CODECOV_TOKEN" -f ./coverage.xml -F unittests -n unittests || true
 
   # 통합 테스트
   integration-tests:
