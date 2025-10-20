@@ -39,22 +39,12 @@ dev = [
 [tool.black]
 line-length = 88
 target-version = ['py311']
-include = '\.pyi?$'
+include = '\\.pyi?$'
 extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | venv
-  | _build
-  | buck-out
-  | build
-  | dist
-)/
+(
+    (^|/|\\)mock_api\.py$
+    | /(\.eggs|\.git|\.hg|\.mypy_cache|\.tox|\.venv|venv|_build|buck-out|build|dist)/
+)
 '''
 
 [tool.isort]
@@ -63,6 +53,7 @@ multi_line_output = 3
 line_length = 88
 known_first_party = ["api", "tests"]
 known_third_party = ["flask", "redis", "requests"]
+skip = ["mock_api.py"]
 
 [tool.flake8]
 max-line-length = 88
@@ -75,6 +66,7 @@ exclude = [
     "build",
     "dist",
     "*.egg-info",
+    "mock_api.py",
 ]
 
 [tool.mypy]
