@@ -1,0 +1,63 @@
+name: Events Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "apps/seedtest-api/events/**"
+      - "ops/dataflow/**"
+      - ".github/workflows/events-pipeline.yml"
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Lint schema
+        run: jq . apps/seedtest-api/events/schema/exam_response_v1.json >/dev/null
+
+  dataflow-deploy:
+    needs: unit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          pip install -r ops/dataflow/requirements.txt
+      - name: Auth to GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Launch Dataflow (dev)
+        env:
+          PROJECT_ID: ${{ vars.PROJECT_ID }}
+          REGION:     ${{ vars.REGION }}
+          TEMP_BUCKET: ${{ vars.TEMP_BUCKET }}
+          TOPIC:      "projects/${{ vars.PROJECT_ID }}/topics/seedtest-events"
+          DLQ:        "projects/${{ vars.PROJECT_ID }}/topics/seedtest-events-dlq"
+          BQ_TABLE:   "${{ vars.PROJECT_ID }}:seedtest.fact_responses"
+        run: |
+          python ops/dataflow/beam_pipeline.py \
+            --project "$PROJECT_ID" --region "$REGION" \
+            --input_topic "$TOPIC" --dlq_topic "$DLQ" \
+            --bq_table "$BQ_TABLE" --use_storage_write_api \
+            --runner DataflowRunner \
+            --staging_location "$TEMP_BUCKET/staging" \
+            --temp_location    "$TEMP_BUCKET/tmp" \
+            --experiments use_runner_v2 \
+            --experiments use_streaming_engine \
+            --experiments use_public_ips=false \
+            --maxNumWorkers 5 \
+            --autoscalingAlgorithm THROUGHPUT_BASED \
+            --job_name seedtest-events-$(date +%Y%m%d%H%M%S)
+

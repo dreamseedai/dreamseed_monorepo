@@ -249,6 +249,10 @@ conversion_errors_*
 index*.html
 !index.html
 
+# Allow examinee frontend app to be tracked (override ignores above)
+!apps/examinee-frontend/
+!apps/examinee-frontend/**
+
 # Backup files
 *backup*
 *_backup.*
