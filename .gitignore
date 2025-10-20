@@ -189,6 +189,8 @@ schema.sql
 *.yml
 *.yaml
 !docker-compose.yml
+!.github/workflows/*.yml
+!.github/workflows/*.yaml
 
 # TypeScript files
 *.ts
