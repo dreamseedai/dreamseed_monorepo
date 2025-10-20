@@ -42,7 +42,7 @@ jobs:
         env:
           PROJECT_ID: ${{ vars.PROJECT_ID }}
           REGION:     ${{ vars.REGION }}
-          TEMP_BUCKET:${{ vars.TEMP_BUCKET }}
+          TEMP_BUCKET: ${{ vars.TEMP_BUCKET }}
           TOPIC:      "projects/${{ vars.PROJECT_ID }}/topics/seedtest-events"
           DLQ:        "projects/${{ vars.PROJECT_ID }}/topics/seedtest-events-dlq"
           BQ_TABLE:   "${{ vars.PROJECT_ID }}:seedtest.fact_responses"
@@ -50,9 +50,10 @@ jobs:
           python ops/dataflow/beam_pipeline.py \
             --project "$PROJECT_ID" --region "$REGION" \
             --input_topic "$TOPIC" --dlq_topic "$DLQ" \
-            --bq_table "$BQ_TABLE" \
+            --bq_table "$BQ_TABLE" --use_storage_write_api \
             --runner DataflowRunner \
-            --staging_location gs://$PROJECT_ID-dataflow-temp/staging \
-            --temp_location    gs://$PROJECT_ID-dataflow-temp/tmp \
+            --staging_location "$TEMP_BUCKET/staging" \
+            --temp_location    "$TEMP_BUCKET/tmp" \
+            --experiments use_runner_v2 \
             --job_name seedtest-events-$(date +%Y%m%d%H%M%S)
 

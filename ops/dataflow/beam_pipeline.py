@@ -2,7 +2,7 @@ import json
 import argparse
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class ParseJSON(beam.DoFn):
@@ -24,9 +24,9 @@ class ValidateEvent(beam.DoFn):
 
 
 class ToBQRow(beam.DoFn):
-	def process(self, evt):
-		p = evt["payload"]
-		yield {
+    def process(self, evt):
+        p = evt["payload"]
+        yield {
 			"event_id": evt["event_id"],
 			"occurred_at": evt["occurred_at"],
 			"org_id": p["org_id"],
@@ -36,8 +36,8 @@ class ToBQRow(beam.DoFn):
 			"is_correct": p["is_correct"],
 			"elapsed_ms": p["elapsed_ms"],
 			"ability_before": p.get("ability_before"),
-			"ability_after": p.get("ability_after"),
-			"ingested_at": datetime.utcnow().isoformat() + "Z",
+            "ability_after": p.get("ability_after"),
+            "ingested_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
 		}
 
 
