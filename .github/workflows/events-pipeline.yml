@@ -55,5 +55,9 @@ jobs:
             --staging_location "$TEMP_BUCKET/staging" \
             --temp_location    "$TEMP_BUCKET/tmp" \
             --experiments use_runner_v2 \
+            --experiments use_streaming_engine \
+            --experiments use_public_ips=false \
+            --maxNumWorkers 5 \
+            --autoscalingAlgorithm THROUGHPUT_BASED \
             --job_name seedtest-events-$(date +%Y%m%d%H%M%S)
 

@@ -1,4 +1,5 @@
 {
+  "$id": "https://schema.dreamseedai.com/exam_response_v1.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "ExamResponseV1",
   "type": "object",
@@ -12,7 +13,7 @@
   "properties": {
     "event_id": { "type": "string", "format": "uuid" },
     "occurred_at": { "type": "string", "format": "date-time" },
-    "version": { "type": "string", "enum": ["v1"] },
+    "version": { "type": "string", "const": "v1" },
     "idempotency_key": { "type": "string" },
     "payload": {
       "type": "object",
