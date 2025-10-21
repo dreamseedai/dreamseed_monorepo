@@ -23,6 +23,9 @@ class Settings(BaseModel):
     BANK_DIFF_MAX: float | None = (float(os.getenv("BANK_DIFF_MAX")) if os.getenv("BANK_DIFF_MAX") else None)
     BANK_SAMPLE_K: int | None = (int(os.getenv("BANK_SAMPLE_K")) if os.getenv("BANK_SAMPLE_K") else None)
     BANK_SAMPLE_P: float | None = (float(os.getenv("BANK_SAMPLE_P")) if os.getenv("BANK_SAMPLE_P") else None)
+    BANK_ORG_ID: int | None = (int(os.getenv("BANK_ORG_ID")) if os.getenv("BANK_ORG_ID") else None)
+    BANK_TOPIC_IDS: str | None = os.getenv("BANK_TOPIC_IDS")  # comma/space separated ints
+    BANK_TAGS: str | None = os.getenv("BANK_TAGS")  # comma/space separated strings
 
 
 settings = Settings()

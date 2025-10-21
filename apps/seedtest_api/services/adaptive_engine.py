@@ -46,12 +46,34 @@ def _load_item_bank_from_db(limit: int | None = None) -> List[Dict]:
     if settings.BANK_SUBJECT:
         conditions.append("e.subject = :subject")
         params["subject"] = settings.BANK_SUBJECT
+    if settings.BANK_ORG_ID is not None:
+        conditions.append("(q.org_id = :org OR q.org_id IS NULL)")
+        params["org"] = settings.BANK_ORG_ID
     if settings.BANK_DIFF_MIN is not None:
         conditions.append("q.difficulty >= :dmin")
         params["dmin"] = settings.BANK_DIFF_MIN
     if settings.BANK_DIFF_MAX is not None:
         conditions.append("q.difficulty <= :dmax")
         params["dmax"] = settings.BANK_DIFF_MAX
+    # topic filter (expects questions.topic_id to exist)
+    topic_ids: List[int] = []
+    if settings.BANK_TOPIC_IDS:
+        for tok in settings.BANK_TOPIC_IDS.replace(",", " ").split():
+            try:
+                topic_ids.append(int(tok))
+            except ValueError:
+                continue
+        if topic_ids:
+            conditions.append(f"q.topic_id = ANY(:topic_ids)")
+            params["topic_ids"] = topic_ids
+    # tags filter (assumes questions.tags as text[] or JSONB string array)
+    tag_list: List[str] = []
+    if settings.BANK_TAGS:
+        tag_list = [t for t in settings.BANK_TAGS.replace(",", " ").split() if t]
+        if tag_list:
+            # Flexible: supports tags text[] via && operator; if JSONB, adjust to ?| operator
+            conditions.append("(q.tags && :tag_list)")
+            params["tag_list"] = tag_list
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     sql = f"""
         SELECT q.question_id AS id,
