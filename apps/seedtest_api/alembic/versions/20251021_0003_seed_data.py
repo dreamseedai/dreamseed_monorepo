@@ -10,7 +10,7 @@ depends_on = None
 def upgrade():
     # Optional seed: run only when invoked with `-x seed=true` (or any truthy)
     x = context.get_x_argument(as_dictionary=True)
-    seed_flag = str(x.get('seed', '')).lower() in ('1', 'true', 'yes', 'on')
+    seed_flag = str(x.get('seed', os.getenv('ALEMBIC_SEED', ''))).lower() in ('1', 'true', 'yes', 'on')
     if not seed_flag:
         return
     # Organizations
@@ -92,7 +92,7 @@ def upgrade():
 def downgrade():
     # Optional cleanup: only when -x seed=true supplied; otherwise keep data intact
     x = context.get_x_argument(as_dictionary=True)
-    seed_flag = str(x.get('seed', '')).lower() in ('1', 'true', 'yes', 'on')
+    seed_flag = str(x.get('seed', os.getenv('ALEMBIC_SEED', ''))).lower() in ('1', 'true', 'yes', 'on')
     if not seed_flag:
         return
     # Best-effort cleanup of seeded rows

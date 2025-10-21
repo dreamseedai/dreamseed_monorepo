@@ -10,6 +10,12 @@ config = context.config
 # Interpret the config file for Python logging.
 fileConfig(config.config_file_name)
 
+# Auto seed control via STAGE env (staging/dev => seed=true)
+_stage = os.getenv('STAGE', '').lower()
+if _stage in ('staging', 'stage', 'dev', 'development'):
+    # Expose an env var for migration scripts to pick up when -x seed= is not provided
+    os.environ.setdefault('ALEMBIC_SEED', 'true')
+
 target_metadata = None
 
 def run_migrations_offline():
