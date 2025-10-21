@@ -1,0 +1,121 @@
+name: Events Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "apps/seedtest-api/events/**"
+      - "ops/dataflow/**"
+      - ".github/workflows/events-pipeline.yml"
+
+concurrency:
+  group: events-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Lint schema (if present)
+        if: ${{ hashFiles('apps/seedtest-api/events/schema/exam_response_v1.json') != '' }}
+        run: jq . apps/seedtest-api/events/schema/exam_response_v1.json >/dev/null
+
+  dataflow-deploy:
+    needs: unit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Detect Beam pipeline
+        id: detect
+        run: |
+          if [ -f ops/dataflow/beam_pipeline.py ]; then
+            echo "run_df=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_df=false" >> "$GITHUB_OUTPUT"
+            echo "No ops/dataflow/beam_pipeline.py; skipping deploy steps."
+          fi
+      - name: Setup Python
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps (requirements.txt)
+        if: ${{ steps.detect.outputs.run_df == 'true' && hashFiles('ops/dataflow/requirements.txt') != '' }}
+        run: |
+          pip install -r ops/dataflow/requirements.txt
+      - name: Install deps (fallback Beam)
+        if: ${{ steps.detect.outputs.run_df == 'true' && hashFiles('ops/dataflow/requirements.txt') == '' }}
+        run: |
+          pip install "apache-beam[gcp]~=2.57"
+      - name: Preflight variables
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
+        env:
+          PROJECT_ID: ${{ vars.PROJECT_ID }}
+          REGION:     ${{ vars.REGION }}
+          TEMP_BUCKET: ${{ vars.TEMP_BUCKET }}
+        run: |
+          set -euo pipefail
+          : "PROJECT_ID=$PROJECT_ID"
+          : "REGION=$REGION"
+          : "TEMP_BUCKET=$TEMP_BUCKET"
+          if [ -z "${PROJECT_ID:-}" ] || [ -z "${REGION:-}" ] || [ -z "${TEMP_BUCKET:-}" ]; then
+            echo "One or more required vars are missing. Ensure repo Variables are set: PROJECT_ID, REGION, TEMP_BUCKET" >&2
+            exit 1
+          fi
+          echo "$TEMP_BUCKET" | grep -Eq '^gs://.+' || { echo "TEMP_BUCKET must start with gs://" >&2; exit 1; }
+      - name: Validate WIF inputs
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
+        env:
+          WIF_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          WIF_SA: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          # Mask provider value in logs
+          echo "provider="$(printf "%s" "$WIF_PROVIDER" | sed 's/./*/g')
+          # Validate Workload Identity Provider full resource name
+          echo "$WIF_PROVIDER" | grep -Eq '^projects/[0-9]+/locations/global/workloadIdentityPools/[^/]+/providers/[^/]+' || {
+            echo 'Invalid provider format. Expected: projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID' >&2
+            exit 1
+          }
+          # Validate service account email format
+          echo "$WIF_SA" | grep -Eq '^[A-Za-z0-9_-]+@[A-Za-z0-9-]+\.iam\.gserviceaccount\.com$' || {
+            echo 'Invalid service account email. Expected: <name>@<project>.iam.gserviceaccount.com' >&2
+            exit 1
+          }
+      - name: Auth to GCP (WIF)
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - name: Setup gcloud
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Launch Dataflow (dev)
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
+        env:
+          PROJECT_ID: ${{ vars.PROJECT_ID }}
+          REGION:     ${{ vars.REGION }}
+          TEMP_BUCKET: ${{ vars.TEMP_BUCKET }}
+          TOPIC:      "projects/${{ vars.PROJECT_ID }}/topics/seedtest-events"
+          DLQ:        "projects/${{ vars.PROJECT_ID }}/topics/seedtest-events-dlq"
+          BQ_TABLE:   "${{ vars.PROJECT_ID }}:seedtest.fact_responses"
+        run: |
+          python ops/dataflow/beam_pipeline.py \
+            --project "$PROJECT_ID" --region "$REGION" \
+            --input_topic "$TOPIC" --dlq_topic "$DLQ" \
+            --bq_table "$BQ_TABLE" --use_storage_write_api \
+            --runner DataflowRunner \
+            --staging_location "$TEMP_BUCKET/staging" \
+            --temp_location    "$TEMP_BUCKET/tmp" \
+            --experiments use_runner_v2 \
+            --experiments use_streaming_engine \
+            --experiments use_public_ips=false \
+            --maxNumWorkers 5 \
+            --autoscalingAlgorithm THROUGHPUT_BASED \
+            --job_name seedtest-events-$(date +%Y%m%d%H%M%S)
+

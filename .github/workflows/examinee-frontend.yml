@@ -1,0 +1,20 @@
+name: examinee-frontend CI
+
+on:
+  push:
+    paths:
+      - 'apps/examinee-frontend/**'
+      - '.github/workflows/examinee-frontend.yml'
+  pull_request:
+    paths:
+      - 'apps/examinee-frontend/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    uses: ./.github/workflows/_node-ci.yml
+    with:
+      workdir: apps/examinee-frontend

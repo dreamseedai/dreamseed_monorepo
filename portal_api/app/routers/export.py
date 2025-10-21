@@ -144,7 +144,7 @@ async def _progress_get(job_id: str) -> int:
         return int(v) if v and v.isdigit() else 0
     return _progress_mem.get(job_id, 0)
 
-@router.websocket("/export/ws/{job_id}")
+@router.websocket("/ws/{job_id}")
 async def export_progress_ws(ws: WebSocket, job_id: str):
     await ws.accept()
     try:
