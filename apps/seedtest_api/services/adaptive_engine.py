@@ -1,5 +1,7 @@
 from typing import Optional, List, Tuple, Dict
 from ..schemas.exams import QuestionOut
+from ..settings import settings
+from sqlalchemy import create_engine, text
 import time
 import math
 
@@ -24,6 +26,51 @@ def next_question_stub(diff: int) -> QuestionOut:
 # ------------------- In-memory adaptive session stub -------------------
 
 _sessions: Dict[str, Dict] = {}
+_sa_engine = None
+
+
+def _get_engine():
+    global _sa_engine
+    if _sa_engine is None and settings.DATABASE_URL:
+        _sa_engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+    return _sa_engine
+
+
+def _load_item_bank_from_db(limit: int | None = None) -> List[Dict]:
+    eng = _get_engine()
+    if not eng:
+        return []
+    sql = """
+        SELECT q.question_id AS id,
+               COALESCE(q.discrimination, 1.0) AS a,
+               COALESCE(q.difficulty, 0.0)    AS b,
+               COALESCE(q.guessing, 0.2)      AS c
+        FROM questions q
+        ORDER BY q.question_id
+    """
+    if limit:
+        sql += " LIMIT :lim"
+    with eng.connect() as conn:
+        rows = conn.execute(text(sql), {"lim": limit} if limit else {}).mappings().all()
+        return [dict(r) for r in rows]
+
+
+def _is_correct_from_db(question_id: str | int, answer_text: str | None) -> Optional[bool]:
+    eng = _get_engine()
+    if not eng or answer_text is None:
+        return None
+    # 우선 content 매칭으로 정답 판정
+    sql = """
+        SELECT is_correct
+        FROM choices
+        WHERE question_id = :qid AND content = :ans
+        LIMIT 1
+    """
+    with eng.connect() as conn:
+        row = conn.execute(text(sql), {"qid": int(question_id), "ans": str(answer_text)}).first()
+        if row is not None:
+            return bool(row[0])
+    return None
 
 
 def start_session(exam_id: str, user_id: str, org_id: int) -> Dict:
@@ -36,20 +83,28 @@ def start_session(exam_id: str, user_id: str, org_id: int) -> Dict:
         "theta": 0.0,
         "done": False,
         "administered": [],  # list of question ids
-        # simple in-memory item bank (id, a, b, c)
-        "bank": [
-            {"id": "q1",  "a": 1.00, "b": -1.5, "c": 0.20},
-            {"id": "q2",  "a": 0.80, "b": -0.5, "c": 0.20},
-            {"id": "q3",  "a": 1.20, "b": 0.0,  "c": 0.20},
-            {"id": "q4",  "a": 1.00, "b": 0.5,  "c": 0.20},
-            {"id": "q5",  "a": 1.20, "b": 1.0,  "c": 0.20},
-            {"id": "q6",  "a": 0.70, "b": 1.5,  "c": 0.20},
-            {"id": "q7",  "a": 1.50, "b": -1.0, "c": 0.20},
-            {"id": "q8",  "a": 0.90, "b": 2.0,  "c": 0.20},
-            {"id": "q9",  "a": 1.30, "b": -2.0, "c": 0.20},
-            {"id": "q10", "a": 1.10, "b": 0.8,  "c": 0.20},
-        ]
     }
+    # Item bank을 DB에서 로딩(가능 시), 실패/미설정이면 스텁 유지
+    try:
+        bank = _load_item_bank_from_db()
+        if bank:
+            _sessions[session_id]["bank"] = bank
+        else:
+            _sessions[session_id]["bank"] = [
+                {"id": "1",  "a": 1.00, "b": -1.5, "c": 0.20},
+                {"id": "2",  "a": 0.80, "b": -0.5, "c": 0.20},
+                {"id": "3",  "a": 1.20, "b": 0.0,  "c": 0.20},
+                {"id": "4",  "a": 1.00, "b": 0.5,  "c": 0.20},
+                {"id": "5",  "a": 1.20, "b": 1.0,  "c": 0.20},
+            ]
+    except Exception:
+        _sessions[session_id]["bank"] = [
+            {"id": "1",  "a": 1.00, "b": -1.5, "c": 0.20},
+            {"id": "2",  "a": 0.80, "b": -0.5, "c": 0.20},
+            {"id": "3",  "a": 1.20, "b": 0.0,  "c": 0.20},
+            {"id": "4",  "a": 1.00, "b": 0.5,  "c": 0.20},
+            {"id": "5",  "a": 1.20, "b": 1.0,  "c": 0.20},
+        ]
     return {
         "exam_session_id": session_id,
         "start_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -70,7 +125,10 @@ def select_next(session_id: str) -> Optional[Dict]:
     if not candidates:
         s["done"] = True
         return None
-    best = max(candidates, key=lambda it: fisher_information_3pl(it["a"], it["b"], it["c"], theta))
+    if settings.CAT_CRITERION == 'KL':
+        best = max(candidates, key=lambda it: kl_information_3pl(it["a"], it["b"], it["c"], theta, settings.CAT_KL_DELTA))
+    else:
+        best = max(candidates, key=lambda it: fisher_information_3pl(it["a"], it["b"], it["c"], theta))
     q = {
         "id": best["id"],
         "text": f"Solve item {best['id']}",
@@ -89,8 +147,13 @@ def submit_answer(session_id: str, question_id: str, answer: str, elapsed: float
     # derive a,b,c from bank (fallback to simple mapping)
     bank_map = {it["id"]: it for it in s.get("bank", [])}
     item = bank_map.get(question_id) or {"a": 1.0, "b": 0.0, "c": 0.2}
-    # 임시 정답 규칙(데모): '3'이면 정답 처리
-    correct = (answer == "3")
+    # 실제 정답 조회: choices.is_correct (content 매칭)
+    correct_db = _is_correct_from_db(question_id, answer)
+    if correct_db is None:
+        # 임시 규칙 fallback
+        correct = (answer == "3")
+    else:
+        correct = bool(correct_db)
     # MAP(라플라스 근사) 기반 3PL 베이즈 업데이트
     s["theta"] = bayes_update_theta_3pl(
         theta=s["theta"], a=item["a"], b=item["b"], c=item["c"], u=1 if correct else 0
@@ -141,10 +204,10 @@ def bayes_update_theta_3pl(
     b: float,
     c: float,
     u: int,
-    prior_mean: float = 0.0,
-    prior_sd: float = 1.0,
+    prior_mean: float = settings.CAT_PRIOR_MEAN,
+    prior_sd: float = settings.CAT_PRIOR_SD,
     max_iter: int = 5,
-    step_cap: float = 1.0,
+    step_cap: float = settings.CAT_STEP_CAP,
 ) -> float:
     """Single-item MAP update using one-step Newton iterations with Fisher approximation.
     u: 1(correct) or 0(incorrect)
@@ -172,5 +235,44 @@ def bayes_update_theta_3pl(
         t = t_new
     # clamp theta to a reasonable range
     return max(-4.0, min(4.0, t))
+
+
+def bayes_update_batch(
+    theta: float,
+    items: List[Dict],
+    prior_mean: float = settings.CAT_PRIOR_MEAN,
+    prior_sd: float = settings.CAT_PRIOR_SD,
+    step_cap: float = settings.CAT_STEP_CAP,
+) -> float:
+    """
+    누적 MAP 업데이트: items = [{"a":...,"b":...,"c":...,"u":0|1}, ...]
+    순차적으로 bayes_update_theta_3pl을 적용하여 누적 업데이트합니다.
+    """
+    t = theta
+    for it in items:
+        t = bayes_update_theta_3pl(
+            theta=t,
+            a=float(it.get("a", 1.0)),
+            b=float(it.get("b", 0.0)),
+            c=float(it.get("c", 0.2)),
+            u=int(it.get("u", 0)),
+            prior_mean=prior_mean,
+            prior_sd=prior_sd,
+            step_cap=step_cap,
+        )
+    return t
+
+
+def kl_information_3pl(a: float, b: float, c: float, theta: float, delta: float) -> float:
+    """Symmetric KL between P(θ) and P(θ+δ) as an information-like criterion."""
+    t2 = theta + delta
+    p1 = p_3pl(a, b, c, theta)
+    p2 = p_3pl(a, b, c, t2)
+    eps = 1e-8
+    p1 = min(max(p1, eps), 1 - eps)
+    p2 = min(max(p2, eps), 1 - eps)
+    kl12 = p1 * math.log(p1 / p2) + (1 - p1) * math.log((1 - p1) / (1 - p2))
+    kl21 = p2 * math.log(p2 / p1) + (1 - p2) * math.log((1 - p2) / (1 - p1))
+    return kl12 + kl21
 
 
