@@ -2,6 +2,7 @@ from typing import Optional, List, Tuple, Dict
 from ..schemas.exams import QuestionOut
 from ..settings import settings
 from sqlalchemy import create_engine, text
+import random
 import time
 import math
 
@@ -40,19 +41,40 @@ def _load_item_bank_from_db(limit: int | None = None) -> List[Dict]:
     eng = _get_engine()
     if not eng:
         return []
-    sql = """
+    conditions = []
+    params: Dict[str, object] = {}
+    if settings.BANK_SUBJECT:
+        conditions.append("e.subject = :subject")
+        params["subject"] = settings.BANK_SUBJECT
+    if settings.BANK_DIFF_MIN is not None:
+        conditions.append("q.difficulty >= :dmin")
+        params["dmin"] = settings.BANK_DIFF_MIN
+    if settings.BANK_DIFF_MAX is not None:
+        conditions.append("q.difficulty <= :dmax")
+        params["dmax"] = settings.BANK_DIFF_MAX
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    sql = f"""
         SELECT q.question_id AS id,
                COALESCE(q.discrimination, 1.0) AS a,
                COALESCE(q.difficulty, 0.0)    AS b,
                COALESCE(q.guessing, 0.2)      AS c
         FROM questions q
+        LEFT JOIN exams e ON 1=1  -- optional subject filter
+        {where}
         ORDER BY q.question_id
     """
     if limit:
         sql += " LIMIT :lim"
+        params["lim"] = limit
     with eng.connect() as conn:
-        rows = conn.execute(text(sql), {"lim": limit} if limit else {}).mappings().all()
-        return [dict(r) for r in rows]
+        rows = conn.execute(text(sql), params).mappings().all()
+        bank = [dict(r) for r in rows]
+    # Random subsampling (K or Bernoulli-p)
+    if settings.BANK_SAMPLE_K and settings.BANK_SAMPLE_K > 0:
+        bank = random.sample(bank, k=min(settings.BANK_SAMPLE_K, len(bank)))
+    elif settings.BANK_SAMPLE_P and 0 < settings.BANK_SAMPLE_P < 1:
+        bank = [it for it in bank if random.random() < settings.BANK_SAMPLE_P]
+    return bank
 
 
 def _is_correct_from_db(question_id: str | int, answer_text: str | None) -> Optional[bool]:
