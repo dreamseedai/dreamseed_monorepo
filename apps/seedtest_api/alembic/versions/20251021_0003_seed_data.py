@@ -1,4 +1,4 @@
-from alembic import op
+from alembic import op, context
 
 # revision identifiers, used by Alembic.
 revision = '20251021_0003_seed_data'
@@ -8,6 +8,11 @@ depends_on = None
 
 
 def upgrade():
+    # Optional seed: run only when invoked with `-x seed=true` (or any truthy)
+    x = context.get_x_argument(as_dictionary=True)
+    seed_flag = str(x.get('seed', '')).lower() in ('1', 'true', 'yes', 'on')
+    if not seed_flag:
+        return
     # Organizations
     op.execute("""
     INSERT INTO organizations (name, type, region)
@@ -85,6 +90,11 @@ def upgrade():
 
 
 def downgrade():
+    # Optional cleanup: only when -x seed=true supplied; otherwise keep data intact
+    x = context.get_x_argument(as_dictionary=True)
+    seed_flag = str(x.get('seed', '')).lower() in ('1', 'true', 'yes', 'on')
+    if not seed_flag:
+        return
     # Best-effort cleanup of seeded rows
     op.execute("DELETE FROM choices WHERE question_id IN (
       SELECT question_id FROM questions WHERE content LIKE 'If a fair coin%' OR content LIKE 'Solve for x:%'
