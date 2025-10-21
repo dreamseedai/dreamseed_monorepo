@@ -4,6 +4,7 @@ from ..settings import settings
 from sqlalchemy import create_engine, text
 import random
 import time
+import time
 import math
 
 
@@ -29,6 +30,7 @@ def next_question_stub(diff: int) -> QuestionOut:
 _sessions: Dict[str, Dict] = {}
 _sa_engine = None
 _tags_kind: Optional[str] = None  # 'array' | 'jsonb' | None
+_tags_kind_checked_at: float | None = None
 
 
 def _get_engine():
@@ -113,7 +115,10 @@ def _load_item_bank_from_db(limit: int | None = None) -> List[Dict]:
 
 def _detect_tags_kind() -> Optional[str]:
     global _tags_kind
-    if _tags_kind is not None:
+    global _tags_kind_checked_at
+    now = time.time()
+    ttl = settings.TAGS_KIND_TTL_SEC or 300
+    if _tags_kind is not None and _tags_kind_checked_at and (now - _tags_kind_checked_at) < ttl:
         return _tags_kind
     eng = _get_engine()
     if not eng:
@@ -141,6 +146,7 @@ def _detect_tags_kind() -> Optional[str]:
                     _tags_kind = None
     except Exception:
         _tags_kind = None
+    _tags_kind_checked_at = now
     return _tags_kind
 
 

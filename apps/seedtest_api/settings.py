@@ -26,6 +26,7 @@ class Settings(BaseModel):
     BANK_ORG_ID: int | None = (int(os.getenv("BANK_ORG_ID")) if os.getenv("BANK_ORG_ID") else None)
     BANK_TOPIC_IDS: str | None = os.getenv("BANK_TOPIC_IDS")  # comma/space separated ints
     BANK_TAGS: str | None = os.getenv("BANK_TAGS")  # comma/space separated strings
+    TAGS_KIND_TTL_SEC: int | None = (int(os.getenv("TAGS_KIND_TTL_SEC")) if os.getenv("TAGS_KIND_TTL_SEC") else 300)
 
 
 settings = Settings()
