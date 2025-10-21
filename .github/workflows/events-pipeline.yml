@@ -27,22 +27,32 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    if: ${{ hashFiles('ops/dataflow/beam_pipeline.py') != '' }}
     steps:
       - uses: actions/checkout@v5
+      - name: Detect Beam pipeline
+        id: detect
+        run: |
+          if [ -f ops/dataflow/beam_pipeline.py ]; then
+            echo "run_df=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_df=false" >> "$GITHUB_OUTPUT"
+            echo "No ops/dataflow/beam_pipeline.py; skipping deploy steps."
+          fi
       - name: Setup Python
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install deps (requirements.txt)
-        if: ${{ hashFiles('ops/dataflow/requirements.txt') != '' }}
+        if: ${{ steps.detect.outputs.run_df == 'true' && hashFiles('ops/dataflow/requirements.txt') != '' }}
         run: |
           pip install -r ops/dataflow/requirements.txt
       - name: Install deps (fallback Beam)
-        if: ${{ hashFiles('ops/dataflow/requirements.txt') == '' }}
+        if: ${{ steps.detect.outputs.run_df == 'true' && hashFiles('ops/dataflow/requirements.txt') == '' }}
         run: |
           pip install "apache-beam[gcp]~=2.57"
       - name: Preflight variables
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
         env:
           PROJECT_ID: ${{ vars.PROJECT_ID }}
           REGION:     ${{ vars.REGION }}
@@ -58,6 +68,7 @@ jobs:
           fi
           echo "$TEMP_BUCKET" | grep -Eq '^gs://.+' || { echo "TEMP_BUCKET must start with gs://" >&2; exit 1; }
       - name: Validate WIF inputs
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
         env:
           WIF_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           WIF_SA: ${{ secrets.GCP_SERVICE_ACCOUNT }}
@@ -76,13 +87,16 @@ jobs:
             exit 1
           }
       - name: Auth to GCP (WIF)
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
       - name: Setup gcloud
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
         uses: google-github-actions/setup-gcloud@v2
       - name: Launch Dataflow (dev)
+        if: ${{ steps.detect.outputs.run_df == 'true' }}
         env:
           PROJECT_ID: ${{ vars.PROJECT_ID }}
           REGION:     ${{ vars.REGION }}

@@ -252,6 +252,8 @@ index*.html
 # Allow examinee frontend app to be tracked (override ignores above)
 !apps/examinee-frontend/
 !apps/examinee-frontend/**
+!apps/seedtest_api/
+!apps/seedtest_api/**
 
 # Backup files
 *backup*

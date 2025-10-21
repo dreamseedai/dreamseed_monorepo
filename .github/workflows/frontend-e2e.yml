@@ -1,0 +1,37 @@
+name: Frontend E2E
+
+on:
+  push:
+    branches: [ main, develop, agent/* ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: apps/examinee-frontend
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - name: Install pnpm
+        run: corepack enable && corepack prepare pnpm@9 --activate
+      - name: Install deps
+        run: pnpm install --frozen-lockfile=false
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+      - name: Build
+        run: pnpm run build
+      - name: Run E2E
+        run: pnpm run test:ui
+
+
