@@ -148,6 +148,7 @@ run*.sh
 # Allow database scripts to be tracked
 !scripts/db/*.sh
 !scripts/db/README.md
+!scripts/*.sh
 
 # System files
 systemd-*.service
@@ -185,6 +186,8 @@ requirements*.txt
 schema.sql
 # Allow RLS SQL
 !db/rls/*.sql
+# Allow adaptive exam schema SQL
+!db/adaptive/*.sql
 
 # YAML files
 *.yml
@@ -252,8 +255,13 @@ index*.html
 # Allow examinee frontend app to be tracked (override ignores above)
 !apps/examinee-frontend/
 !apps/examinee-frontend/**
-!apps/seedtest_api/
-!apps/seedtest_api/**
+
+# Allow new FastAPI scaffold to be tracked (script writes to apps/seedtest-api)
+!apps/seedtest-api/
+!apps/seedtest-api/**
+
+# But keep local virtualenvs ignored
+apps/seedtest-api/.venv/
 
 # Backup files
 *backup*
