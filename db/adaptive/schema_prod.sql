@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS exams (
   created_by    INT REFERENCES users(user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_exams_created_by ON exams(created_by);
+CREATE INDEX IF NOT EXISTS idx_exams_subject ON exams(subject);
 
 -- Exam Sessions (attempts)
 CREATE TABLE IF NOT EXISTS exam_sessions (
@@ -58,6 +59,7 @@ CREATE TABLE IF NOT EXISTS exam_sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_exam ON exam_sessions(exam_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON exam_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_completed ON exam_sessions(completed, end_time DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_exam ON exam_sessions(user_id, exam_id);
 
 -- Questions (bank with IRT params)
 CREATE TABLE IF NOT EXISTS questions (
@@ -102,5 +104,6 @@ CREATE INDEX IF NOT EXISTS idx_responses_session ON responses(session_id);
 CREATE INDEX IF NOT EXISTS idx_responses_session_time ON responses(session_id, answered_at);
 CREATE INDEX IF NOT EXISTS idx_responses_question ON responses(question_id);
 CREATE INDEX IF NOT EXISTS idx_responses_choice ON responses(selected_choice);
+CREATE INDEX IF NOT EXISTS idx_responses_question_time ON responses(question_id, answered_at);
 
 
