@@ -16,6 +16,11 @@ if _stage in ('staging', 'stage', 'dev', 'development'):
     # Expose an env var for migration scripts to pick up when -x seed= is not provided
     os.environ.setdefault('ALEMBIC_SEED', 'true')
 
+# Allow CI/ops to override DB URL via env var
+_db_url = os.getenv('DATABASE_URL')
+if _db_url:
+    config.set_main_option('sqlalchemy.url', _db_url)
+
 target_metadata = None
 
 def run_migrations_offline():

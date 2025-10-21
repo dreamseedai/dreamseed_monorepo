@@ -505,6 +505,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Run DB migrations (staging seed, prod no-seed)
+        if: ${{ needs.changes.outputs.seedtest_api == 'true' }}
+        env:
+          STAGE: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          cd apps/seedtest_api
+          python -m venv .venv && source .venv/bin/activate
+          pip install -r requirements.txt
+          if [ "$STAGE" = "production" ]; then
+            alembic upgrade head
+          else
+            alembic upgrade head -x seed=true
+          fi
 
   build:
     name: Build
