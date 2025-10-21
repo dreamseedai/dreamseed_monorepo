@@ -28,6 +28,7 @@ def next_question_stub(diff: int) -> QuestionOut:
 
 _sessions: Dict[str, Dict] = {}
 _sa_engine = None
+_tags_kind: Optional[str] = None  # 'array' | 'jsonb' | None
 
 
 def _get_engine():
@@ -71,9 +72,20 @@ def _load_item_bank_from_db(limit: int | None = None) -> List[Dict]:
     if settings.BANK_TAGS:
         tag_list = [t for t in settings.BANK_TAGS.replace(",", " ").split() if t]
         if tag_list:
-            # Flexible: supports tags text[] via && operator; if JSONB, adjust to ?| operator
-            conditions.append("(q.tags && :tag_list)")
-            params["tag_list"] = tag_list
+            # detect tags column kind once
+            kind = _detect_tags_kind()
+            tag_csv = ",".join(tag_list)
+            if kind == 'jsonb':
+                # jsonb: '?|' operator with text[]; use string_to_array to avoid driver array binding
+                conditions.append("(q.tags ?| string_to_array(:tag_csv, ','))")
+                params["tag_csv"] = tag_csv
+            elif kind == 'array':
+                # text[]: '&&' overlaps operator with text[]; use string_to_array
+                conditions.append("(q.tags && string_to_array(:tag_csv, ','))")
+                params["tag_csv"] = tag_csv
+            else:
+                # unknown type: skip tag filter defensively
+                pass
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     sql = f"""
         SELECT q.question_id AS id,
@@ -97,6 +109,39 @@ def _load_item_bank_from_db(limit: int | None = None) -> List[Dict]:
     elif settings.BANK_SAMPLE_P and 0 < settings.BANK_SAMPLE_P < 1:
         bank = [it for it in bank if random.random() < settings.BANK_SAMPLE_P]
     return bank
+
+
+def _detect_tags_kind() -> Optional[str]:
+    global _tags_kind
+    if _tags_kind is not None:
+        return _tags_kind
+    eng = _get_engine()
+    if not eng:
+        return None
+    sql = """
+        SELECT data_type, udt_name
+        FROM information_schema.columns
+        WHERE column_name = 'tags' AND table_name = 'questions'
+        ORDER BY CASE table_schema WHEN 'public' THEN 0 ELSE 1 END
+        LIMIT 1
+    """
+    try:
+        with eng.connect() as conn:
+            row = conn.execute(text(sql)).first()
+            if not row:
+                _tags_kind = None
+            else:
+                data_type = (row[0] or '').lower()
+                udt_name = (row[1] or '').lower()
+                if 'jsonb' in (data_type, udt_name):
+                    _tags_kind = 'jsonb'
+                elif data_type == 'array' or udt_name.startswith('_'):
+                    _tags_kind = 'array'
+                else:
+                    _tags_kind = None
+    except Exception:
+        _tags_kind = None
+    return _tags_kind
 
 
 def _is_correct_from_db(question_id: str | int, answer_text: str | None) -> Optional[bool]:
