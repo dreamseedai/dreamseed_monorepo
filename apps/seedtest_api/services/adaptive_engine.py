@@ -117,8 +117,9 @@ def _detect_tags_kind() -> Optional[str]:
     global _tags_kind
     global _tags_kind_checked_at
     now = time.time()
-    ttl = settings.TAGS_KIND_TTL_SEC or 300
-    if _tags_kind is not None and _tags_kind_checked_at and (now - _tags_kind_checked_at) < ttl:
+    ttl_val = settings.TAGS_KIND_TTL_SEC
+    ttl = 300 if ttl_val is None else ttl_val
+    if ttl != 0 and _tags_kind is not None and _tags_kind_checked_at and (now - _tags_kind_checked_at) < ttl:
         return _tags_kind
     eng = _get_engine()
     if not eng:
