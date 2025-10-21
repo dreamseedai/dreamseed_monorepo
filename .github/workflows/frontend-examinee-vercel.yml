@@ -1,0 +1,147 @@
+name: Frontend CI/CD (examinee-frontend)
+
+on:
+  push:
+    branches: [ develop, main ]
+    paths:
+      - 'apps/examinee-frontend/**'
+      - '.github/workflows/frontend-examinee-vercel.yml'
+  pull_request:
+    branches: [ develop, main ]
+    paths:
+      - 'apps/examinee-frontend/**'
+
+jobs:
+  test:
+    name: Lint + Unit + E2E (playwright)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/examinee-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm run lint --if-present
+      - name: Unit tests (Vitest) with coverage
+        run: pnpm run test:ci --if-present
+      - name: Upload coverage (lcov)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: apps/examinee-frontend/coverage
+      - name: Install browsers
+        run: npx playwright install --with-deps
+      - name: E2E tests (Playwright)
+        run: pnpm run e2e:ci --if-present
+
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    needs: [ test ]
+    if: github.event_name == 'push'
+    defaults:
+      run:
+        working-directory: apps/examinee-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm run build
+      - name: Create Sentry Release (frontend) + sourcemaps
+        uses: getsentry/action-release@v1
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT_FRONTEND }}
+        with:
+          environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+          version: ${{ github.sha }}
+          finalize: true
+          set_commits: auto
+          sourcemaps: .next/static/chunks
+          url_prefix: "~/_next/static/chunks"
+
+      - name: Deploy with Vercel CLI
+        run: |
+          npm i -g vercel@latest
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets.VERCEL_ORG_ID }}
+          else
+            vercel deploy --prebuilt --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets.VERCEL_ORG_ID }}
+          fi
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_EXAMINEE }}
+      - name: Slack notify (optional)
+        if: ${{ success() && secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_ICON: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+          SLACK_USERNAME: GitHub Actions
+          SLACK_TITLE: "Vercel Deploy examinee-frontend"
+          SLACK_MESSAGE: "Deployed examinee-frontend on ${{ github.ref_name }}"
+          SLACK_COLOR: ${{ job.status }}
+
+  preview:
+    name: Preview deploy + PR comment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    defaults:
+      run:
+        working-directory: apps/examinee-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm run build
+      - name: Deploy preview with Vercel
+        id: vercel
+        run: |
+          npm i -g vercel@latest
+          url=$(vercel deploy --prebuilt --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets.VERCEL_ORG_ID }} | tail -n1)
+          echo "url=$url" >> $GITHUB_OUTPUT
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_EXAMINEE }}
+      - name: Comment PR with preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = core.getInput('url', { required: false }) || process.env.URL || `${{ steps.vercel.outputs.url }}`;
+            const body = `Vercel preview ready: ${url}`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });

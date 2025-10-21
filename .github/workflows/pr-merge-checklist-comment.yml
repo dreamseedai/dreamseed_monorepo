@@ -3,6 +3,9 @@ name: Post-merge E2E Checklist Comment
 on:
   pull_request:
     types: [closed]
+    paths:
+      - '.github/workflows/pr-merge-checklist-comment.yml'
+      - '**'
   workflow_dispatch: {}
 
 permissions:
@@ -39,8 +42,9 @@ jobs:
               return;
             }
             const hasRuntimeStability = (pr.labels || []).some(l => l.name === 'runtime-stability');
-            if (!hasRuntimeStability) {
-              core.info('Missing runtime-stability label at merge time. Skipping.');
+            const hasMultitenancy     = (pr.labels || []).some(l => l.name === 'multitenancy');
+            if (!(hasRuntimeStability || hasMultitenancy)) {
+              core.info('Missing runtime-stability/multitenancy label at merge time. Skipping.');
               return;
             }
 

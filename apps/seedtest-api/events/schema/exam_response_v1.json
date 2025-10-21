@@ -1,0 +1,41 @@
+{
+  "$id": "https://schema.dreamseedai.com/exam_response_v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExamResponseV1",
+  "type": "object",
+  "required": [
+    "event_id",
+    "occurred_at",
+    "version",
+    "payload",
+    "idempotency_key"
+  ],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "version": { "type": "string", "const": "v1" },
+    "idempotency_key": { "type": "string" },
+    "payload": {
+      "type": "object",
+      "required": [
+        "session_id",
+        "user_id",
+        "org_id",
+        "question_id",
+        "is_correct",
+        "elapsed_ms"
+      ],
+      "properties": {
+        "session_id": { "type": "string" },
+        "user_id": { "type": "integer" },
+        "org_id": { "type": "integer" },
+        "question_id": { "type": "integer" },
+        "is_correct": { "type": "boolean" },
+        "elapsed_ms": { "type": "integer" },
+        "ability_before": { "type": "number" },
+        "ability_after": { "type": "number" }
+      }
+    }
+  }
+}
+

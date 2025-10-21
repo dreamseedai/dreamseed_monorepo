@@ -47,6 +47,7 @@ server.pid
 .env.production.local
 *.env
 *.env.example
+!apps/seedtest_api/.env.example
 
 # IDE files
 .vscode/
@@ -148,6 +149,7 @@ run*.sh
 # Allow database scripts to be tracked
 !scripts/db/*.sh
 !scripts/db/README.md
+!scripts/*.sh
 
 # System files
 systemd-*.service
@@ -185,6 +187,8 @@ requirements*.txt
 schema.sql
 # Allow RLS SQL
 !db/rls/*.sql
+# Allow adaptive exam schema SQL
+!db/adaptive/*.sql
 
 # YAML files
 *.yml
@@ -248,6 +252,17 @@ conversion_errors_*
 # Index files
 index*.html
 !index.html
+
+# Allow examinee frontend app to be tracked (override ignores above)
+!apps/examinee-frontend/
+!apps/examinee-frontend/**
+
+# Allow new FastAPI scaffold to be tracked (script writes to apps/seedtest-api)
+!apps/seedtest-api/
+!apps/seedtest-api/**
+
+# But keep local virtualenvs ignored
+apps/seedtest-api/.venv/
 
 # Backup files
 *backup*
