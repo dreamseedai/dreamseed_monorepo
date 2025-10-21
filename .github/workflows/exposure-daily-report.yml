@@ -1,0 +1,202 @@
+name: Exposure Daily Report
+
+on:
+  schedule:
+    - cron: '15 6 * * *'  # daily at 06:15 UTC
+  workflow_dispatch:
+    inputs:
+      log_path:
+        description: 'Optional path to exposure log (TSV)'
+        required: false
+      item_base_url:
+        description: 'Optional base URL to link items in HTML (append /<item_id>)'
+        required: false
+      accept_suggest_path:
+        description: 'Optional repo path to commit acceptance_suggest.json'
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+jobs:
+  exposure-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install awscli
+          sudo apt-get update -y && sudo apt-get install -y jq
+
+      - name: Locate exposure log
+        id: findlog
+        run: |
+          # If provided via manual dispatch input, use that. Otherwise default to logs/exposure/exposure_YYYY-MM-DD.tsv
+          if [ -n "${{ inputs.log_path }}" ]; then
+            echo "log=${{ inputs.log_path }}" >> $GITHUB_OUTPUT
+          else
+            DAY=$(date -u -d "yesterday" +%F)
+            DEFAULT=logs/exposure/exposure_${DAY}.tsv
+            echo "log=${DEFAULT}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Compute exposure stats
+        id: stats
+        run: |
+          set -euo pipefail
+          LOG="${{ steps.findlog.outputs.log }}"
+          if [ ! -f "$LOG" ]; then
+            echo "No exposure log found at $LOG; skipping." | tee exposure_report.txt
+            echo "has_log=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          python tools/exposure_stats.py "$LOG" | tee exposure_report.txt
+          python tools/suggest_sh.py "$LOG" --target-session-rate 0.75 --base 1.0 --output acceptance_suggest.json
+          python tools/generate_exposure_html.py exposure_report.txt --suggest acceptance_suggest.json --output exposure_report.html --top-n 20 --item-base-url "${{ inputs.item_base_url }}"
+          echo "has_log=true" >> $GITHUB_OUTPUT
+
+      - name: Check OIDC role (optional)
+        id: check_role
+        run: |
+          if [ -n "${AWS_ROLE_TO_ASSUME:-}" ]; then
+            echo "has_role=true" >> $GITHUB_OUTPUT
+            echo "role_arn=${AWS_ROLE_TO_ASSUME}" >> $GITHUB_OUTPUT
+          else
+            echo "has_role=false" >> $GITHUB_OUTPUT
+            echo "role_arn=" >> $GITHUB_OUTPUT
+          fi
+          echo "aws_region=${AWS_REGION:-us-east-1}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials via OIDC (optional)
+        if: ${{ steps.stats.outputs.has_log == 'true' && steps.check_role.outputs.has_role == 'true' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.check_role.outputs.role_arn }}
+          aws-region: ${{ steps.check_role.outputs.aws_region }}
+
+      # Optional: If AWS credentials are provided via environment or instance role, awscli will work; otherwise S3 upload is skipped.
+
+      - name: Upload report to S3 (optional)
+        if: ${{ steps.stats.outputs.has_log == 'true' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPOSURE_S3_BUCKET:-}" ]; then echo "S3 bucket not set; skipping"; exit 0; fi
+          DAY=$(date -u -d "yesterday" +%F)
+          PREFIX="${EXPOSURE_S3_PREFIX:-reports}"
+          KEY_BASE=${PREFIX}/$DAY
+          aws s3 cp exposure_report.txt s3://$EXPOSURE_S3_BUCKET/$KEY_BASE/exposure_report.txt --content-type text/plain || echo "S3 upload skipped"
+          aws s3 cp acceptance_suggest.json s3://$EXPOSURE_S3_BUCKET/$KEY_BASE/acceptance_suggest.json --content-type application/json || echo "S3 upload skipped"
+          aws s3 cp exposure_report.html s3://$EXPOSURE_S3_BUCKET/$KEY_BASE/exposure_report.html --content-type text/html || echo "S3 upload skipped"
+
+      - name: Generate consolidated multi-day HTML (optional)
+        if: ${{ steps.stats.outputs.has_log == 'true' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPOSURE_S3_BUCKET:-}" ]; then echo "No S3 bucket, generating from local only"; fi
+          PREFIX="${EXPOSURE_S3_PREFIX:-reports}"
+          DAYS="${EXPOSURE_DAYS:-7}"
+          ROOT="daily_reports"
+          mkdir -p "$ROOT"
+          # Attempt to pull last N day folders from S3 to local (best-effort)
+          if [ -n "${EXPOSURE_S3_BUCKET:-}" ]; then
+            aws s3 ls "s3://$EXPOSURE_S3_BUCKET/$PREFIX/" | awk '{print $2}' | sed 's#/##g' | sort -r | head -n "${DAYS}" | while read D; do
+              [ -z "$D" ] && continue
+              mkdir -p "$ROOT/$D"
+              aws s3 cp "s3://$EXPOSURE_S3_BUCKET/$PREFIX/$D/exposure_report.txt" "$ROOT/$D/exposure_report.txt" || true
+              aws s3 cp "s3://$EXPOSURE_S3_BUCKET/$PREFIX/$D/acceptance_suggest.json" "$ROOT/$D/acceptance_suggest.json" || true
+              aws s3 cp "s3://$EXPOSURE_S3_BUCKET/$PREFIX/$D/exposure_report.html" "$ROOT/$D/exposure_report.html" || true
+            done
+          fi
+          # Ensure today's report is included
+          DAY=$(date -u -d "yesterday" +%F)
+          mkdir -p "$ROOT/$DAY"
+          cp exposure_report.txt "$ROOT/$DAY/" || true
+          cp acceptance_suggest.json "$ROOT/$DAY/" || true
+          cp exposure_report.html "$ROOT/$DAY/" || true
+          # Build consolidated page
+          BASELINK=""
+          if [ -n "${EXPOSURE_S3_BUCKET:-}" ]; then
+            BASELINK="https://${EXPOSURE_S3_BUCKET}.s3.amazonaws.com/${PREFIX}"
+          fi
+          python tools/generate_exposure_multi2_html.py --root "$ROOT" --days "${DAYS}" --top-n 10 --output exposure_multi.html --link-base "$BASELINK"
+
+      - name: Upload consolidated page to S3 (optional)
+        if: ${{ steps.stats.outputs.has_log == 'true' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPOSURE_S3_BUCKET:-}" ]; then echo "S3 bucket not set; skipping"; exit 0; fi
+          PREFIX="${EXPOSURE_S3_PREFIX:-reports}"
+          aws s3 cp exposure_multi.html s3://$EXPOSURE_S3_BUCKET/$PREFIX/exposure_multi.html --content-type text/html || echo "S3 upload skipped"
+
+      - name: Generate S3 index (optional)
+        if: ${{ steps.stats.outputs.has_log == 'true' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPOSURE_S3_BUCKET:-}" ]; then echo "S3 bucket not set; skipping index"; exit 0; fi
+          PREFIX="${EXPOSURE_S3_PREFIX:-reports}"
+          # List date folders under prefix
+          MAP=$(aws s3 ls s3://$EXPOSURE_S3_BUCKET/$PREFIX/ || true)
+          printf "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>Exposure Reports</title>\n" > index.html
+          printf "<style>body{font-family:Arial,Helvetica,sans-serif;margin:2rem} table{border-collapse:collapse;width:100%%} th,td{border:1px solid #ddd;padding:8px;text-align:left} th{background:#f4f4f4}</style></head><body>\n" >> index.html
+          printf "<h1>Exposure Reports</h1>\n" >> index.html
+          printf "<p><a href=\"https://$EXPOSURE_S3_BUCKET.s3.amazonaws.com/$PREFIX/exposure_multi.html\">Consolidated (last N days)</a></p>\n" >> index.html
+          printf "<table><thead><tr><th>Date</th><th>HTML</th><th>Text</th><th>Suggested JSON</th></tr></thead><tbody>\n" >> index.html
+          echo "$MAP" | awk '{print $2}' | sed 's#/##g' | while read D; do \
+            if [ -z "$D" ]; then continue; fi; \
+            HREF_BASE="https://$EXPOSURE_S3_BUCKET.s3.amazonaws.com/$PREFIX/$D"; \
+            printf "<tr><td>%s</td><td><a href=\"%s/exposure_report.html\">HTML</a></td><td><a href=\"%s/exposure_report.txt\">Text</a></td><td><a href=\"%s/acceptance_suggest.json\">JSON</a></td></tr>\n" "$D" "$HREF_BASE" "$HREF_BASE" "$HREF_BASE" >> index.html; \
+          done
+          printf "</tbody></table></body></html>\n" >> index.html
+          aws s3 cp index.html s3://$EXPOSURE_S3_BUCKET/$PREFIX/index.html --content-type text/html || echo "Index upload skipped"
+
+      - name: Commit acceptance_suggest.json to repo (optional PR)
+        if: ${{ steps.stats.outputs.has_log == 'true' && inputs.accept_suggest_path != '' }}
+        env:
+            GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          DEST="${{ inputs.accept_suggest_path }}"
+          mkdir -p "$(dirname "$DEST")"
+          cp acceptance_suggest.json "$DEST"
+          BR="bot/update-acceptance-${{ github.run_id }}"
+          git config user.email "bot@users.noreply.github.com"
+          git config user.name "automation-bot"
+          git checkout -b "$BR"
+          git add "$DEST"
+          git commit -m "chore: update acceptance_suggest.json (run ${{ github.run_id }})" || echo "No changes to commit"
+          git push --set-upstream origin "$BR" || echo "Push skipped"
+          gh pr create --title "Update acceptance_suggest.json" --body "Automated update from exposure-daily-report (run ${{ github.run_id }})." --base "${{ github.ref_name }}" --head "$BR" || echo "PR creation skipped"
+
+      - name: Slack notification (optional)
+        if: ${{ steps.stats.outputs.has_log == 'true' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then echo "No SLACK_WEBHOOK_URL; skipping"; exit 0; fi
+          DAY=$(date -u -d "yesterday" +%F)
+          # Extract top 5 items (skip header)
+          TOP=$(awk 'NR>1 && NR<=6 {print}' exposure_report.txt | sed ':a;N;$!ba;s/\n/\\n/g')
+          HEADER="# item_id\tcount\titem_rate\tsession_rate"
+          TEXT="Exposure Daily Report for ${DAY}\n\n\`\`\`${HEADER}\\n${TOP}\`\`\`"
+          curl -X POST -H 'Content-type: application/json' --data "$(jq -Rn --arg t "$TEXT" '{text: $t}')" "${SLACK_WEBHOOK_URL}"
+
+      - name: Upload artifacts
+        if: steps.stats.outputs.has_log == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: exposure-report-${{ github.run_id }}
+          path: |
+            exposure_report.txt
+            acceptance_suggest.json
+            exposure_report.html
+            exposure_multi.html

@@ -179,6 +179,7 @@ def start_session(exam_id: str, user_id: str, org_id: int) -> Dict:
         "theta": 0.0,
         "done": False,
         "administered": [],  # list of question ids
+        "responses": [],     # list of {question_id, correct, answer, a,b,c, elapsed?}
     }
     # Item bank을 DB에서 로딩(가능 시), 실패/미설정이면 스텁 유지
     try:
@@ -255,6 +256,21 @@ def submit_answer(session_id: str, question_id: str, answer: str, elapsed: float
         theta=s["theta"], a=item["a"], b=item["b"], c=item["c"], u=1 if correct else 0
     )
     s["index"] += 1
+    # record response history for reporting
+    try:
+        s.setdefault("responses", []).append({
+            "question_id": question_id,
+            "answer": answer,
+            "correct": bool(correct),
+            "a": float(item.get("a", 1.0)),
+            "b": float(item.get("b", 0.0)),
+            "c": float(item.get("c", 0.2)),
+            "elapsed": float(elapsed) if elapsed is not None else None,
+        })
+    except Exception:
+        # best-effort only
+        pass
+
     if s["index"] >= 10:
         s["done"] = True
         return {
@@ -266,6 +282,11 @@ def submit_answer(session_id: str, question_id: str, answer: str, elapsed: float
             }
         }
     return {"correct": correct, "updated_theta": s["theta"]}
+
+
+def get_session_state(session_id: str) -> Optional[Dict]:
+    """Expose internal session state for reporting endpoints."""
+    return _sessions.get(session_id)
 
 
 # ------------------- 3PL + Bayesian update core -------------------

@@ -47,6 +47,7 @@ server.pid
 .env.production.local
 *.env
 *.env.example
+!apps/seedtest_api/.env.example
 
 # IDE files
 .vscode/

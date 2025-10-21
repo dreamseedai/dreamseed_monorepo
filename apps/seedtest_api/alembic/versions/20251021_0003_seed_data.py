@@ -1,4 +1,5 @@
 from alembic import op, context
+import os
 
 # revision identifiers, used by Alembic.
 revision = '20251021_0003_seed_data'
@@ -96,13 +97,21 @@ def downgrade():
     if not seed_flag:
         return
     # Best-effort cleanup of seeded rows
-    op.execute("DELETE FROM choices WHERE question_id IN (
+    op.execute("""
+    DELETE FROM choices WHERE question_id IN (
       SELECT question_id FROM questions WHERE content LIKE 'If a fair coin%' OR content LIKE 'Solve for x:%'
-    );")
-    op.execute("DELETE FROM questions WHERE content LIKE 'If a fair coin%' OR content LIKE 'Solve for x:%';")
+    );
+    """)
+    op.execute("""
+    DELETE FROM questions WHERE content LIKE 'If a fair coin%' OR content LIKE 'Solve for x:%';
+    """)
     op.execute("DELETE FROM exams WHERE title='Math Adaptive Test 2025';")
-    op.execute("DELETE FROM users WHERE email IN ('teacher1@example.com','student1@example.com');")
-    op.execute("DELETE FROM topics WHERE name IN ('Probability and Statistics','Algebra');")
+    op.execute("""
+    DELETE FROM users WHERE email IN ('teacher1@example.com','student1@example.com');
+    """)
+    op.execute("""
+    DELETE FROM topics WHERE name IN ('Probability and Statistics','Algebra');
+    """)
     op.execute("DELETE FROM topics WHERE name='Mathematics';")
     op.execute("DELETE FROM organizations WHERE name='Global Platform';")
 

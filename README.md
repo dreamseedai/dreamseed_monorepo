@@ -197,6 +197,7 @@ python -m http.server 9000
 - [개발자 가이드](docs/developer/developer_guide.md) - 개발 환경 설정 및 개발 가이드
 - [배포 가이드](docs/deployment/deployment_guide.md) - 프로덕션 배포 가이드
 - [API 스펙](api/openapi.yaml) - OpenAPI 3.0 스펙
+- [Exposure Reports on S3](README_EXPOSURE_REPORTS.md) - 일일 노출 리포트 S3 정적 웹사이트 게시 가이드
 
 ### 📊 모니터링
 - **Prometheus**: http://localhost:9090

@@ -3,6 +3,9 @@ name: Post-merge E2E Checklist Comment
 on:
   pull_request:
     types: [closed]
+    paths:
+      - '.github/workflows/pr-merge-checklist-comment.yml'
+      - '**'
   workflow_dispatch: {}
 
 permissions:

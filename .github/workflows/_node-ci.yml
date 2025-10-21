@@ -1,0 +1,38 @@
+name: Node CI (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      workdir:
+        required: true
+        type: string
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.workdir }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+      - name: Install deps
+        run: pnpm install --frozen-lockfile=false
+        working-directory: ${{ inputs.workdir }}
+      - name: Lint
+        run: pnpm run lint --if-present
+        working-directory: ${{ inputs.workdir }}
+      - name: Test (CI)
+        run: pnpm test -- --ci --reporter=basic || pnpm test -- --ci --reporter=basic
+        working-directory: ${{ inputs.workdir }}
+      - name: Build
+        run: pnpm run build
+        working-directory: ${{ inputs.workdir }}
