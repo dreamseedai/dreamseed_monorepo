@@ -88,7 +88,8 @@ yarn-error.log*
 dreamseed_*.db
 mpcstudy_*.db
 
-# Documentation files (generally ignored, but always allow core docs)
+# Documentation files
+# Default: ignore most markdown to reduce noise from generated notes, but explicitly allow docs and key READMEs
 *.md
 !README.md
 !CHANGELOG.md
@@ -96,6 +97,8 @@ mpcstudy_*.db
 # Allow README and CHANGELOG in subfolders (e.g., apps/*)
 !**/README.md
 !**/CHANGELOG.md
+# Allow documentation under docs/
+!docs/**/*.md
 
 # Configuration files
 .editorconfig
@@ -137,7 +140,8 @@ admin/lib/
 api/
 portal_api/
 backend/
-apps/
+# Relax blanket ignore for apps/ but keep targeted ignores below
+# apps/
 
 # Static files
 static/
@@ -199,6 +203,8 @@ schema.sql
 !docker-compose.yml
 !.github/workflows/*.yml
 !.github/workflows/*.yaml
+# Allow pre-commit config at repo root
+!.pre-commit-config.yaml
 
 # TypeScript files
 *.ts
@@ -263,6 +269,9 @@ index*.html
 # Allow new FastAPI scaffold to be tracked (script writes to apps/seedtest-api)
 !apps/seedtest-api/
 !apps/seedtest-api/**
+# Allow current SeedTest API package (underscore path)
+!apps/seedtest_api/
+!apps/seedtest_api/**
 
 # But keep local virtualenvs ignored
 apps/seedtest-api/.venv/
