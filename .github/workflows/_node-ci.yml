@@ -21,9 +21,21 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - name: Debug pnpm path/version
         run: |
-          corepack enable
-          corepack prepare pnpm@9 --activate
+          echo "Node: $(node -v)"
+          echo "PNPM: $(pnpm -v)"
+          which pnpm || true
+          pnpm config get store-dir || true
+      - name: Ensure pnpm present
+        run: |
+          if ! command -v pnpm >/dev/null 2>&1; then
+            echo "pnpm missing on PATH" && exit 1
+          fi
       - name: Install deps
         run: pnpm install --frozen-lockfile=false
         working-directory: ${{ inputs.workdir }}

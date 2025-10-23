@@ -15,9 +15,6 @@ jobs:
   plan-apply:
     name: Terraform plan & apply (cloudrun_jobs)
     runs-on: ubuntu-latest
-    env:
-      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      REGION: ${{ secrets.GCP_REGION }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,7 +27,7 @@ jobs:
       - name: Setup gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ env.PROJECT_ID }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -45,10 +42,10 @@ jobs:
         id: plan
         working-directory: infra/cloudrun_jobs
         env:
-          TF_VAR_project_id: ${{ env.PROJECT_ID }}
-          TF_VAR_region: ${{ env.REGION }}
+          TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
+          TF_VAR_region: ${{ secrets.GCP_REGION }}
           TF_VAR_job_name: ${{ github.ref_name == 'main' && 'seedtest-api-migrate-prod' || 'seedtest-api-migrate-stg' }}
-          TF_VAR_image: ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GAR_REPOSITORY }}/seedtest-api:${{ github.sha }}
+          TF_VAR_image: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GAR_REPOSITORY }}/seedtest-api:${{ github.sha }}
           TF_VAR_env: ${{ github.ref_name == 'main' && 'prod' || 'stg' }}
           TF_VAR_database_url: ${{ github.ref_name == 'main' && secrets.DATABASE_URL_PROD || secrets.DATABASE_URL_STG }}
         run: terraform plan -input=false -out=tfplan

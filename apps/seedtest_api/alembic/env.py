@@ -1,5 +1,6 @@
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
+import sqlalchemy as sa
 from alembic import context
 import os
 
@@ -8,7 +9,8 @@ import os
 config = context.config
 
 # Interpret the config file for Python logging.
-fileConfig(config.config_file_name)
+if config.config_file_name:
+    fileConfig(config.config_file_name)
 
 # Auto seed control via STAGE env (staging/dev => seed=true)
 _stage = os.getenv('STAGE', '').lower()
@@ -25,7 +27,11 @@ target_metadata = None
 
 def run_migrations_offline():
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, literal_binds=True)
+    context.configure(
+        url=url,
+        literal_binds=True,
+        version_table_column_type=sa.String(length=128),
+    )
 
     with context.begin_transaction():
         context.run_migrations()
@@ -39,7 +45,10 @@ def run_migrations_online():
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection)
+        context.configure(
+            connection=connection,
+            version_table_column_type=sa.String(length=128),
+        )
 
         with context.begin_transaction():
             context.run_migrations()

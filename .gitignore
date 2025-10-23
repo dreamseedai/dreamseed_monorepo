@@ -88,11 +88,14 @@ yarn-error.log*
 dreamseed_*.db
 mpcstudy_*.db
 
-# Documentation files (except main README)
+# Documentation files (generally ignored, but always allow core docs)
 *.md
 !README.md
 !CHANGELOG.md
 !README_PROJECTS_AUTOMATION.md
+# Allow README and CHANGELOG in subfolders (e.g., apps/*)
+!**/README.md
+!**/CHANGELOG.md
 
 # Configuration files
 .editorconfig

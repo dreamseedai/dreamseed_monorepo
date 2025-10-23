@@ -1,11 +1,13 @@
-from typing import Optional, List, Tuple, Dict
-from ..schemas.exams import QuestionOut
-from ..settings import settings
-from sqlalchemy import create_engine, text
+import math
+import os
 import random
 import time
-import time
-import math
+from typing import Dict, List, Optional, Tuple
+
+from sqlalchemy import create_engine, text
+
+from ..schemas.exams import QuestionOut
+from ..settings import settings, Settings as _Settings
 
 
 def score_answer(last_answer: dict) -> Tuple[int, bool]:
@@ -22,10 +24,13 @@ def next_difficulty(current: Optional[int], correct: bool) -> int:
 def next_question_stub(diff: int) -> QuestionOut:
     # TODO: pick from DB/item bank
     if diff <= 2:
-        return QuestionOut(id="q_easy", text="2 + 2 = ?", type="mcq", options=["2","3","4","5"], timer_sec=60)
-    return QuestionOut(id="q_hard", text="12 + 13 = ?", type="mcq", options=["22","24","25","26"], timer_sec=60)
+        return QuestionOut(id="q_easy", text="2 + 2 = ?", type="mcq", options=["2", "3", "4", "5"], timer_sec=60)
+    return QuestionOut(id="q_hard", text="12 + 13 = ?", type="mcq", options=["22", "24", "25", "26"], timer_sec=60)
+
 
 # ------------------- In-memory adaptive session stub -------------------
+#
+# Internal structures and best-effort DB-backed helpers for adaptive demo flows.
 
 _sessions: Dict[str, Dict] = {}
 _sa_engine = None
@@ -67,7 +72,7 @@ def _load_item_bank_from_db(limit: int | None = None) -> List[Dict]:
             except ValueError:
                 continue
         if topic_ids:
-            conditions.append(f"q.topic_id = ANY(:topic_ids)")
+            conditions.append("q.topic_id = ANY(:topic_ids)")
             params["topic_ids"] = topic_ids
     # tags filter (assumes questions.tags as text[] or JSONB string array)
     tag_list: List[str] = []
@@ -152,6 +157,9 @@ def _detect_tags_kind() -> Optional[str]:
 
 
 def _is_correct_from_db(question_id: str | int, answer_text: str | None) -> Optional[bool]:
+    # In LOCAL_DEV mode, avoid hitting DB for correctness; fall back to simple rule
+    if _Settings().LOCAL_DEV or (os.getenv("LOCAL_DEV", "false").lower() == "true"):
+        return None
     eng = _get_engine()
     if not eng or answer_text is None:
         return None
@@ -223,14 +231,19 @@ def select_next(session_id: str) -> Optional[Dict]:
         s["done"] = True
         return None
     if settings.CAT_CRITERION == 'KL':
-        best = max(candidates, key=lambda it: kl_information_3pl(it["a"], it["b"], it["c"], theta, settings.CAT_KL_DELTA))
+        best = max(
+            candidates,
+            key=lambda it: kl_information_3pl(
+                it["a"], it["b"], it["c"], theta, settings.CAT_KL_DELTA
+            ),
+        )
     else:
         best = max(candidates, key=lambda it: fisher_information_3pl(it["a"], it["b"], it["c"], theta))
     q = {
         "id": best["id"],
         "text": f"Solve item {best['id']}",
         "type": "mcq",
-        "options": ["1","2","3","4"]
+        "options": ["1", "2", "3", "4"]
     }
     # mark administered
     s["administered"].append(best["id"])
@@ -337,8 +350,8 @@ def bayes_update_theta_3pl(
         # gradient of log posterior ≈ (u-P)/(P(1-P)) * dP - (t-μ)/σ^2
         g = (u - P) * dP / max(P * Q, 1e-8) - (t - prior_mean) / (prior_sd * prior_sd)
         # hessian approx = -(Fisher + 1/σ^2)
-        I = (dP * dP) / max(P * Q, 1e-8)
-        H = -(I + 1.0 / (prior_sd * prior_sd))
+        info_val = (dP * dP) / max(P * Q, 1e-8)
+        H = -(info_val + 1.0 / (prior_sd * prior_sd))
         if H == 0:
             break
         step = -g / H
@@ -391,5 +404,3 @@ def kl_information_3pl(a: float, b: float, c: float, theta: float, delta: float)
     kl12 = p1 * math.log(p1 / p2) + (1 - p1) * math.log((1 - p1) / (1 - p2))
     kl21 = p2 * math.log(p2 / p1) + (1 - p2) * math.log((1 - p2) / (1 - p1))
     return kl12 + kl21
-
-
