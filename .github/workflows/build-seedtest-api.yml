@@ -61,7 +61,8 @@ jobs:
       - name: Build & Push
         uses: docker/build-push-action@v6
         with:
-          context: apps/seedtest_api
+          context: .
+          file: apps/seedtest_api/Dockerfile
           push: true
           tags: |
             ${{ steps.compute.outputs.image_ref }}:sha-${{ github.sha }}
