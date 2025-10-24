@@ -15,6 +15,12 @@ err()  { echo -e "${RED}[ERR ]${NC} $*" >&2; }
 : "${GKE_LOCATION:=${GKE_LOCATION:-}}"
 : "${GCP_WIF_SERVICE_ACCOUNT:=${GCP_WIF_SERVICE_ACCOUNT:-}}"
 : "${GCP_WORKLOAD_IDENTITY_PROVIDER:=${GCP_WORKLOAD_IDENTITY_PROVIDER:-}}"
+: "${GCP_WIF_PROVIDER:=${GCP_WIF_PROVIDER:-}}"
+
+# Normalize provider alias for local runs
+if [[ -z "${GCP_WORKLOAD_IDENTITY_PROVIDER}" && -n "${GCP_WIF_PROVIDER}" ]]; then
+  GCP_WORKLOAD_IDENTITY_PROVIDER="$GCP_WIF_PROVIDER"
+fi
 
 # Try to auto-detect cluster/location if missing (best-effort)
 if [[ -z "${GKE_CLUSTER}" ]]; then

@@ -14,6 +14,7 @@ env:
   GKE_LOCATION: ${{ vars.GKE_LOCATION || '' }}
   GCP_WIF_SERVICE_ACCOUNT: ${{ vars.GCP_WIF_SERVICE_ACCOUNT || '' }}
   GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER || '' }}
+  GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER || '' }}
 
 jobs:
   audit:
@@ -28,9 +29,16 @@ jobs:
           echo "GKE_LOCATION=${GKE_LOCATION}"
           echo "GCP_WIF_SERVICE_ACCOUNT=${GCP_WIF_SERVICE_ACCOUNT}"
           echo "GCP_WORKLOAD_IDENTITY_PROVIDER=${GCP_WORKLOAD_IDENTITY_PROVIDER}"
+          echo "GCP_WIF_PROVIDER=${GCP_WIF_PROVIDER}"
 
-      - name: Validate required variables exist
+      - name: Normalize and validate variables
         run: |
+          # Normalize provider alias: prefer GCP_WORKLOAD_IDENTITY_PROVIDER, fallback to GCP_WIF_PROVIDER
+          if [ -z "${GCP_WORKLOAD_IDENTITY_PROVIDER}" ] && [ -n "${GCP_WIF_PROVIDER}" ]; then
+            echo "GCP_WORKLOAD_IDENTITY_PROVIDER=${GCP_WIF_PROVIDER}" >> "$GITHUB_ENV"
+            echo "[INFO] Using GCP_WIF_PROVIDER as GCP_WORKLOAD_IDENTITY_PROVIDER"
+          fi
+
           missing=0
           for v in GCP_PROJECT_ID GKE_CLUSTER GKE_LOCATION GCP_WIF_SERVICE_ACCOUNT GCP_WORKLOAD_IDENTITY_PROVIDER; do
             if [ -z "${!v}" ]; then
@@ -46,7 +54,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Auth to GCP with WIF
-        if: env.GCP_WIF_SERVICE_ACCOUNT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+        if: ${{ env.GCP_WIF_SERVICE_ACCOUNT != '' && (env.GCP_WORKLOAD_IDENTITY_PROVIDER != '' || env.GCP_WIF_PROVIDER != '') }}
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
