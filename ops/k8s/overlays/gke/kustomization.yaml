@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: seedtest
+
+resources:
+  # base 리소스 경로(리포 구조에 맞게 조정)
+  - ../../base
+  # 새로 추가된 ConfigMap/ExternalSecret 리소스
+  - config/seedtest-api-config.yaml
+  - secrets/seedtest-api-jwt-externalsecret.yaml
+
+patches:
+  # API 디플로이먼트에 환경변수 주입 패치
+  - path: patches/api-env-patch.yaml
+    target:
+      kind: Deployment
+      name: seedtest-api
+      namespace: seedtest
