@@ -1,0 +1,37 @@
+{
+  "items": [
+    {
+      "id": "alg-vid-101",
+      "title": "대수 기초 개념 정리 (영상)",
+      "url": "https://example.com/algebra-basics",
+      "topic_tags": ["대수", "algebra"],
+      "difficulty": 2.0,
+      "format": "video",
+      "language": "ko",
+      "provider": "ExampleEdu",
+      "popularity_score": 0.8
+    },
+    {
+      "id": "prob-set-201",
+      "title": "확률 기본 문제 세트 (연습)",
+      "url": "https://example.com/probability-practice",
+      "topic_tags": ["확률", "probability"],
+      "difficulty": 3.0,
+      "format": "problems",
+      "language": "ko",
+      "provider": "ExampleEdu",
+      "popularity_score": 0.7
+    },
+    {
+      "id": "geom-article-150",
+      "title": "기하 핵심 정리 (기사)",
+      "url": "https://example.com/geometry-core",
+      "topic_tags": ["기하", "geometry"],
+      "difficulty": 3.5,
+      "format": "article",
+      "language": "ko",
+      "provider": "ExampleEdu",
+      "popularity_score": 0.6
+    }
+  ]
+}
