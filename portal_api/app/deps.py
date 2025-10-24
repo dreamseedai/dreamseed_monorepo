@@ -18,7 +18,9 @@ def get_current_user_id(request: Request) -> int:
     if not token:
         token = request.cookies.get("access_token")
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
+        )
     try:
         data = decode_token(token)
         sub = data.get("sub")
@@ -26,10 +28,14 @@ def get_current_user_id(request: Request) -> int:
             raise HTTPException(status_code=401, detail="invalid token")
         return int(sub)
     except Exception:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token"
+        )
 
 
-def get_current_user(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)) -> User:
+def get_current_user(
+    db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)
+) -> User:
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -41,6 +47,5 @@ def require_roles(*roles: str):
         if roles and user.role not in roles:
             raise HTTPException(status_code=403, detail="Forbidden")
         return user
+
     return _dep
-
-

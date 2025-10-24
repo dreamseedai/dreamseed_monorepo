@@ -14,5 +14,3 @@ class ProfileIn(BaseModel):
     grade_code: Optional[str] = None
     goal: Optional[str] = None
     subscribed: bool = False
-
-

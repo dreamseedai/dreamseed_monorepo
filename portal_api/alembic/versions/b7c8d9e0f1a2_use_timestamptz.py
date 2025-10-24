@@ -5,6 +5,7 @@ Revises: a1b2c3d4e5f6
 Create Date: 2025-09-25 00:00:10.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -17,10 +18,18 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TABLE users ALTER COLUMN created_at TYPE timestamptz USING created_at AT TIME ZONE 'UTC';")
-    op.execute("ALTER TABLE content ALTER COLUMN created_at TYPE timestamptz USING created_at AT TIME ZONE 'UTC';")
-    op.execute("ALTER TABLE content ALTER COLUMN updated_at TYPE timestamptz USING updated_at AT TIME ZONE 'UTC';")
-    op.execute("ALTER TABLE attempts ALTER COLUMN created_at TYPE timestamptz USING created_at AT TIME ZONE 'UTC';")
+    op.execute(
+        "ALTER TABLE users ALTER COLUMN created_at TYPE timestamptz USING created_at AT TIME ZONE 'UTC';"
+    )
+    op.execute(
+        "ALTER TABLE content ALTER COLUMN created_at TYPE timestamptz USING created_at AT TIME ZONE 'UTC';"
+    )
+    op.execute(
+        "ALTER TABLE content ALTER COLUMN updated_at TYPE timestamptz USING updated_at AT TIME ZONE 'UTC';"
+    )
+    op.execute(
+        "ALTER TABLE attempts ALTER COLUMN created_at TYPE timestamptz USING created_at AT TIME ZONE 'UTC';"
+    )
 
 
 def downgrade() -> None:
@@ -28,5 +37,3 @@ def downgrade() -> None:
     op.execute("ALTER TABLE content ALTER COLUMN updated_at TYPE timestamp;")
     op.execute("ALTER TABLE content ALTER COLUMN created_at TYPE timestamp;")
     op.execute("ALTER TABLE users ALTER COLUMN created_at TYPE timestamp;")
-
-

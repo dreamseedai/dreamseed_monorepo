@@ -23,7 +23,12 @@ def _key(prefix: str, **params) -> str:
     return f"{prefix}:{digest}"
 
 
-async def get_or_set(prefix: str, maker: Callable[[], Awaitable[Any]], ttl: Optional[int] = None, **params) -> Any:
+async def get_or_set(
+    prefix: str,
+    maker: Callable[[], Awaitable[Any]],
+    ttl: Optional[int] = None,
+    **params,
+) -> Any:
     r = _client()
     if not r:
         return await maker()
@@ -42,5 +47,3 @@ async def delete_prefix(prefix: str):
         return
     async for key in r.scan_iter(match=f"{prefix}:*"):  # type: ignore[attr-defined]
         await r.delete(key)  # type: ignore[attr-defined]
-
-

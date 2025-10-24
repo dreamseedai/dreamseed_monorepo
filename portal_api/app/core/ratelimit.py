@@ -30,5 +30,3 @@ async def check_rate_limit(bucket: str, limit: int, period_sec: int = 60) -> boo
     pipe.expire(key, period_sec)  # type: ignore[attr-defined]
     cnt, _ = await pipe.execute()  # type: ignore[attr-defined]
     return int(cnt) <= limit
-
-

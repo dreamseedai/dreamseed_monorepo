@@ -21,7 +21,7 @@ async def list_content(
     limit: int = Query(20, ge=1, le=100),
     q: Optional[str] = None,
     db: Session = Depends(get_db),
-    user = Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
     async def maker():
         query = db.query(Content).filter(Content.deleted_at.is_(None))
@@ -55,11 +55,22 @@ async def list_content(
     )
 
 
-def _audit(db: Session, *, action: str, user_id: int | None, content_id: int | None, before: dict | None, after: dict | None, req: Request | None):
+def _audit(
+    db: Session,
+    *,
+    action: str,
+    user_id: int | None,
+    content_id: int | None,
+    before: dict | None,
+    after: dict | None,
+    req: Request | None,
+):
     ip = None
     ua = None
     if req:
-        ip = req.headers.get("x-forwarded-for") or (getattr(getattr(req, "client", None), "host", None))
+        ip = req.headers.get("x-forwarded-for") or (
+            getattr(getattr(req, "client", None), "host", None)
+        )
         ua = req.headers.get("user-agent")
     row = ContentAuditLog(
         content_id=content_id,
@@ -74,19 +85,36 @@ def _audit(db: Session, *, action: str, user_id: int | None, content_id: int | N
 
 
 @router.post("/", response_model=ContentOut)
-async def create_content(payload: ContentIn, request: Request, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+async def create_content(
+    payload: ContentIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     row = Content(title=payload.title, doc=payload.doc, author_id=user_id)
     db.add(row)
     db.commit()
     db.refresh(row)
-    _audit(db, action="create", user_id=user_id, content_id=row.id, before=None, after={"title": row.title, "doc": row.doc}, req=request)
+    _audit(
+        db,
+        action="create",
+        user_id=user_id,
+        content_id=row.id,
+        before=None,
+        after={"title": row.title, "doc": row.doc},
+        req=request,
+    )
     db.commit()
     await delete_prefix("content:list")
     return row
 
 
 @router.get("/{content_id}", response_model=ContentOut)
-def get_content(content_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+def get_content(
+    content_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     row = db.get(Content, content_id)
     if not row or row.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Not found")
@@ -94,7 +122,13 @@ def get_content(content_id: int, db: Session = Depends(get_db), user_id: int = D
 
 
 @router.put("/{content_id}", response_model=ContentOut)
-async def update_content(content_id: int, payload: ContentIn, request: Request, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+async def update_content(
+    content_id: int,
+    payload: ContentIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     row = db.get(Content, content_id)
     if not row:
         raise HTTPException(status_code=404, detail="Not found")
@@ -103,22 +137,44 @@ async def update_content(content_id: int, payload: ContentIn, request: Request, 
     row.doc = payload.doc
     db.commit()
     db.refresh(row)
-    _audit(db, action="update", user_id=user_id, content_id=row.id, before=before, after={"title": row.title, "doc": row.doc}, req=request)
+    _audit(
+        db,
+        action="update",
+        user_id=user_id,
+        content_id=row.id,
+        before=before,
+        after={"title": row.title, "doc": row.doc},
+        req=request,
+    )
     db.commit()
     await delete_prefix("content:list")
     return row
 
 
 @router.delete("/{content_id}")
-async def delete_content(content_id: int, request: Request, db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+async def delete_content(
+    content_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
     row = db.get(Content, content_id)
     if not row or row.deleted_at is not None:
         return {"ok": True}
     before = {"title": row.title, "doc": row.doc}
     from datetime import datetime, timezone
+
     row.deleted_at = datetime.now(timezone.utc)
     db.commit()
-    _audit(db, action="delete", user_id=user_id, content_id=content_id, before=before, after=None, req=request)
+    _audit(
+        db,
+        action="delete",
+        user_id=user_id,
+        content_id=content_id,
+        before=before,
+        after=None,
+        req=request,
+    )
     db.commit()
     await delete_prefix("content:list")
     return {"ok": True}
@@ -132,7 +188,7 @@ def list_content_audit(
     after_id: int | None = None,
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
-    user = Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
     q = db.query(ContentAuditLog).order_by(ContentAuditLog.id.desc())
     if getattr(user, "role", "user") != "admin":
@@ -166,7 +222,7 @@ async def undelete_content(
     content_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    user = Depends(require_roles("admin")),
+    user=Depends(require_roles("admin")),
 ):
     row = db.get(Content, content_id)
     if not row:
@@ -177,7 +233,15 @@ async def undelete_content(
     row.deleted_at = None
     db.commit()
     db.refresh(row)
-    _audit(db, action="undelete", user_id=user.id, content_id=row.id, before=before, after={"title": row.title, "doc": row.doc}, req=request)
+    _audit(
+        db,
+        action="undelete",
+        user_id=user.id,
+        content_id=row.id,
+        before=before,
+        after={"title": row.title, "doc": row.doc},
+        req=request,
+    )
     db.commit()
     await delete_prefix("content:list")
     return {"ok": True}
@@ -188,7 +252,7 @@ async def hard_delete_content(
     content_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    user = Depends(require_roles("admin")),
+    user=Depends(require_roles("admin")),
 ):
     row = db.get(Content, content_id)
     if not row:
@@ -196,8 +260,15 @@ async def hard_delete_content(
     before = {"title": row.title, "doc": row.doc}
     db.delete(row)
     db.commit()
-    _audit(db, action="hard_delete", user_id=user.id, content_id=content_id, before=before, after=None, req=request)
+    _audit(
+        db,
+        action="hard_delete",
+        user_id=user.id,
+        content_id=content_id,
+        before=before,
+        after=None,
+        req=request,
+    )
     db.commit()
     await delete_prefix("content:list")
     return {"ok": True}
-

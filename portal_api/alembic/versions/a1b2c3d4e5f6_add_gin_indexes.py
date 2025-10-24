@@ -5,6 +5,7 @@ Revises: cc6cad923533
 Create Date: 2025-09-25 00:00:00.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -40,5 +41,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS ix_attempts_response_gin;")
     op.execute("DROP INDEX IF EXISTS ix_content_doc_gin;")
-
-

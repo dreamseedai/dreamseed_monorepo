@@ -13,17 +13,20 @@ def tiptap_to_html(doc: dict[str, Any]) -> str:
         if t == "paragraph":
             return f"<p>{''.join(render(n) for n in node.get('content', []))}</p>"
         if t == "text":
-            return escape(node.get("text",""))
+            return escape(node.get("text", ""))
         if t == "math":
-            latex = node.get("attrs",{}).get("latex","")
+            latex = node.get("attrs", {}).get("latex", "")
             return f"<span class='math'>\\({escape(latex)}\\)</span>"
         return ""
-    return render(doc or {"type":"doc"})
+
+    return render(doc or {"type": "doc"})
 
 
 def build_html(
-    doc: dict[str, Any], *,
-    title: str, author: Optional[str],
+    doc: dict[str, Any],
+    *,
+    title: str,
+    author: Optional[str],
     created_at_iso: Optional[str],
     logo_url: Optional[str] = None,
     size: str = "A4",
@@ -32,7 +35,11 @@ def build_html(
     body = tiptap_to_html(doc)
     author = author or "-"
     date_label = created_at_iso or "-"
-    logo = f"<img src='{escape(logo_url)}' alt='logo' style='height:18px;vertical-align:middle;margin-right:8px'/>" if logo_url else ""
+    logo = (
+        f"<img src='{escape(logo_url)}' alt='logo' style='height:18px;vertical-align:middle;margin-right:8px'/>"
+        if logo_url
+        else ""
+    )
     return f"""<!doctype html>
 <html>
 <head>
@@ -76,5 +83,3 @@ window.MathJax = {{
   </section>
 </body>
 </html>"""
-
-

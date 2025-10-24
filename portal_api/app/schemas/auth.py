@@ -14,5 +14,3 @@ class LoginIn(BaseModel):
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str
-
-

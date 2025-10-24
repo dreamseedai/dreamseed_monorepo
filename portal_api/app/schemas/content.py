@@ -10,5 +10,3 @@ class ContentIn(BaseModel):
 
 class ContentOut(ContentIn):
     id: int
-
-
