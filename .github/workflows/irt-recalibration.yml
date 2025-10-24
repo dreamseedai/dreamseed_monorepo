@@ -1,0 +1,101 @@
+name: IRT Recalibration (Monthly)
+
+on:
+  schedule:
+    - cron: '0 3 1 * *' # 3 AM UTC on the 1st of each month
+  workflow_dispatch:
+
+jobs:
+  recalibrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install psycopg2-binary
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3.3'
+
+      - name: Run calibration (preview to shadow)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python tools/calibration/run_calibration.py --since $(date -u -d '1 month ago' +%Y-%m-01) --min-per-item 30 --target-table item_bank_shadow --preview
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: calibration-output
+          path: |
+            calibration_responses.csv
+            calibration_item_params.csv
+            calibration_item_params_diff.csv
+
+      - name: Prepare PR branch and summary
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          BR="calibration/$(date -u +%Y%m%d)"
+          git checkout -b "$BR"
+          cat > CALIBRATION_SUMMARY.md << 'MD'
+          # IRT Calibration Preview $(date -u +%F)
+
+          ## Artifacts
+          - calibration_item_params.csv
+          - calibration_item_params_diff.csv
+          MD
+          # Basic metrics from diff (appended)
+          python - << 'PY' >> CALIBRATION_SUMMARY.md
+          import csv
+          from statistics import mean
+          items=0; flagged=0; da=[]; db=[]; dc=[]
+          try:
+              with open('calibration_item_params_diff.csv') as f:
+                  r=csv.DictReader(f)
+                  for row in r:
+                      items += 1
+                      try:
+                          da.append(float(row.get('delta_a') or 0.0))
+                          db.append(float(row.get('delta_b') or 0.0))
+                          dc.append(float(row.get('delta_c') or 0.0))
+                          a = float(row.get('new_a') or 0.0)
+                          if a < 0.2 or a < 0:
+                              flagged += 1
+                      except:
+                          pass
+              print() 
+              print('## Summary')
+              print(f'Items changed: {items}')
+              print(f'Mean delta a/b/c: {mean(da) if da else 0:.4f}/{mean(db) if db else 0:.4f}/{mean(dc) if dc else 0:.4f}')
+              print(f'Flagged items (low/neg a): {flagged}')
+          except Exception as e:
+              print()
+              print('Summary error:', e)
+          PY
+          git add CALIBRATION_SUMMARY.md calibration_item_params.csv calibration_item_params_diff.csv || true
+          git commit -m "chore: add IRT calibration preview artifacts" || echo "No changes to commit"
+          echo "BRANCH=$BR" >> $GITHUB_ENV
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "IRT calibration preview $(date -u +%F)"
+          body: |
+            This PR contains preview artifacts for the monthly IRT calibration.
+            - calibration_item_params.csv
+            - calibration_item_params_diff.csv
+            Please review diffs and merge to apply in a follow-up job.
+          branch: ${{ env.BRANCH }}
+          commit-message: "chore: add IRT calibration preview artifacts"

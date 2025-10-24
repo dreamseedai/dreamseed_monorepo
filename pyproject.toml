@@ -23,6 +23,9 @@ dependencies = [
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.11.0",
     "locust>=2.17.0",
+    "numpy>=1.26.0",
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.23.0",
 ]
 
 [project.optional-dependencies]
@@ -34,6 +37,7 @@ dev = [
     "bandit>=1.7.0",
     "safety>=2.3.0",
     "pre-commit>=3.3.0",
+    "freezegun>=1.2.0",
 ]
 
 [tool.black]
@@ -97,7 +101,9 @@ exclude_dirs = ["tests", "venv", ".venv"]
 skips = ["B101", "B601"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = [
+    "apps/seedtest_api/tests",
+]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -106,7 +112,7 @@ addopts = [
     "--strict-config",
     "--verbose",
     "--tb=short",
-    "--cov=api",
+    "--cov=apps/seedtest_api",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
@@ -116,10 +122,11 @@ markers = [
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
     "security: marks tests as security tests",
+    "db: marks tests that require a running database (deselect with '-m \"not db\"')",
 ]
 
 [tool.coverage.run]
-source = ["api"]
+source = ["apps/seedtest_api"]
 omit = [
     "*/tests/*",
     "*/venv/*",

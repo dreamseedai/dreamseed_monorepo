@@ -1,0 +1,40 @@
+name: Maintenance - Gitignore cleanup for apps/ and docs/
+description: Track updating .gitignore rules to avoid force-adding config/docs
+title: "chore: normalize .gitignore for apps/ and docs/"
+labels: ["chore", "maintenance", "devex"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Some new config/docs artifacts (e.g., `.pre-commit-config.yaml`, `docs/PR_SEEDTEST_CI_UPDATE.md`) are currently matched by .gitignore patterns, requiring `git add -f`.
+
+        This issue proposes adjusting .gitignore to allow committed configuration and documentation while still ignoring large/generated assets.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: Allow top-level `.pre-commit-config.yaml`
+        - label: Allow `docs/**/*.md` (exclude large binaries)
+        - label: Keep ignoring build artifacts, caches, and large binaries
+        - label: Verify existing tracked files in `apps/` remain unaffected
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed changes
+      description: List suggested .gitignore diffs and any follow-up cleanups
+      placeholder: |
+        e.g.
+        - Remove `apps` blanket ignore; replace with targeted ignores for virtualenvs and local artifacts
+        - Add negation rule: `!docs/**/*.md`
+        - Add negation rule: `!.pre-commit-config.yaml`
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: How to validate (git status clean, pre-commit files tracked, no noise from build outputs)
+      placeholder: |
+        - Run `git status` after several dev cycles; ensure no unintended files show up
+        - Create a doc under docs/ and ensure it is tracked by default
+        - Confirm venv/coverage artifacts remain ignored

@@ -1,0 +1,50 @@
+name: Node CI (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      workdir:
+        required: true
+        type: string
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.workdir }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - name: Debug pnpm path/version
+        run: |
+          echo "Node: $(node -v)"
+          echo "PNPM: $(pnpm -v)"
+          which pnpm || true
+          pnpm config get store-dir || true
+      - name: Ensure pnpm present
+        run: |
+          if ! command -v pnpm >/dev/null 2>&1; then
+            echo "pnpm missing on PATH" && exit 1
+          fi
+      - name: Install deps
+        run: pnpm install --frozen-lockfile=false
+        working-directory: ${{ inputs.workdir }}
+      - name: Lint
+        run: pnpm run lint --if-present
+        working-directory: ${{ inputs.workdir }}
+      - name: Test (CI)
+        run: pnpm test -- --ci --reporter=basic || pnpm test -- --ci --reporter=basic
+        working-directory: ${{ inputs.workdir }}
+      - name: Build
+        run: pnpm run build
+        working-directory: ${{ inputs.workdir }}

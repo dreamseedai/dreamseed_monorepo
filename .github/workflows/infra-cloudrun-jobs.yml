@@ -1,0 +1,56 @@
+name: Infra - Cloud Run Jobs (Terraform)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ develop, main ]
+    paths:
+      - 'infra/cloudrun_jobs/**'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  plan-apply:
+    name: Terraform plan & apply (cloudrun_jobs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Auth to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
+      - name: Terraform Init
+        working-directory: infra/cloudrun_jobs
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: infra/cloudrun_jobs
+        env:
+          TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
+          TF_VAR_region: ${{ secrets.GCP_REGION }}
+          TF_VAR_job_name: ${{ github.ref_name == 'main' && 'seedtest-api-migrate-prod' || 'seedtest-api-migrate-stg' }}
+          TF_VAR_image: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GAR_REPOSITORY }}/seedtest-api:${{ github.sha }}
+          TF_VAR_env: ${{ github.ref_name == 'main' && 'prod' || 'stg' }}
+          TF_VAR_database_url: ${{ github.ref_name == 'main' && secrets.DATABASE_URL_PROD || secrets.DATABASE_URL_STG }}
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Terraform Apply
+        if: github.event_name == 'push'
+        working-directory: infra/cloudrun_jobs
+        run: terraform apply -input=false -auto-approve tfplan

@@ -1,0 +1,97 @@
+name: Examinee Frontend - Storybook to GitHub Pages
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/examinee-frontend/**'
+      - '.github/workflows/examinee-frontend-storybook-pages.yml'
+  pull_request:
+    paths:
+      - 'apps/examinee-frontend/**'
+      - '.github/workflows/examinee-frontend-storybook-pages.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: storybook-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Storybook
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/examinee-frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Debug pnpm path/version
+        run: |
+          echo "Node: $(node -v)"
+          echo "PNPM: $(pnpm -v)"
+          which pnpm || true
+          pnpm config get store-dir || true
+
+      - name: Ensure pnpm present
+        run: |
+          if ! command -v pnpm >/dev/null 2>&1; then
+            echo "pnpm missing on PATH" && exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build Storybook
+        run: pnpm run build-storybook
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/examinee-frontend/storybook-static
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Comment PR with Storybook preview URL
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = `${{ toJSON(steps.deployment.outputs.page_url) }}`;
+            const prNumber = context.payload.pull_request?.number;
+            if (!prNumber || !url) {
+              core.warning('No PR number or preview URL found; skipping comment.');
+            } else {
+              const body = `🔍 Storybook Preview is ready: ${url}`;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }

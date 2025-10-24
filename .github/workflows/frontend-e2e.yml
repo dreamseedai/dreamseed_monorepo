@@ -1,0 +1,60 @@
+name: Frontend E2E
+
+on:
+  push:
+    branches: [ main, develop, agent/* ]
+    paths:
+      - 'apps/examinee-frontend/**'
+      - '.github/workflows/frontend-e2e.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/examinee-frontend/**'
+      - '.github/workflows/frontend-e2e.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: apps/examinee-frontend
+
+jobs:
+  e2e:
+    concurrency:
+      group: frontend-e2e-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - name: Debug pnpm path/version
+        run: |
+          echo "Node: $(node -v)"
+          echo "PNPM: $(pnpm -v)"
+          which pnpm || true
+          pnpm config get store-dir || true
+      - name: Ensure pnpm present
+        run: |
+          if ! command -v pnpm >/dev/null 2>&1; then
+            echo "pnpm missing on PATH" && exit 1
+          fi
+      - name: Install deps
+        run: pnpm install --frozen-lockfile=false
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+      - name: Build
+        run: pnpm run build
+      - name: Run E2E
+        run: pnpm run test:ui
+
+

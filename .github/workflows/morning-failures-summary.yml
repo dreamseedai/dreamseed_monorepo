@@ -1,0 +1,83 @@
+name: Morning Failures Summary
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 06:00 UTC every day
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install gh and jq
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+          # gh is available on GitHub-hosted runners; ensure it's usable
+          gh --version || true
+
+      - name: Gather failures (last 24h)
+        id: gather
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SINCE=$(date -u -d '24 hours ago' +%FT%TZ)
+          gh run list --limit 200 --json databaseId,name,workflowName,headBranch,headSha,conclusion,createdAt \
+            | jq -r --arg since "$SINCE" --arg server "$GITHUB_SERVER_URL" --arg repo "$GITHUB_REPOSITORY" '
+              map(select(.createdAt >= $since))
+              | map(select(.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled"))
+              | map(select(.workflowName == "SeedTest API Integration (Nightly)"
+                           or .workflowName == "CodeQL"
+                           or .workflowName == "DreamSeed CI Pipeline"
+                           or .workflowName == "Frontend E2E"
+                           or .workflowName == "examinee-frontend CI"
+                           or .workflowName == "Build (push)"
+                           or .workflowName == "Events Pipeline"))
+              | .[] | [.createdAt, .workflowName, .name, .conclusion, .headBranch, .headSha, ($server + "/" + $repo + "/actions/runs/" + (.databaseId|tostring))] | @tsv
+            ' > failures.tsv
+
+          echo "Failures collected:" && wc -l failures.tsv || true
+
+      - name: Build Top-N summary
+        id: summarize
+        run: |
+          if [ ! -s failures.tsv ]; then
+            echo "summary=No failures in the last 24 hours." >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          CUT=$(cut -f2 failures.tsv | sort | uniq -c | sort -nr | head -10)
+          echo "Top workflows by failure:\n$CUT"
+          {
+            echo "Failures (incl. cancellations) in last 24h (Top by workflow):"
+            echo "$CUT"
+            echo
+            echo "Sample (up to 10):"
+            head -10 failures.tsv
+          } > summary.txt
+          SUMMARY=$(sed 's/"/\"/g' summary.txt)
+          echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
+
+      - name: Post Slack summary
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL}" ]; then
+            echo "SLACK_WEBHOOK_URL not set; skipping Slack notification"
+            exit 0
+          fi
+          if [ "${{ steps.summarize.outputs.summary }}" = "" ]; then
+            MSG="No failures in the last 24 hours."
+          else
+            MSG="${{ steps.summarize.outputs.summary }}"
+          fi
+          printf '{"text":"%s"}' "$MSG" > payload.json
+          curl -X POST -H 'Content-type: application/json' --data @payload.json "$SLACK_WEBHOOK_URL"

@@ -7,6 +7,7 @@
 **AI 기반 교육 플랫폼**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Flask](https://img.shields.io/badge/Flask-2.3.0-green.svg)](https://flask.palletsprojects.com/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-red.svg)](https://redis.io/)
@@ -197,6 +198,29 @@ python -m http.server 9000
 - [개발자 가이드](docs/developer/developer_guide.md) - 개발 환경 설정 및 개발 가이드
 - [배포 가이드](docs/deployment/deployment_guide.md) - 프로덕션 배포 가이드
 - [API 스펙](api/openapi.yaml) - OpenAPI 3.0 스펙
+- [Exposure Reports on S3](README_EXPOSURE_REPORTS.md) - 일일 노출 리포트 S3 정적 웹사이트 게시 가이드
+
+### 🧩 Dev tooling (SeedTest API)
+
+SeedTest API 패키지(`apps/seedtest_api`) 전용 편의 타겟과 타입/린트 체크:
+
+```bash
+# 전체 테스트(단위+DB) 실행: Alembic → pytest (로컬 Postgres 필요)
+make test-seedtest-api-all
+
+# flake8 린트 (SeedTest API 범위만)
+make lint-seedtest-api
+
+# mypy 타입체크 (SeedTest API 전용 설정 사용)
+make typecheck-seedtest-api
+```
+
+권장: 사전 커밋 훅으로 flake8/mypy를 활성화하려면 아래 설정을 추가한 뒤 설치하세요.
+
+```bash
+pip install pre-commit
+pre-commit install
+```
 
 ### 📊 모니터링
 - **Prometheus**: http://localhost:9090
@@ -338,6 +362,32 @@ python tests/smoke_tests.py
 # Locust 부하 테스트
 locust -f tests/locustfile.py --host=http://localhost:8002
 ```
+
+GitHub Actions에서 스테이징 URL을 대상으로 간단한 스모크 부하 테스트를 실행하려면 수동 워크플로를 사용하세요:
+
+- 워크플로: `.github/workflows/seedtest-api-locust.yml`
+- 트리거: Actions → SeedTest API - Load Test (Manual) → Run workflow
+- 입력값:
+	- target_url: 예) `https://seedtest-api-stg-xxxx.a.run.app`
+	- users: 동시 사용자 수 (기본 10)
+	- spawn_rate: 초당 사용자 증가 (기본 2)
+	- run_time: 실행시간 (예 `2m`)
+	- fail_ratio: 허용 실패율 (0.0-1.0, 기본 0.05)
+		- p95_ms: 허용 p95 응답시간(ms, 기본 500)
+		- p99_ms: 허용 p99 응답시간(ms, 기본 1000)
+		- gating_priority_min: 그룹 임계치 위반 중 우선순위(priority) 값이 이 값 이상인 경우만 실패로 간주하고, 그 미만은 경고로 출력합니다(기본 0).
+			- exclude_patterns: 실패율/지연 임계치 계산에서 제외할 요청 name 부분 문자열(쉼표 구분)
+			- exclude_regex: 요청 name에 대해 적용할 정규식(여러 개는 (foo|bar) 형태로 alternation)
+				- groups_json: 라우트 그룹별 임계치 JSON 배열. 패턴은 요청의 "METHOD name"(예: "GET /api/seedtest/results") 문자열에 정규식으로 매칭됩니다. 각 그룹은 `priority`(정수, 기본 0)를 가질 수 있으며 `gating_priority_min`보다 작은 그룹 위반은 경고로만 표시됩니다. 예:
+
+				```json
+				[
+					{"name": "results", "pattern": "^GET\\s+/api/seedtest/results", "fail_ratio": 0.05, "p95_ms": 600, "p99_ms": 1200, "priority": 10},
+					{"name": "pdf", "pattern": "/result/pdf", "p95_ms": 1000, "p99_ms": 2000, "priority": 1}
+				]
+				```
+
+이 워크플로는 리포지토리에 locustfile이 없으면 `/healthz`를 대상으로 하는 최소 시나리오를 만들어 짧게 확인합니다. 설정된 임계치를 초과하면 워크플로가 실패 처리됩니다. `exclude_patterns`/`exclude_regex`는 Locust 요청의 name에 적용되며 제외된 엔드포인트는 계산에서 빠집니다. 그룹 규칙(`groups_json`)이 설정되면 각 그룹의 패턴(정규식)에 매칭되는 요청들의 실패율 및 p95/p99를 별도로 측정하여 임계치를 초과할 경우 실패 처리합니다. 그룹별 p95/p99는 보수적으로 포함된 요청 중 최악(최대) 값을 사용합니다.
 
 ---
 
@@ -492,6 +542,33 @@ GitHub Actions를 통한 자동 배포:
 
 </div>
 ---
+
+
+## 🔧 트러블슈팅: Alembic version 길이 (seedtest_api)
+
+Alembic 마이그레이션 실행 중 아래와 같은 오류가 발생할 수 있습니다:
+
+- 오류: `value too long for type character varying(32)` (테이블: `alembic_version.version_num`)
+- 원인: Alembic 기본 버전 테이블이 `VARCHAR(32)`로 생성되어, 긴 리비전 ID(예: `20251021_1510_exam_results_expand`)가 저장되지 않음
+
+올바른 해결책은 “리비전 ID를 변경하지 말고” 버전 테이블 컬럼 길이를 늘리는 것입니다.
+
+권장 조치:
+
+- 이 레포의 seedtest_api는 이미 Alembic 설정에서 길이를 확장합니다.
+	- 파일: `apps/seedtest_api/alembic/env.py`
+	- 설정: `version_table_column_type=sa.String(length=128)`
+- 기존 DB에 적용하려면 다음 중 하나를 사용하세요.
+	1) 로컬 헬퍼 스크립트 사용(권장):
+		 - `DB_PORT=5433 make -C /home/won/projects/dreamseed_monorepo test-seedtest-api-all`
+		 - 내부 스크립트 `apps/seedtest_api/scripts/dev_db_test.sh`가 필요 시 `alembic_version.version_num`을 `VARCHAR(128)`로 자동 확대한 뒤 Alembic을 실행합니다.
+	2) 수동 SQL 적용(이미 동작 중인 DB):
+		 - `ALTER TABLE IF EXISTS alembic_version ALTER COLUMN version_num TYPE VARCHAR(128);`
+		 - (초기화 DB의 경우) `CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(128) NOT NULL);`
+		 - 이후 Alembic 실행: `PYTHONPATH=apps alembic -c apps/seedtest_api/alembic.ini upgrade head` (환경변수 `DATABASE_URL` 필요)
+
+참고:
+- CI의 `e2e-db-listing` 잡은 Postgres 서비스 컨테이너를 사용하며, 마이그레이션과 DB 기반 테스트를 자동으로 수행합니다. 로컬 Postgres 없이도 검증할 수 있습니다.
 
 
 ---

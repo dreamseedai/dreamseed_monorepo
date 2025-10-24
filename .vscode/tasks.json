@@ -1,0 +1,39 @@
+{
+  // Run uvicorn for seedtest-api
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "seedtest-api: uvicorn dev",
+      "type": "shell",
+      "command": "/home/won/projects/dreamseed_monorepo/.venv/bin/python",
+      "args": [
+        "-m",
+        "uvicorn",
+        "apps.seedtest_api.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8002",
+        "--reload"
+      ],
+      "options": {
+        "cwd": "/home/won/projects/dreamseed_monorepo"
+      },
+      "problemMatcher": []
+    },
+    { "label": "frontend:verify", "type": "shell", "command": "pnpm verify", "problemMatcher": [] },
+    { "label": "backend:verify",  "type": "shell", "command": "make verify", "problemMatcher": [] },
+    { "label": "verify:fast",  "type": "shell", "command": ".venv/bin/python -m pytest -c pytest.fast.ini", "problemMatcher": [] },
+    { "label": "verify:all", "dependsOrder": "sequence", "dependsOn": ["frontend:verify", "backend:verify"] },
+    {
+      "label": "Env Audit (local)",
+      "type": "shell",
+      "command": "bash",
+      "args": ["scripts/gcp/env_audit.sh"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "group": "test",
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    }
+  ]
+}
