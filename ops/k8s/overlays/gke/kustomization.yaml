@@ -9,6 +9,12 @@ resources:
   - config/seedtest-api-config.yaml
   - secrets/seedtest-api-jwt-externalsecret.yaml
 
+# 이미지 경로를 Artifact Registry로 오버라이드 (PROJECT_ID 는 워크플로우에서 주입)
+images:
+  - name: ghcr.io/dreamseedai/seedtest-api
+    newName: asia-northeast3-docker.pkg.dev/PROJECT_ID/seedtest/seedtest-api
+    newTag: latest
+
 patches:
   # API 디플로이먼트에 환경변수 주입 패치
   - path: patches/api-env-patch.yaml

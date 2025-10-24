@@ -135,6 +135,11 @@ portal_api/
 backend/
 apps/
 
+# Allow tracking SeedTest API app (override ignores)
+!apps/
+!apps/seedtest_api/
+!apps/seedtest_api/**
+
 # Static files
 static/
 assets/
@@ -333,3 +338,8 @@ logrotate-*.conf
 
 # TypeScript config (if not needed)
 tsconfig.json
+
+# --- Final overrides: track SeedTest API app ---
+!apps/
+!apps/seedtest_api/
+!apps/seedtest_api/**

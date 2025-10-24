@@ -1,120 +1,81 @@
-name: Build & Push seedtest-api
+name: build-seedtest-api
 
 on:
-  workflow_dispatch:
   push:
     branches: [ main ]
     paths:
       - 'apps/seedtest_api/**'
       - '.github/workflows/build-seedtest-api.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'apps/seedtest_api/**'
+  workflow_dispatch:
 
-permissions:
-  contents: read
-  packages: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
-      image_digest: ${{ steps.build.outputs.digest }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      REGION: asia-northeast3
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REPO: seedtest
+      IMAGE: seedtest-api
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      # GCP OIDC 로그인 (WIF)
+      - uses: google-github-actions/auth@v2
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_WIF_SERVICE_ACCOUNT }}
 
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to Artifact Registry
+        run: |
+          gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
+
+      - name: Compute image ref
+        id: compute
+        run: |
+          IMAGE_REF="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}"
+          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+
+      # 빌드 캐시 (GitHub Actions Cache 사용)
+      - name: Restore cache
+        uses: actions/cache@v4
         with:
-          images: ghcr.io/${{ github.repository_owner }}/seedtest-api
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.ref }}-${{ hashFiles('apps/seedtest_api/**/Dockerfile','apps/seedtest_api/**/requirements*.txt','apps/seedtest_api/**/package*.json') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ github.ref }}-
+            ${{ runner.os }}-buildx-
 
-      - name: Build and push
-        id: build
-        uses: docker/build-push-action@v5
+      - name: Build & Push
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: apps/seedtest_api/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.compute.outputs.image_ref }}:sha-${{ github.sha }}
+            ${{ steps.compute.outputs.image_ref }}:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          provenance: false
 
-      - name: Output image info
+      - name: Move cache
         run: |
-          echo "Image tags: ${{ steps.meta.outputs.tags }}"
-          echo "Image digest: ${{ steps.build.outputs.digest }}"
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-  update-k8s:
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Extract short SHA
-        id: sha
-        run: |
-          SHORT_SHA=$(git rev-parse --short=7 HEAD)
-          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
-
-      - name: Update deployment image tag
-        run: |
-          IMAGE_TAG="ghcr.io/${{ github.repository_owner }}/seedtest-api:main-${{ steps.sha.outputs.short_sha }}"
-          echo "Updating deployment to use: $IMAGE_TAG"
-          
-          # Update kustomization.yaml with new image
-          if ! grep -q "^images:" ops/k8s/overlays/gke/kustomization.yaml; then
-            echo "" >> ops/k8s/overlays/gke/kustomization.yaml
-            echo "images:" >> ops/k8s/overlays/gke/kustomization.yaml
-            echo "  - name: ghcr.io/${{ github.repository_owner }}/seedtest-api" >> ops/k8s/overlays/gke/kustomization.yaml
-            echo "    newTag: main-${{ steps.sha.outputs.short_sha }}" >> ops/k8s/overlays/gke/kustomization.yaml
-          else
-            sed -i "s|newTag:.*|newTag: main-${{ steps.sha.outputs.short_sha }}|" ops/k8s/overlays/gke/kustomization.yaml
-          fi
-
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore(k8s): update seedtest-api image to main-${{ steps.sha.outputs.short_sha }}"
-          branch: update-seedtest-api-image-${{ steps.sha.outputs.short_sha }}
-          delete-branch: true
-          title: "Update seedtest-api image to main-${{ steps.sha.outputs.short_sha }}"
-          body: |
-            ## Automated Image Update
-            
-            Updates the seedtest-api deployment to use the newly built image:
-            - Image: `ghcr.io/${{ github.repository_owner }}/seedtest-api:main-${{ steps.sha.outputs.short_sha }}`
-            - Digest: `${{ needs.build.outputs.image_digest }}`
-            - Commit: ${{ github.sha }}
-            
-            This PR was automatically created by the build-seedtest-api workflow.
-          labels: automated,k8s-image-update
+      - name: Output image
+        run: echo "IMAGE=${{ steps.compute.outputs.image_ref }}:sha-${GITHUB_SHA}" >> $GITHUB_OUTPUT
 
