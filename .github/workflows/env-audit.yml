@@ -53,6 +53,11 @@ jobs:
       - name: Setup gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Ensure jq is installed (for policy parsing)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
       - name: Auth to GCP with WIF
         if: ${{ env.GCP_WIF_SERVICE_ACCOUNT != '' && (env.GCP_WORKLOAD_IDENTITY_PROVIDER != '' || env.GCP_WIF_PROVIDER != '') }}
         uses: google-github-actions/auth@v2

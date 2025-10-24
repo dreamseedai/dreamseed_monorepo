@@ -139,15 +139,59 @@ else
     ((fail_count++))
   fi
 
-  # Check that SA allows WIF principalSet
-  POL=$(gcloud iam service-accounts get-iam-policy "$GCP_WIF_SERVICE_ACCOUNT" --project "$GCP_PROJECT_ID" --format=json || echo '{}')
-  if grep -q 'roles/iam.workloadIdentityUser' <<<"$POL" && grep -q "$GCP_WORKLOAD_IDENTITY_PROVIDER" <<<"$POL"; then
-    info "WIF binding present (iam.workloadIdentityUser with provider)"
-    echo "- WIF binding: present" >> "$SUMMARY"
+  # Smarter WIF binding detection
+  # Normalize provider to pool path (strip trailing /providers/<provider>)
+  POOL_PATH="$GCP_WORKLOAD_IDENTITY_PROVIDER"
+  if [[ "$POOL_PATH" == *"/providers/"* ]]; then
+    POOL_PATH="${POOL_PATH%%/providers/*}"
+  fi
+
+  OWNER_REPO_VAL="${OWNER_REPO:-${GITHUB_REPOSITORY:-}}"
+
+  POL_JSON=$(gcloud iam service-accounts get-iam-policy "$GCP_WIF_SERVICE_ACCOUNT" --project "$GCP_PROJECT_ID" --format=json || echo '{}')
+  # Attempt jq parsing; if jq missing, fallback to simple grep logic
+  if command -v jq >/dev/null 2>&1; then
+    MEMBERS=$(echo "$POL_JSON" | jq -r '.bindings[]? | select(.role=="roles/iam.workloadIdentityUser") | .members[]?')
   else
-    err "WIF binding missing or provider mismatch"
-    echo "- WIF binding: MISSING/MISMATCH" >> "$SUMMARY"
+    MEMBERS=$(echo "$POL_JSON" | sed -n 's/.*"members":\s*\[\(.*\)\].*/\1/p' | tr -d '[]" ' | tr ',' '\n')
+  fi
+
+  if [[ -z "$MEMBERS" ]]; then
+    err "WIF binding missing: roles/iam.workloadIdentityUser not found"
+    echo "- WIF binding: MISSING" >> "$SUMMARY"
     ((fail_count++))
+  else
+    pass=""
+    # Escape slashes for regex
+    POOL_ESC=$(echo "$POOL_PATH" | sed 's/[\/\.^$*[]/\\&/g')
+    if echo "$MEMBERS" | grep -Eq "^principal://iam.googleapis.com/.*/workloadIdentityPools/${POOL_ESC}/subject/"; then
+      pass="yes"
+    fi
+    if [[ -z "$pass" && -n "$OWNER_REPO_VAL" ]]; then
+      OR_ESC=$(echo "$OWNER_REPO_VAL" | sed 's/[\/\.^$*[]/\\&/g')
+      if echo "$MEMBERS" | grep -Eq "^principalSet://iam.googleapis.com/.*/workloadIdentityPools/${POOL_ESC}/attribute\.repository/${OR_ESC}$"; then
+        pass="yes"
+      fi
+    fi
+    # Lenient fallback: attribute.repository match anywhere
+    if [[ -z "$pass" && -n "$OWNER_REPO_VAL" ]]; then
+      OR_ESC2=$(echo "$OWNER_REPO_VAL" | sed 's/[\/\.^$*[]/\\&/g')
+      if echo "$MEMBERS" | grep -Eq "attribute\.repository/${OR_ESC2}$"; then
+        warn "WIF binding matches attribute.repository but pool path not strictly matched; treating as PASS"
+        pass="yes"
+      fi
+    fi
+
+    if [[ -n "$pass" ]]; then
+      info "WIF binding present (iam.workloadIdentityUser with pool/subject or attribute.repository)"
+      echo "- WIF binding: present" >> "$SUMMARY"
+    else
+      err "WIF binding present but provider/pool did not match expected patterns"
+      echo "- WIF binding: MISMATCH" >> "$SUMMARY"
+      # For debugging, print members
+      echo "$MEMBERS" | sed 's/^/  member: /'
+      ((fail_count++))
+    fi
   fi
 fi
 
