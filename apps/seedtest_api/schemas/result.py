@@ -1,8 +1,10 @@
 from __future__ import annotations
-from typing import List, Optional, Dict, Any
-from typing_extensions import Annotated
-from pydantic import BaseModel, Field, field_serializer
+
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field, field_serializer
+from typing_extensions import Annotated
 
 
 class TopicBreakdown(BaseModel):
@@ -25,9 +27,7 @@ class ResultPayload(BaseModel):
                 "'percent_correct'). Values are floats."
             ),
             json_schema_extra={
-                "examples": [
-                    {"scaled": 128.5, "raw": 34.0, "percent_correct": 0.68}
-                ]
+                "examples": [{"scaled": 128.5, "raw": 34.0, "percent_correct": 0.68}]
             },
         ),
     ]

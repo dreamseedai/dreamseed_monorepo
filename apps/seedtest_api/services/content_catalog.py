@@ -1,10 +1,11 @@
 from __future__ import annotations
-from typing import List, Optional, Any
+
 import json
 import os
+from typing import Any, List, Optional
 
-from ..schemas.content import ContentItem, ContentSearchResult
 from ..core.config import config
+from ..schemas.content import ContentItem, ContentSearchResult
 
 _CATALOG_CACHE: Optional[List[ContentItem]] = None
 

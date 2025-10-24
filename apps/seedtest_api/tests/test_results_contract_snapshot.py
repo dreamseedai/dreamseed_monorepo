@@ -1,8 +1,9 @@
 import os
 import sys
-from pathlib import Path
-from fastapi.testclient import TestClient
 from datetime import datetime, timezone
+from pathlib import Path
+
+from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 # Ensure package path and LOCAL_DEV for bypass
@@ -46,8 +47,8 @@ def test_result_contract_keyset_snapshot(monkeypatch):
 
     sid = "SNAPSHOT_SESS_1"
     # Force deterministic created_at by updating after upsert
-    from seedtest_api.services.db import get_session  # type: ignore
     from seedtest_api.services import result_service as rs  # type: ignore
+    from seedtest_api.services.db import get_session  # type: ignore
 
     orig_upsert = rs.upsert_result
 
@@ -55,7 +56,12 @@ def test_result_contract_keyset_snapshot(monkeypatch):
         orig_upsert(session_id, result_json, score_raw, score_scaled, **kwargs)
         fixed = datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
         with get_session() as s:
-            s.execute(text("UPDATE exam_results SET created_at=:t, updated_at=:t WHERE session_id=:sid"), {"t": fixed, "sid": session_id})
+            s.execute(
+                text(
+                    "UPDATE exam_results SET created_at=:t, updated_at=:t WHERE session_id=:sid"
+                ),
+                {"t": fixed, "sid": session_id},
+            )
 
     monkeypatch.setattr(rs, "upsert_result", patched_upsert)
 

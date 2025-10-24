@@ -343,3 +343,8 @@ tsconfig.json
 !apps/
 !apps/seedtest_api/
 !apps/seedtest_api/**
+
+# But still ignore common local artifacts within seedtest_api
+apps/seedtest_api/.venv/
+apps/seedtest_api/**/__pycache__/
+apps/seedtest_api/**/*.pyc

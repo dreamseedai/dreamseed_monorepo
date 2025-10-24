@@ -8,7 +8,7 @@ _seen_keys: set[str] = set()
 
 class IdempotencyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        key = request.headers.get('Idempotency-Key')
+        key = request.headers.get("Idempotency-Key")
         if key and key in _seen_keys:
             return Response(status_code=208)  # Already Reported
         if key:

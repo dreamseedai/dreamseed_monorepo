@@ -92,7 +92,9 @@ def build_questions_query(filters: Dict[str, Any]) -> tuple[str, Dict[str, Any]]
     return base_sql, params
 
 
-def execute_questions_query(filters: Dict[str, Any], limit: int = 50) -> List[Dict[str, Any]]:
+def execute_questions_query(
+    filters: Dict[str, Any], limit: int = 50
+) -> List[Dict[str, Any]]:
     """Execute the built query with proper tags predicate expansion based on detected kind.
     Returns a list of rows as dicts.
     """

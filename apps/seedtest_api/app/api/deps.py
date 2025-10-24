@@ -3,6 +3,7 @@
 This aligns with the proposed structure while delegating to the existing
 security implementation in seedtest_api.security.jwt.
 """
+
 from typing import Callable, Dict
 
 from fastapi import Depends, HTTPException
@@ -25,7 +26,9 @@ def require_session_access(session_owner_id_getter: Callable[[str], str | None])
     For initial version, allow access if user is admin/teacher or owns the session.
     """
 
-    async def _checker(session_id: str, user: Dict = Depends(require_scopes("exam:read"))):
+    async def _checker(
+        session_id: str, user: Dict = Depends(require_scopes("exam:read"))
+    ):
         roles = set(user.get("roles", []) or [])
         if "admin" in roles or "teacher" in roles:
             return user

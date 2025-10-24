@@ -1,4 +1,8 @@
-from apps.seedtest_api.services.scoring import theta_to_scaled, theta_to_percentile, raw_to_scaled
+from apps.seedtest_api.services.scoring import (
+    raw_to_scaled,
+    theta_to_percentile,
+    theta_to_scaled,
+)
 
 
 def test_theta_to_scaled_clipping_and_linear():

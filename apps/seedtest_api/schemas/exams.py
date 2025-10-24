@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
 from typing import Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field
 
 
 class LastAnswer(BaseModel):
@@ -71,4 +72,5 @@ class NextStepRequest(BaseModel):
 
 class NextQuestionRequest(NextStepRequest):
     """Backward-compatible alias for legacy imports."""
+
     pass

@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
+
 import logging
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from ..schemas.analysis import (
     AbilityEstimate,
@@ -13,8 +14,8 @@ from ..schemas.analysis import (
     TopicInsight,
 )
 from ..services import result_service
-from ..services.score_analysis import get_engine
 from ..services.recommendation import get_recommender
+from ..services.score_analysis import get_engine
 from ..settings import Settings
 
 
@@ -98,7 +99,9 @@ def compute_analysis(
             return AnalysisReport(
                 exam_session_id=session_id,
                 user_id=user_id,
-                ability=AbilityEstimate(theta=0.0, standard_error=None, method=s.ANALYSIS_ENGINE),
+                ability=AbilityEstimate(
+                    theta=0.0, standard_error=None, method=s.ANALYSIS_ENGINE
+                ),
             )
 
     topics = res.get("topics") or res.get("topic_breakdown") or []
@@ -116,16 +119,30 @@ def compute_analysis(
     eng = get_engine(s.ANALYSIS_ENGINE)
     theta, se, method = eng.estimate_ability(
         score_scaled=res.get("score_scaled")
-        or ((res.get("score") or {}).get("scaled") if isinstance(res.get("score"), dict) else None),
+        or (
+            (res.get("score") or {}).get("scaled")
+            if isinstance(res.get("score"), dict)
+            else None
+        ),
         ability_estimate=res.get("ability_estimate"),
-        standard_error=res.get("standard_error") if isinstance(res.get("standard_error"), (int, float)) else None,
+        standard_error=(
+            res.get("standard_error")
+            if isinstance(res.get("standard_error"), (int, float))
+            else None
+        ),
         topics=topics,
     )
-    ability = AbilityEstimate(theta=float(theta), standard_error=(float(se) if se is not None else None), method=method)
+    ability = AbilityEstimate(
+        theta=float(theta),
+        standard_error=(float(se) if se is not None else None),
+        method=method,
+    )
 
     # Growth forecast from current score (ensure we cover requested horizons if any)
     score_scaled = res.get("score_scaled") or (
-        (res.get("score") or {}).get("scaled") if isinstance(res.get("score"), dict) else None
+        (res.get("score") or {}).get("scaled")
+        if isinstance(res.get("score"), dict)
+        else None
     )
     # Resolve goal config: prefer per-request overrides, else settings
     if not goal_targets:
@@ -150,6 +167,7 @@ def compute_analysis(
     # Augment forecast with probability-of-achievement goals for configured targets/horizons
     try:
         if forecast is not None:
+
             def _normal_cdf(z: float) -> float:
                 import math
 
@@ -159,6 +177,7 @@ def compute_analysis(
             sigma = (float(se) * 50.0) if (se is not None) else 12.0
             if forecast.points:
                 from ..schemas.analysis import GrowthForecast as GF
+
                 for h in goal_horizons or [5]:
                     if h <= 0:
                         continue

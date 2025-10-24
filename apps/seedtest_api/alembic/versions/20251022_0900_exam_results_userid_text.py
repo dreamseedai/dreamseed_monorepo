@@ -8,8 +8,8 @@ Create Date: 2025-10-22 09:00:00
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = '20251022_0900_exam_results_userid_text'
-down_revision = '20251021_1510_exam_results_expand'
+revision = "20251022_0900_exam_results_userid_text"
+down_revision = "20251021_1510_exam_results_expand"
 branch_labels = None
 depends_on = None
 
@@ -31,5 +31,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-  # Irreversible safely: keep TEXT type
-  pass
+    # Irreversible safely: keep TEXT type
+    pass
