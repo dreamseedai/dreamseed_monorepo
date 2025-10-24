@@ -5,10 +5,9 @@ import time
 from pathlib import Path
 
 import pytest
+from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
-
-from alembic import command
 
 ROOT = Path(__file__).resolve().parents[3]
 APP = ROOT / "apps" / "seedtest_api"
