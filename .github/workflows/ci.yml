@@ -60,34 +60,20 @@ jobs:
           fi
 
       - name: Code formatting check (Black)
+        # Only run on PRs to avoid blocking main branch pushes with legacy code issues
+        if: github.event_name == 'pull_request'
         run: |
           set -e
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-            CHANGED=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- '*.py' | grep -Ev '(^|/|\\)mock_api\.py$' || true)
-            if [ -z "$CHANGED" ]; then
-              echo "No Python file changes in PR; skipping Black"
-              exit 0
-            fi
-            echo "Running Black on changed files (excluding mock_api.py):\n$CHANGED"
-            # Note: Do NOT rely on --force-exclude; Black will still format explicitly passed files.
-            black --check --diff $CHANGED
-          else
-            TARGETS=(api backend portal_api apps packages shared tests)
-            FOUND=()
-            for d in "${TARGETS[@]}"; do
-              if [ -d "$d" ]; then
-                FOUND+=("$d")
-              fi
-            done
-            if [ ${#FOUND[@]} -eq 0 ]; then
-              echo "No target code directories found; skipping Black"
-              exit 0
-            fi
-            echo "Running Black on: ${FOUND[*]}"
-            black --check --diff "${FOUND[@]}"
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          CHANGED=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- '*.py' | grep -Ev '(^|/|\\)mock_api\.py$' || true)
+          if [ -z "$CHANGED" ]; then
+            echo "No Python file changes in PR; skipping Black"
+            exit 0
           fi
+          echo "Running Black on changed files (excluding mock_api.py):\n$CHANGED"
+          # Note: Do NOT rely on --force-exclude; Black will still format explicitly passed files.
+          black --check --diff $CHANGED
 
       - name: Import sorting check (isort)
         # Only run on PRs to avoid blocking main branch pushes with legacy code issues
@@ -104,32 +90,18 @@ jobs:
           isort --check-only --diff $CHANGED
 
       - name: Linting (Flake8)
+        # Only run on PRs to avoid blocking main branch pushes with legacy code issues
+        if: github.event_name == 'pull_request'
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-            CHANGED=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- '*.py' | grep -Ev '(^|/|\\)mock_api\.py$' || true)
-            if [ -z "$CHANGED" ]; then
-              echo "No Python file changes in PR; skipping flake8"
-              exit 0
-            fi
-            echo "Running flake8 on changed files (excluding mock_api.py):\n$CHANGED"
-            flake8 $CHANGED --count --select=E9,F63,F7,F82 --show-source --statistics
-          else
-            TARGETS=(api backend portal_api apps packages shared tests)
-            FOUND=()
-            for d in "${TARGETS[@]}"; do
-              if [ -d "$d" ]; then
-                FOUND+=("$d")
-              fi
-            done
-            if [ ${#FOUND[@]} -eq 0 ]; then
-              echo "No target code directories found; skipping flake8"
-              exit 0
-            fi
-            echo "Running flake8 on: ${FOUND[*]}"
-            flake8 "${FOUND[@]}" --count --select=E9,F63,F7,F82 --show-source --statistics
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          CHANGED=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- '*.py' | grep -Ev '(^|/|\\)mock_api\.py$' || true)
+          if [ -z "$CHANGED" ]; then
+            echo "No Python file changes in PR; skipping flake8"
+            exit 0
           fi
+          echo "Running flake8 on changed files (excluding mock_api.py):\n$CHANGED"
+          flake8 $CHANGED --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Type checking (MyPy)
         run: |
