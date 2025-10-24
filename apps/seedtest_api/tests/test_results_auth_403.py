@@ -5,10 +5,10 @@ PACKAGE_PARENT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_PARENT))
 
 from fastapi.testclient import TestClient  # type: ignore
-from seedtest_api.main import app  # noqa: E402
-from seedtest_api.services import result_service  # noqa: E402
 from seedtest_api import deps as deps_mod  # noqa: E402
+from seedtest_api.main import app  # noqa: E402
 from seedtest_api.security import jwt as jwt_mod  # noqa: E402
+from seedtest_api.services import result_service  # noqa: E402
 
 client = TestClient(app)
 

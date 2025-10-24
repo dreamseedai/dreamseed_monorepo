@@ -1,21 +1,21 @@
 import os
+
+# Ensure app import path
+import sys
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-# Ensure app import path
-import sys
 PACKAGE_PARENT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_PARENT))
 
 pytestmark = pytest.mark.db
 
+from seedtest_api.deps import User, get_current_user
 from seedtest_api.main import app
 from seedtest_api.services.db import get_session
 from sqlalchemy import text
-from seedtest_api.deps import get_current_user, User
-
 
 client = TestClient(app)
 

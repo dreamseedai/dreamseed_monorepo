@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Tuple
 from ..settings import Settings
 from .adaptive_engine import fisher_information_3pl
 
-
 # ------------------- Public helper functions -------------------
 
 def raw_to_scaled(

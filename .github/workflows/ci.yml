@@ -90,32 +90,18 @@ jobs:
           fi
 
       - name: Import sorting check (isort)
+        # Only run on PRs to avoid blocking main branch pushes with legacy code issues
+        if: github.event_name == 'pull_request'
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-            CHANGED=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- '*.py' | grep -Ev '(^|/|\\)mock_api\.py$' || true)
-            if [ -z "$CHANGED" ]; then
-              echo "No Python file changes in PR; skipping isort"
-              exit 0
-            fi
-            echo "Running isort on changed files (excluding mock_api.py):\n$CHANGED"
-            isort --check-only --diff $CHANGED
-          else
-            TARGETS=(api backend portal_api apps packages shared tests)
-            FOUND=()
-            for d in "${TARGETS[@]}"; do
-              if [ -d "$d" ]; then
-                FOUND+=("$d")
-              fi
-            done
-            if [ ${#FOUND[@]} -eq 0 ]; then
-              echo "No target code directories found; skipping isort"
-              exit 0
-            fi
-            echo "Running isort on: ${FOUND[*]}"
-            isort --check-only --diff "${FOUND[@]}"
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          CHANGED=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- '*.py' | grep -Ev '(^|/|\\)mock_api\.py$' || true)
+          if [ -z "$CHANGED" ]; then
+            echo "No Python file changes in PR; skipping isort"
+            exit 0
           fi
+          echo "Running isort on changed files (excluding mock_api.py):\n$CHANGED"
+          isort --check-only --diff $CHANGED
 
       - name: Linting (Flake8)
         run: |

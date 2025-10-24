@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional
 from fastapi import Cookie, Depends, HTTPException, Response, status
 from itsdangerous import BadSignature, URLSafeSerializer
 
-
 SESSION_COOKIE_NAME = os.getenv("PORTAL_SESSION_COOKIE", "portal_session")
 SESSION_SECRET = os.getenv("PORTAL_SESSION_SECRET", "dev-secret-change-me")
 SESSION_SERIALIZER = URLSafeSerializer(SESSION_SECRET, salt="portal-session")

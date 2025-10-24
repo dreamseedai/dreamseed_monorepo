@@ -5,10 +5,10 @@ Revises: 20251021_0004_tags_column
 Create Date: 2025-10-21 10:10:00
 """
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '20251021_1010_exam_results_table'

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import List, Optional
 
 from ..schemas.analysis import RecommendationItem, TopicInsight
@@ -125,12 +126,15 @@ def get_recommender(name: str) -> BaseRecommender:
         # Prefer the shared HybridRecommender when available, adapting to API RecommendationItem
         try:
             from shared.recommendation_engine import (
-                HybridRecommender as SharedHybrid,
-                LearningContent,
-                StudentWeakness as SharedWeakness,
                 ContentType,
                 DifficultyLevel,
             )
+            from shared.recommendation_engine import HybridRecommender as SharedHybrid
+            from shared.recommendation_engine import (
+                LearningContent,
+            )
+            from shared.recommendation_engine import StudentWeakness as SharedWeakness
+
             from .content_catalog import get_catalog
 
             class SharedHybridAdapter(BaseRecommender):

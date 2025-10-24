@@ -2,7 +2,6 @@ import os
 import sys
 from pathlib import Path
 
-
 # Ensure LOCAL_DEV bypass and import path
 os.environ.setdefault("LOCAL_DEV", "true")
 
@@ -11,7 +10,6 @@ sys.path.insert(0, str(PACKAGE_PARENT))
 
 from fastapi.testclient import TestClient  # type: ignore
 from seedtest_api.main import app
-
 
 client = TestClient(app)
 

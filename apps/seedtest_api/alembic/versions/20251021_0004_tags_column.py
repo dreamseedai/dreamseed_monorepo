@@ -1,6 +1,8 @@
-from alembic import op, context
-import sqlalchemy as sa
 import os
+
+import sqlalchemy as sa
+
+from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision = '20251021_0004_tags_column'

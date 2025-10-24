@@ -36,9 +36,10 @@ def test_to_contract_response_uses_nested_score_when_top_level_missing():
 
 
 def test_percentile_and_accuracy_bounds_validation():
-    from pydantic import ValidationError
-    from seedtest_api.schemas.result import ResultContract, TopicBreakdown, ScoreDetail
     from datetime import datetime, timezone
+
+    from pydantic import ValidationError
+    from seedtest_api.schemas.result import ResultContract, ScoreDetail, TopicBreakdown
 
     # Valid case should pass
     valid = ResultContract(

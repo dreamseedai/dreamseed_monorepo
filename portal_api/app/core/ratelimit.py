@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import time
-from typing import Optional
-import redis.asyncio as redis  # type: ignore
 from functools import lru_cache
+from typing import Optional
+
+import redis.asyncio as redis  # type: ignore
 from app.core.config import get_settings
 
 

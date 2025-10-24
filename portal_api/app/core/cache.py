@@ -1,8 +1,10 @@
 from __future__ import annotations
-import json
+
 import hashlib
+import json
 from functools import lru_cache
-from typing import Any, Callable, Awaitable, Optional
+from typing import Any, Awaitable, Callable, Optional
+
 import redis.asyncio as redis  # type: ignore
 from app.core.config import get_settings
 

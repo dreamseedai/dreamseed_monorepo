@@ -1,4 +1,5 @@
 import time
+
 from fastapi.testclient import TestClient
 
 from apps.seedtest_api.app_adaptive_demo import app
@@ -12,6 +13,7 @@ def test_max_items_stop(monkeypatch):
     monkeypatch.setenv("CAT_MAX_ITEMS", "1")
     # Recreate settings to pick up env
     from importlib import reload
+
     from apps.seedtest_api import settings as settings_mod
     reload(settings_mod)
 
@@ -37,6 +39,7 @@ def test_sem_threshold_stop(monkeypatch):
     monkeypatch.setenv("CAT_SEM_THRESHOLD", "10.0")  # enormous to force stop after 1 item
     monkeypatch.setenv("CAT_MIN_ITEMS", "1")
     from importlib import reload
+
     from apps.seedtest_api import settings as settings_mod
     reload(settings_mod)
 
@@ -56,6 +59,7 @@ def test_item_cooldown_defers_next(monkeypatch):
     # Set cooldown to 5 seconds
     monkeypatch.setenv("CAT_ITEM_COOLDOWN_SECONDS", "5")
     from importlib import reload
+
     from apps.seedtest_api import settings as settings_mod
     reload(settings_mod)
 
@@ -92,6 +96,7 @@ def test_min_test_time_gates_sem_stop(monkeypatch):
     monkeypatch.setenv("CAT_MIN_ITEMS", "1")
     monkeypatch.setenv("CAT_MIN_TEST_TIME_SECONDS", "4")
     from importlib import reload
+
     from apps.seedtest_api import settings as settings_mod
     reload(settings_mod)
 
@@ -119,6 +124,7 @@ def test_manual_finish(monkeypatch):
     client = TestClient(app)
     monkeypatch.setenv("CAT_MODE", "VARIABLE")
     from importlib import reload
+
     from apps.seedtest_api import settings as settings_mod
     reload(settings_mod)
 
@@ -139,6 +145,7 @@ def test_time_limit_stop(monkeypatch):
     # Ensure mode not blocking by max items immediately
     monkeypatch.setenv("CAT_MODE", "VARIABLE")
     from importlib import reload
+
     from apps.seedtest_api import settings as settings_mod
     reload(settings_mod)
 

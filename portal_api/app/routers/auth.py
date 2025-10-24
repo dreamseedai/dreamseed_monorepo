@@ -1,13 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
-from sqlalchemy.orm import Session
-from app.db.session import get_db
-from app.db import models
-from app.core.security import verify_password, hash_password, create_access_token, create_refresh_token, decode_token
-from app.schemas.auth import LoginIn, RegisterIn, Token
-from app.deps import get_current_user_id, get_current_user
-from app.schemas.user import UserOut
 from app.core.config import get_settings
 from app.core.ratelimit import check_rate_limit
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
+from app.db import models
+from app.db.session import get_db
+from app.deps import get_current_user, get_current_user_id
+from app.schemas.auth import LoginIn, RegisterIn, Token
+from app.schemas.user import UserOut
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from sqlalchemy.orm import Session
+
 settings = get_settings()
 
 

@@ -434,8 +434,9 @@ def _to_contract_response(
 
     # Optionally drop volatile fields to stabilize contract snapshots
     try:
-        from ..settings import Settings
         from datetime import datetime, timezone
+
+        from ..settings import Settings
 
         # Determine exclusion according to per-request override or global flag
         exclude_ts = (
@@ -736,8 +737,9 @@ async def list_results(
         pass
     # Apply stable flag to items: drop or include timestamps per-request or global setting
     try:
-        from ..settings import Settings
         from datetime import datetime, timezone
+
+        from ..settings import Settings
 
         exclude_ts = (
             bool(stable)

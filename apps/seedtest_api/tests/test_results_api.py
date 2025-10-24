@@ -2,7 +2,6 @@ import os
 import sys
 from pathlib import Path
 
-
 # Ensure package imports resolve and LOCAL_DEV bypass is active before imports
 os.environ.setdefault("LOCAL_DEV", "true")
 
@@ -13,7 +12,6 @@ sys.path.insert(0, str(PACKAGE_PARENT))
 from fastapi.testclient import TestClient  # type: ignore
 from seedtest_api.main import app
 from seedtest_api.services import result_service
-
 
 client = TestClient(app)
 

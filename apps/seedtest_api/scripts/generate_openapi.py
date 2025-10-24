@@ -10,6 +10,7 @@ Usage (from repo root):
   PYTHONPATH=apps python3 apps/seedtest_api/scripts/generate_openapi.py
 """
 from __future__ import annotations
+
 import json
 from pathlib import Path
 

@@ -1,4 +1,5 @@
 import os
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -10,8 +11,8 @@ if not os.getenv("DATABASE_URL"):
 pytestmark = pytest.mark.db
 
 from seedtest_api.main import app  # noqa: E402
-from seedtest_api.services.result_service import upsert_result  # noqa: E402
 from seedtest_api.services.db import get_session  # noqa: E402
+from seedtest_api.services.result_service import upsert_result  # noqa: E402
 
 client = TestClient(app)
 

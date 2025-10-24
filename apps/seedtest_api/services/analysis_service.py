@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
+
 import logging
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from ..schemas.analysis import (
     AbilityEstimate,
@@ -13,8 +14,8 @@ from ..schemas.analysis import (
     TopicInsight,
 )
 from ..services import result_service
-from ..services.score_analysis import get_engine
 from ..services.recommendation import get_recommender
+from ..services.score_analysis import get_engine
 from ..settings import Settings
 
 

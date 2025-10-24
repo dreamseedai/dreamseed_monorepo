@@ -1,11 +1,14 @@
 from datetime import datetime
-from typing import Optional
 from decimal import Decimal
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Integer, Boolean, ForeignKey, DateTime, Numeric
+from typing import Optional
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Text as SqlText
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import Base
-from sqlalchemy import Text as SqlText, text
 
 
 class User(Base):

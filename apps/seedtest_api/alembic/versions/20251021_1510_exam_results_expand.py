@@ -5,8 +5,9 @@ Revises: 20251021_1010_exam_results_table
 Create Date: 2025-10-21 15:10:00
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '20251021_1510_exam_results_expand'

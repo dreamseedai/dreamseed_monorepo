@@ -1,8 +1,9 @@
 import os
 import sys
-from pathlib import Path
-from fastapi.testclient import TestClient
 from datetime import datetime, timezone
+from pathlib import Path
+
+from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 # Ensure package path and LOCAL_DEV for bypass
@@ -46,8 +47,8 @@ def test_result_contract_keyset_snapshot(monkeypatch):
 
     sid = "SNAPSHOT_SESS_1"
     # Force deterministic created_at by updating after upsert
-    from seedtest_api.services.db import get_session  # type: ignore
     from seedtest_api.services import result_service as rs  # type: ignore
+    from seedtest_api.services.db import get_session  # type: ignore
 
     orig_upsert = rs.upsert_result
 

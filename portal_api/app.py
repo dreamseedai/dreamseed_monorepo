@@ -1,16 +1,17 @@
-import sys
+import asyncio
 import json
 import os
-from pathlib import Path
-from fastapi import Depends, FastAPI, HTTPException, Response, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse, JSONResponse
-from pydantic import BaseModel, EmailStr, Field
+import sys
 from datetime import datetime, timedelta
-import jwt
+from pathlib import Path
+from typing import List, Literal, Optional
+
 import bcrypt
-import asyncio
-from typing import List, Optional, Literal
+import jwt
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, PlainTextResponse
+from pydantic import BaseModel, EmailStr, Field
 
 # In production (deployed under /srv/portal_api/current), add monorepo root
 # if shared/ was bundled next to app, prefer relative import path
@@ -25,8 +26,11 @@ else:
     if str(_root) not in sys.path:
         sys.path.insert(0, str(_root))
 
-from shared.auth.dependencies import get_current_user, set_session_cookie, clear_session_cookie
-
+from shared.auth.dependencies import (
+    clear_session_cookie,
+    get_current_user,
+    set_session_cookie,
+)
 
 app = FastAPI(title="Portal API", version="0.1.0", root_path="/api", redirect_slashes=False)
 

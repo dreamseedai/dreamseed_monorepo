@@ -1,15 +1,19 @@
+import configparser
+import os
+import sys
 from logging.config import fileConfig
-from alembic import context
+from urllib.parse import quote
+
 from sqlalchemy import pool
 from sqlalchemy.engine import create_engine
-from urllib.parse import quote
-import os, sys, configparser
+
+from alembic import context
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, BASE_DIR)
 
-from app.db.base import Base
 from app.db import models  # noqa
+from app.db.base import Base
 
 config = context.config
 if config.config_file_name is not None:

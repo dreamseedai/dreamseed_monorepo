@@ -1,10 +1,12 @@
 from typing import Optional
-from fastapi import Depends, HTTPException, status, Request
-from sqlalchemy.orm import Session
-from app.db.session import get_db
+
+from app.core.config import get_settings
 from app.core.security import decode_token
 from app.db.models import User
-from app.core.config import get_settings
+from app.db.session import get_db
+from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy.orm import Session
+
 settings = get_settings()
 
 
