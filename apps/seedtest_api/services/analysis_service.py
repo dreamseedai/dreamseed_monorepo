@@ -16,7 +16,7 @@ from ..schemas.analysis import (
 from ..services import result_service
 from ..services.recommendation import get_recommender
 from ..services.score_analysis import get_engine
-from ..settings import Settings
+from ..core.config import config
 
 
 def _derive_topic_insights(topics: List[Dict[str, Any]]) -> List[TopicInsight]:
@@ -80,7 +80,7 @@ def compute_analysis(
     goal_targets: Optional[list[float]] = None,
     goal_horizons: Optional[list[int]] = None,
 ) -> AnalysisReport:
-    s = Settings()
+    s = config
     # Prefer cached result from DB; otherwise compute in-memory
     try:
         res = result_service.get_result_from_db(session_id, expected_user_id=user_id)
@@ -100,7 +100,7 @@ def compute_analysis(
                 exam_session_id=session_id,
                 user_id=user_id,
                 ability=AbilityEstimate(
-                    theta=0.0, standard_error=None, method=s.ANALYSIS_ENGINE
+                    theta=0.0, standard_error=None, method=getattr(s, "ANALYSIS_ENGINE", "heuristic")
                 ),
             )
 
@@ -108,7 +108,7 @@ def compute_analysis(
     insights = _derive_topic_insights(topics if isinstance(topics, list) else [])
     # Use pluggable recommender (defaults to rule-based); fall back to internal rule if anything fails
     try:
-        rec_engine = get_recommender(s.RECOMMENDER_ENGINE)
+        rec_engine = get_recommender(getattr(s, "RECOMMENDER_ENGINE", "rule_based"))
         recs = rec_engine.recommend(insights, ability_theta=None, top_k=3)
         if not isinstance(recs, list) or not all(hasattr(r, "message") for r in recs):
             raise ValueError("invalid_recs")
@@ -116,7 +116,7 @@ def compute_analysis(
         recs = _recommend_from_topics(insights)
 
     # Ability estimate: delegate to configured engine (heuristic | irt | mixed_effects)
-    eng = get_engine(s.ANALYSIS_ENGINE)
+    eng = get_engine(getattr(s, "ANALYSIS_ENGINE", "heuristic"))
     theta, se, method = eng.estimate_ability(
         score_scaled=res.get("score_scaled")
         or (
@@ -146,9 +146,9 @@ def compute_analysis(
     )
     # Resolve goal config: prefer per-request overrides, else settings
     if not goal_targets:
-        goal_targets = s.analysis_goal_targets or []
+        goal_targets = getattr(s, "analysis_goal_targets", None) or []
     if not goal_horizons:
-        goal_horizons = s.analysis_goal_horizons or []
+        goal_horizons = getattr(s, "analysis_goal_horizons", None) or []
     # Defaults if still empty
     if not goal_targets:
         goal_targets = [150.0]

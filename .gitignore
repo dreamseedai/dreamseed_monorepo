@@ -355,3 +355,4 @@ apps/seedtest_api/**/*.pyc
 !assets/branding/**
 !assets/branding/**/*.md
 !assets/branding/**/*.svg
+.venv-tools/
