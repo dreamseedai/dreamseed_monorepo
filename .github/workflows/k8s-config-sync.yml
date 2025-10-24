@@ -68,7 +68,8 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Install External Secrets operator (optional)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.install_external_secrets == 'true' }}
+        # Run only on manual dispatch when the boolean input is true
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.install_external_secrets }}
         run: |
           helm repo add external-secrets https://charts.external-secrets.io
           helm repo update
