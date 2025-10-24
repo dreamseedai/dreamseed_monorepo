@@ -96,5 +96,13 @@ jobs:
 
       - name: Apply Kustomize overlay to cluster
         run: |
-          kubectl apply -k ops/k8s/overlays/gke
+          # Retry apply to handle brief delay between CRD creation and API availability
+          for i in 1 2 3; do
+            if kubectl apply -k ops/k8s/overlays/gke; then
+              echo "Apply succeeded on attempt $i";
+              break;
+            fi
+            echo "kubectl apply failed (attempt $i). Waiting 10s before retry..." >&2
+            sleep 10
+          done
           kubectl rollout status deploy/seedtest-api -n seedtest --timeout=120s || true
