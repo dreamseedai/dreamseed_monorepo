@@ -33,9 +33,36 @@ env:
   REDIS_VERSION: '7'
 
 jobs:
+  # 변경 파일 감지
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            python:
+              - '**/*.py'
+              - 'pyproject.toml'
+              - 'poetry.lock'
+              - 'requirements*.txt'
+              - '.flake8'
+              - '**/.flake8'
+              - '**/.isort.cfg'
+              - '**/setup.cfg'
+              - '.editorconfig'
+
   # 코드 품질 검사
   code-quality:
     name: Code Quality Check
+    needs: changes
+    # Python 파일이 변경된 경우에만 실행
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
