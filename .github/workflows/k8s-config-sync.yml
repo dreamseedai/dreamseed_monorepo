@@ -66,6 +66,13 @@ jobs:
         run: |
           sed -i "s|projects/PROJECT_ID|projects/${{ steps.prepare.outputs.project_id }}|g" ops/k8s/overlays/gke/secrets/seedtest-api-jwt-externalsecret.yaml || true
 
+      - name: Skip ExternalSecret if CRD missing
+        run: |
+          if ! kubectl api-resources --api-group=external-secrets.io | grep -qi '^externalsecrets'; then
+            echo "ExternalSecrets CRD not found; skipping ExternalSecret from overlay." >&2
+            sed -i '/secrets\/seedtest-api-jwt-externalsecret.yaml/d' ops/k8s/overlays/gke/kustomization.yaml || true
+          fi
+
       - name: Apply Kustomize overlay to cluster
         run: |
           kubectl apply -k ops/k8s/overlays/gke
