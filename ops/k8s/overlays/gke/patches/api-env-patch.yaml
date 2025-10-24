@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seedtest-api
+  namespace: seedtest
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          env:
+            - name: GROWTH_SHRINK_FACTOR
+              valueFrom:
+                configMapKeyRef:
+                  name: seedtest-api-config
+                  key: GROWTH_SHRINK_FACTOR
+            - name: ABILITY_TO_SCORE_A
+              valueFrom:
+                configMapKeyRef:
+                  name: seedtest-api-config
+                  key: ABILITY_TO_SCORE_A
+            - name: ABILITY_TO_SCORE_B
+              valueFrom:
+                configMapKeyRef:
+                  name: seedtest-api-config
+                  key: ABILITY_TO_SCORE_B
+            - name: JWT_ALGO
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-api-jwt
+                  key: JWT_ALGO
+            - name: JWT_JWKS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-api-jwt
+                  key: JWT_JWKS_URL
+            - name: JWT_ISS
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-api-jwt
+                  key: JWT_ISS
+            - name: JWT_AUD
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-api-jwt
+                  key: JWT_AUD
+            - name: JWKS_CACHE_TTL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-api-jwt
+                  key: JWKS_CACHE_TTL

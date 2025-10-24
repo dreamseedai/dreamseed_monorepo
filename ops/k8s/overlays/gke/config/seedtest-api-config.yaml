@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seedtest-api-config
+  namespace: seedtest
+  labels:
+    app: seedtest-api
+data:
+  GROWTH_SHRINK_FACTOR: "0.7"
+  ABILITY_TO_SCORE_A: "1.0"
+  ABILITY_TO_SCORE_B: "0.0"
