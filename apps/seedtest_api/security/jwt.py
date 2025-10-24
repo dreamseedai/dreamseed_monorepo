@@ -57,7 +57,9 @@ async def decode_token(token: str) -> Dict:
 
     # JWKS path
     if not getattr(s, "JWKS_URL", None):
-        raise HTTPException(status_code=500, detail="JWT configuration missing (no public key or JWKS)")
+        raise HTTPException(
+            status_code=500, detail="JWT configuration missing (no public key or JWKS)"
+        )
 
     header = jwt.get_unverified_header(token)
     kid = header.get("kid")
@@ -69,7 +71,7 @@ async def decode_token(token: str) -> Dict:
                 audience=s.JWT_AUD,
                 issuer=s.JWT_ISS,
                 algorithms=["RS256"],
-                options={"verify_at_hash": False}
+                options={"verify_at_hash": False},
             )
     raise HTTPException(status_code=401, detail="Invalid token (kid)")
 
@@ -77,16 +79,26 @@ async def decode_token(token: str) -> Dict:
 def require_scopes(*required):
     async def checker(creds: HTTPAuthorizationCredentials = Security(bearer)):
         # Runtime-friendly LOCAL_DEV check: allow env override even if settings were initialized earlier
-        is_local_dev = Settings().LOCAL_DEV or (os.getenv("LOCAL_DEV", "false").lower() == "true")
+        is_local_dev = Settings().LOCAL_DEV or (
+            os.getenv("LOCAL_DEV", "false").lower() == "true"
+        )
         if is_local_dev and not creds:
-            return {"sub": "dev-user", "org_id": 1, "scope": "exam:read exam:write", "roles": ["student"]}
+            return {
+                "sub": "dev-user",
+                "org_id": 1,
+                "scope": "exam:read exam:write",
+                "roles": ["student"],
+            }
         if not creds:
-            raise HTTPException(401, "Missing Authorization", headers={"WWW-Authenticate": "Bearer"})
+            raise HTTPException(
+                401, "Missing Authorization", headers={"WWW-Authenticate": "Bearer"}
+            )
         payload = await decode_token(creds.credentials)
         token_scopes = set((payload.get("scope") or "").split())
         if not set(required).issubset(token_scopes):
             raise HTTPException(403, "insufficient_scope")
         return payload
+
     return checker
 
 

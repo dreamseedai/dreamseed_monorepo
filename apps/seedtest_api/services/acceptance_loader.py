@@ -132,7 +132,7 @@ def _load_from_db(directive: str) -> Optional[Dict]:
         val: object = active_val
         vl = str(active_val).strip().lower()
         if vl in ("true", "false"):
-            val = (vl == "true")
+            val = vl == "true"
         else:
             try:
                 val = int(active_val)

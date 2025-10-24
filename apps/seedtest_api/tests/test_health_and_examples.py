@@ -1,6 +1,8 @@
-import os
 import json
+import os
+
 from fastapi.testclient import TestClient
+
 from ..main import app
 
 
@@ -18,6 +20,7 @@ def test_env_snippet_minimum_example(monkeypatch):
     monkeypatch.setenv("TAGS_KIND_TTL_SEC", "0")
 
     from ..settings import Settings
+
     s = Settings()
     assert s.BANK_ORG_ID == 2002
     assert s.bank_tags == ["itembank", "new-schema"]

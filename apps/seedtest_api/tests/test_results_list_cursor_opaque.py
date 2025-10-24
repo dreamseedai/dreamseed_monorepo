@@ -1,7 +1,8 @@
+import json
 import os
 import sys
 from pathlib import Path
-import json
+
 from fastapi.testclient import TestClient
 
 # Ensure LOCAL_DEV and import path
@@ -35,6 +36,7 @@ def test_list_opaque_cursor_roundtrip(monkeypatch):
 
     def fake_list_results_keyset(**kwargs):
         return {"items": fake_items, "next_cursor": fake_next}
+
     # Patch directly on the router module, which holds the imported symbol used by the endpoint
     monkeypatch.setattr(results_router, "list_results_keyset", fake_list_results_keyset)
 
@@ -57,7 +59,11 @@ def test_list_opaque_cursor_roundtrip(monkeypatch):
         # Simulate empty next page
         return {"items": [], "next_cursor": None}
 
-    monkeypatch.setattr(results_router, "list_results_keyset", fake_list_results_keyset_page2)
-    r2 = client.get("/api/seedtest/results", params={"limit": 1, "cursor": token, "order": "asc"})
+    monkeypatch.setattr(
+        results_router, "list_results_keyset", fake_list_results_keyset_page2
+    )
+    r2 = client.get(
+        "/api/seedtest/results", params={"limit": 1, "cursor": token, "order": "asc"}
+    )
     assert r2.status_code == 200, r2.text
     assert r2.json().get("items") == []

@@ -1,4 +1,5 @@
 import os
+
 from ..services.loader import build_loader_filters
 from ..settings import settings
 
@@ -16,6 +17,7 @@ def test_build_loader_filters_env_example(tmp_path, monkeypatch):
 
     # Reload settings by creating a new instance if needed
     from ..settings import Settings
+
     s = Settings()
     assert s.BANK_ORG_ID == 1001
     assert s.BANK_SUBJECT == "MATH"

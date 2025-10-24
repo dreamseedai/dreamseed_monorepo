@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 import sqlalchemy as sa
 from sqlalchemy import text
@@ -12,11 +13,11 @@ from ..settings import Settings
 from .adaptive_engine import get_session_state
 from .db import get_engine, get_session
 from .scoring import aggregate_from_session_state
-from datetime import datetime, timezone
 
 try:
     # Optional Sentry for error notifications
     import sentry_sdk as _sentry_mod
+
     SENTRY_SDK: Any | None = _sentry_mod
 except Exception:  # pragma: no cover - optional dependency
     SENTRY_SDK = None

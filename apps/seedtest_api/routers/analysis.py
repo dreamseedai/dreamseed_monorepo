@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -19,8 +20,12 @@ router = APIRouter(prefix=f"{settings.API_PREFIX}", tags=["analysis"])
 )
 async def get_analysis(
     session_id: str,
-    goal_targets: str | None = Query(default=None, description="CSV of target scores, e.g., '140,150'"),
-    goal_horizons: str | None = Query(default=None, description="CSV of horizons (steps), e.g., '3,5,10'"),
+    goal_targets: str | None = Query(
+        default=None, description="CSV of target scores, e.g., '140,150'"
+    ),
+    goal_horizons: str | None = Query(
+        default=None, description="CSV of horizons (steps), e.g., '3,5,10'"
+    ),
     current_user: User = Depends(get_current_user),
     _: None = Depends(require_session_access),
 ) -> Any:
@@ -55,4 +60,6 @@ async def get_analysis(
                     continue
     except Exception:
         pass
-    return compute_analysis(session_id, user_id=uid, goal_targets=targets_list, goal_horizons=horizons_list)
+    return compute_analysis(
+        session_id, user_id=uid, goal_targets=targets_list, goal_horizons=horizons_list
+    )

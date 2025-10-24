@@ -7,7 +7,6 @@ Create Date: 2025-10-23 11:00:00
 
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision = "20251023_1100_exam_results_gin_index"
 down_revision = "20251022_1700_exam_results_defaults_and_percentile_numeric"

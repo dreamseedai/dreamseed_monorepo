@@ -15,9 +15,9 @@ from sqlalchemy import text
 from ..core.config import config as app_config
 from ..middleware.correlation import CorrelationIdMiddleware
 from ..services import db as db_service
+from .api.routers.analysis import router as analysis_router
 from .api.routers.exams import router as exams_router
 from .api.routers.results import router as results_router
-from .api.routers.analysis import router as analysis_router
 
 
 @asynccontextmanager

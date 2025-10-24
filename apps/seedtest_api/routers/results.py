@@ -31,7 +31,9 @@ def _encode_cursor_v1(ts_iso: str, item_id: str, field: str) -> str:
     import json
 
     payload = {"ts": ts_iso, "id": str(item_id), "field": field}
-    return "v1:" + _b64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    return "v1:" + _b64url_encode(
+        json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    )
 
 
 def _decode_cursor(token: str) -> tuple[str, str] | None:
@@ -66,11 +68,11 @@ class ForceRequest(BaseModel):
         "- If a cached result exists with status=ready and force=false, returns the cached result.\n"
         "- If force=true (query or body), recomputes and upserts (idempotent via ON CONFLICT on session_id).\n"
         "- Requires authorization and access to the target session.\n\n"
-    "Query/body parameters:\n"
+        "Query/body parameters:\n"
         "- force (bool): when true, recompute even if cached.\n"
         "- exam_id (int, optional): persist exam_id alongside the result if provided.\n\n"
-    "- stable (bool, optional): when true, omit volatile fields (timestamps) from the response;\n"
-    "  when false, force-include them; when omitted, the server setting RESULT_EXCLUDE_TIMESTAMPS applies.\n\n"
+        "- stable (bool, optional): when true, omit volatile fields (timestamps) from the response;\n"
+        "  when false, force-include them; when omitted, the server setting RESULT_EXCLUDE_TIMESTAMPS applies.\n\n"
         "Response schema (ResultContract):\n\n"
         "| Field | Type | Description |\n"
         "|---|---|---|\n"
@@ -192,7 +194,9 @@ async def create_or_refresh_result(
         from ..settings import Settings
 
         exclude_ts = (
-            bool(stable) if stable is not None else bool(Settings().RESULT_EXCLUDE_TIMESTAMPS)
+            bool(stable)
+            if stable is not None
+            else bool(Settings().RESULT_EXCLUDE_TIMESTAMPS)
         )
         if exclude_ts:
             return JSONResponse(content=resp)
@@ -408,7 +412,9 @@ def _to_contract_response(
 
             ca = src.get("computed_at")
             if isinstance(ca, datetime):
-                created_at = ca.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+                created_at = (
+                    ca.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+                )
             else:
                 # best-effort string
                 created_at = str(ca)
@@ -434,8 +440,9 @@ def _to_contract_response(
 
     # Optionally drop volatile fields to stabilize contract snapshots
     try:
-        from ..settings import Settings
         from datetime import datetime, timezone
+
+        from ..settings import Settings
 
         # Determine exclusion according to per-request override or global flag
         exclude_ts = (
@@ -453,9 +460,13 @@ def _to_contract_response(
             if "created_at" not in resp or resp["created_at"] is None:
                 ca = src.get("computed_at")
                 if ca is not None and isinstance(ca, datetime):
-                    resp["created_at"] = ca.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+                    resp["created_at"] = (
+                        ca.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+                    )
                 else:
-                    now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                    now_iso = (
+                        datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                    )
                     resp["created_at"] = now_iso
     except Exception:
         # Non-fatal if settings import fails unexpectedly
@@ -726,7 +737,9 @@ async def list_results(
             # Prefer exact key according to sort_by; fallback to updated_at/created_at
             ts_val = nxt.get(sort_by) or nxt.get("updated_at") or nxt.get("created_at")
             if isinstance(ts_val, datetime):
-                ts_iso = ts_val.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+                ts_iso = (
+                    ts_val.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+                )
             else:
                 ts_iso = str(ts_val)
             token = _encode_cursor_v1(ts_iso, str(nxt.get("id")), sort_by)
@@ -736,8 +749,9 @@ async def list_results(
         pass
     # Apply stable flag to items: drop or include timestamps per-request or global setting
     try:
-        from ..settings import Settings
         from datetime import datetime, timezone
+
+        from ..settings import Settings
 
         exclude_ts = (
             bool(stable)
@@ -757,7 +771,11 @@ async def list_results(
                     if ca is not None:
                         it["created_at"] = ca
                     else:
-                        it["created_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+                        it["created_at"] = (
+                            datetime.now(timezone.utc)
+                            .isoformat()
+                            .replace("+00:00", "Z")
+                        )
         result["items"] = items
     except Exception:
         pass
