@@ -39,7 +39,7 @@ def setup_api_key():
 def test_api_connection():
     """API 연결 테스트"""
     try:
-        from ai_client import get_openai_client, get_model
+        from ai_client import get_model, get_openai_client
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:

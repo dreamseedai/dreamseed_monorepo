@@ -4,14 +4,15 @@ AI-Powered MathML to MathLive Converter
 Uses GPT-4.1 mini to intelligently convert complex MathML expressions to MathLive format
 """
 
-import os
-import json
-import re
 import hashlib
+import json
+import os
+import re
 import time
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from ai_client import get_openai_client, get_model
+from typing import Dict, List, Optional, Tuple
+
+from ai_client import get_model, get_openai_client
 
 
 @dataclass

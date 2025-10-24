@@ -139,14 +139,9 @@ def get_recommender(name: str) -> BaseRecommender:
     if key == HybridRecommender.name:
         # Prefer the shared HybridRecommender when available, adapting to API RecommendationItem
         try:
-            from shared.recommendation_engine import (
-                ContentType,
-                DifficultyLevel,
-            )
+            from shared.recommendation_engine import ContentType, DifficultyLevel
             from shared.recommendation_engine import HybridRecommender as SharedHybrid
-            from shared.recommendation_engine import (
-                LearningContent,
-            )
+            from shared.recommendation_engine import LearningContent
             from shared.recommendation_engine import StudentWeakness as SharedWeakness
 
             from .content_catalog import get_catalog

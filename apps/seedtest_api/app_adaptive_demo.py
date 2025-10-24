@@ -7,14 +7,10 @@ from typing import Dict, List, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from shared.irt import (
-    irf_3pl,
-    mle_update_one_step,
-    update_test_info_and_se,
-)
-from apps.seedtest_api.services.adaptive import choose_next_question, _make_prefilter
 from apps.seedtest_api.services.acceptance_loader import load_acceptance_probs
-from shared.adaptive import select_next_with_constraints, KeyMap
+from apps.seedtest_api.services.adaptive import _make_prefilter, choose_next_question
+from shared.adaptive import KeyMap, select_next_with_constraints
+from shared.irt import irf_3pl, mle_update_one_step, update_test_info_and_se
 
 # Note: settings are fetched within handlers to respect test-time monkeypatch+reload
 
@@ -99,7 +95,8 @@ DEMO_POOL: List[Dict] = [
 
 
 def _gen_session_id() -> str:
-    import time, random
+    import random
+    import time
 
     return f"sess_{int(time.time()*1000)}_{random.randint(1000,9999)}"
 

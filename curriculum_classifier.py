@@ -6,12 +6,13 @@ using GPT-4.1 mini batch API
 """
 
 import json
+import logging
 import os
 import time
-from typing import Dict, List, Any, Optional
-from ai_client import get_openai_client, get_model
 from datetime import datetime
-import logging
+from typing import Any, Dict, List, Optional
+
+from ai_client import get_model, get_openai_client
 
 # Configure logging
 logging.basicConfig(

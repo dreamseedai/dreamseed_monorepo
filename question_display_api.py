@@ -3,18 +3,19 @@ FastAPI 백엔드: 문제 표시 및 상호작용 API
 기존 PHP runPopup.php를 FastAPI + PostgreSQL로 변환
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
-import psycopg2
-from psycopg2.extras import RealDictCursor
 import json
-import uuid
-from datetime import datetime
 import logging
 import os
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import psycopg2
+from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from psycopg2.extras import RealDictCursor
+from pydantic import BaseModel
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)

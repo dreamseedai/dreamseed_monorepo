@@ -3,13 +3,14 @@
 실제 OpenAI API를 사용한 AI MathML to MathLive 변환기
 """
 
+import hashlib
+import json
 import os
 import re
-import json
-import hashlib
-from typing import Optional
 from datetime import datetime
-from ai_client import get_openai_client, get_model
+from typing import Optional
+
+from ai_client import get_model, get_openai_client
 
 
 # .env 파일에서 환경변수 로드

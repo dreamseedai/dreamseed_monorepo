@@ -4,8 +4,8 @@ import os
 from typing import List, Optional
 
 from fastapi import Depends, HTTPException, Security
-from sqlalchemy import text
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from .security.jwt import bearer, decode_token
 from .services.adaptive_engine import get_session_state

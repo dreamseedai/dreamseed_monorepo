@@ -4,14 +4,15 @@ GPT-4.1 Mini Classification System
 Advanced question classification using GPT-4.1 mini with enhanced curriculum standards
 """
 
+import asyncio
 import json
+import logging
 import os
 import time
-import asyncio
-from typing import Dict, List, Any, Optional, Tuple, cast
-from ai_client import get_openai_client, get_model
 from datetime import datetime
-import logging
+from typing import Any, Dict, List, Optional, Tuple, cast
+
+from ai_client import get_model, get_openai_client
 from enhanced_curriculum_standards import EnhancedCurriculumStandards
 
 # Configure logging
