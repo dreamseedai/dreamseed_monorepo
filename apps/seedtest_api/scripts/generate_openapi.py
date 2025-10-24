@@ -27,11 +27,15 @@ OUT_CONTRACT_SCHEMA = PKG_ROOT / "schemas" / "result.contract.schema.json"
 def main() -> None:
     # OpenAPI snapshot
     openapi = app.openapi()
-    OUT_OPENAPI.write_text(json.dumps(openapi, ensure_ascii=False, indent=2), encoding="utf-8")
+    OUT_OPENAPI.write_text(
+        json.dumps(openapi, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     # JSON Schema for the contract
     contract_schema = ResultContract.model_json_schema()
-    OUT_CONTRACT_SCHEMA.write_text(json.dumps(contract_schema, ensure_ascii=False, indent=2), encoding="utf-8")
+    OUT_CONTRACT_SCHEMA.write_text(
+        json.dumps(contract_schema, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     print(f"Wrote: {OUT_OPENAPI.relative_to(ROOT)}")
     print(f"Wrote: {OUT_CONTRACT_SCHEMA.relative_to(ROOT)}")

@@ -32,7 +32,9 @@ from shared.auth.dependencies import (
     set_session_cookie,
 )
 
-app = FastAPI(title="Portal API", version="0.1.0", root_path="/api", redirect_slashes=False)
+app = FastAPI(
+    title="Portal API", version="0.1.0", root_path="/api", redirect_slashes=False
+)
 
 # Dev CORS convenience; production goes through same-origin Nginx proxy
 ALLOWED_ORIGINS = [
@@ -53,9 +55,11 @@ app.add_middleware(
 def _ok() -> dict:
     return {"ok": True}
 
+
 @app.get("/__ok")
 def ok_root() -> dict:
     return _ok()
+
 
 @app.get("/api/__ok")
 def ok_api() -> dict:
@@ -80,9 +84,11 @@ def _version() -> dict:
         pass
     return {"version": ver["version"]}
 
+
 @app.get("/version")
 def version_root() -> dict:
     return _version()
+
 
 @app.get("/api/version")
 def version_api() -> dict:
@@ -94,9 +100,11 @@ def billing_expiring(days: int = 3, limit: int = 10):
     # Demo stub: empty list to satisfy frontend without 404
     return {"items": []}
 
+
 @app.get("/api/billing/stripe/expiring")
 def billing_expiring_api(days: int = 3, limit: int = 10):
     return billing_expiring(days, limit)
+
 
 class LoginRequest(BaseModel):
     username: str
@@ -109,12 +117,15 @@ JWT_ALGO = "HS256"
 JWT_COOKIE = "ds_session"
 JWT_TTL_HOURS = 12
 
+
 class LoginReq(BaseModel):
     email: EmailStr
     password: str
 
+
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@dreamseedai.com")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "")  # bcrypt hash
+
 
 def verify_user(email: str, password: str):
     # If ADMIN_PASSWORD_HASH is unset, allow demo default password for convenience
@@ -131,6 +142,7 @@ def verify_user(email: str, password: str):
         display_name = (email or "").strip() or "Admin"
         return {"id": "1", "role": "admin", "name": display_name}
     return None
+
 
 @app.post("/auth/login")
 def auth_login(body: LoginReq, resp: Response):
@@ -155,10 +167,12 @@ def auth_login(body: LoginReq, resp: Response):
     )
     return {"access_token": token, "token_type": "bearer"}
 
+
 # Duplicate routes under /api/* for proxies that don't set ASGI root_path
 @app.post("/api/auth/login")
 def auth_login_api(body: LoginReq, resp: Response):
     return auth_login(body, resp)
+
 
 def _extract_token(req: Request) -> Optional[str]:
     tok = req.cookies.get(JWT_COOKIE)
@@ -177,7 +191,12 @@ def auth_me(req: Request):
         return {"anon": True}
     try:
         data = jwt.decode(tok, AUTH_SECRET, algorithms=[JWT_ALGO])
-        return {"anon": False, "id": data.get("sub"), "role": data.get("role"), "name": data.get("name")}
+        return {
+            "anon": False,
+            "id": data.get("sub"),
+            "role": data.get("role"),
+            "name": data.get("name"),
+        }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="expired")
     except jwt.InvalidTokenError:
@@ -190,7 +209,9 @@ def auth_refresh(req: Request, resp: Response):
     if not tok:
         raise HTTPException(status_code=401, detail="not authenticated")
     try:
-        data = jwt.decode(tok, AUTH_SECRET, algorithms=[JWT_ALGO], options={"verify_exp": False})
+        data = jwt.decode(
+            tok, AUTH_SECRET, algorithms=[JWT_ALGO], options={"verify_exp": False}
+        )
         payload = {
             "sub": data.get("sub"),
             "role": data.get("role"),
@@ -211,18 +232,22 @@ def auth_refresh(req: Request, resp: Response):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="invalid")
 
+
 @app.get("/api/auth/me")
 def auth_me_api(req: Request):
     return auth_me(req)
+
 
 @app.post("/api/auth/refresh")
 def auth_refresh_api(req: Request, resp: Response):
     return auth_refresh(req, resp)
 
+
 @app.post("/auth/logout")
 def auth_logout(resp: Response):
     resp.delete_cookie(JWT_COOKIE, path="/")
     return {"ok": True}
+
 
 @app.post("/api/auth/logout")
 def auth_logout_api(resp: Response):
@@ -255,6 +280,7 @@ def me(user=Depends(get_current_user)):
 # Recommend API (formalized)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class RecommendRequest(BaseModel):
     country: str = Field(..., description="Target country code, e.g., US or CA")
     grade: str = Field(..., description="Grade code, e.g., G9-G12")
@@ -269,32 +295,68 @@ class RecommendItem(BaseModel):
     slug: Optional[str] = None
 
 
-def _recommend_core(country: str, grade: Optional[str], goal: Optional[str]) -> List[RecommendItem]:
-    cu = (country or '').upper()
-    gr = (grade or '').upper()
+def _recommend_core(
+    country: str, grade: Optional[str], goal: Optional[str]
+) -> List[RecommendItem]:
+    cu = (country or "").upper()
+    gr = (grade or "").upper()
     items: List[RecommendItem] = []
-    if cu == 'US':
+    if cu == "US":
         items = [
-            RecommendItem(title="US 입시 로드맵", summary="입시 준비 전반 가이드", icon="🎓", targetCountry="US", slug="us-roadmap"),
-            RecommendItem(title="SAT 1500+ 전략", summary="점수대별 학습 로드맵", icon="📝", targetCountry="US", slug="exams/sat"),
-            RecommendItem(title="AP 선택 전략", summary="과목 조합과 난이도", icon="📚", targetCountry="US", slug="exams/ap"),
+            RecommendItem(
+                title="US 입시 로드맵",
+                summary="입시 준비 전반 가이드",
+                icon="🎓",
+                targetCountry="US",
+                slug="us-roadmap",
+            ),
+            RecommendItem(
+                title="SAT 1500+ 전략",
+                summary="점수대별 학습 로드맵",
+                icon="📝",
+                targetCountry="US",
+                slug="exams/sat",
+            ),
+            RecommendItem(
+                title="AP 선택 전략",
+                summary="과목 조합과 난이도",
+                icon="📚",
+                targetCountry="US",
+                slug="exams/ap",
+            ),
         ]
-    elif cu == 'CA':
+    elif cu == "CA":
         items = [
-            RecommendItem(title="캐나다 학기별 로드맵", summary="고등 필수 과목 및 활동", icon="🍁", targetCountry="CA", slug="ca-roadmap"),
-            RecommendItem(title="OUAC 준비 가이드", summary="온타리오 지원 절차", icon="🗂️", targetCountry="CA", slug="exams/ouac"),
+            RecommendItem(
+                title="캐나다 학기별 로드맵",
+                summary="고등 필수 과목 및 활동",
+                icon="🍁",
+                targetCountry="CA",
+                slug="ca-roadmap",
+            ),
+            RecommendItem(
+                title="OUAC 준비 가이드",
+                summary="온타리오 지원 절차",
+                icon="🗂️",
+                targetCountry="CA",
+                slug="exams/ouac",
+            ),
         ]
     return items
 
 
 @app.get("/recommend/plan")
-def recommend_plan(country: str, grade: Optional[str] = None, goal: Optional[str] = None):
+def recommend_plan(
+    country: str, grade: Optional[str] = None, goal: Optional[str] = None
+):
     items = _recommend_core(country=country, grade=grade, goal=goal)
     return {"items": [i.dict() for i in items]}
 
 
 @app.get("/api/recommend/plan")
-def recommend_plan_api(country: str, grade: Optional[str] = None, goal: Optional[str] = None):
+def recommend_plan_api(
+    country: str, grade: Optional[str] = None, goal: Optional[str] = None
+):
     return recommend_plan(country, grade, goal)
 
 
@@ -308,10 +370,12 @@ def recommend_post(req: RecommendRequest):
 def recommend_post_api(req: RecommendRequest):
     return recommend_post(req)
 
+
 # Accept trailing-slash variants to avoid redirects that may break POST
 @app.post("/recommend/", include_in_schema=False)
 def recommend_post_slash(req: RecommendRequest):
     return recommend_post(req)
+
 
 @app.post("/api/recommend/", include_in_schema=False)
 def recommend_post_api_slash(req: RecommendRequest):
@@ -323,6 +387,7 @@ def recommend_post_api_slash(req: RecommendRequest):
 def recommend_get_noop() -> Response:
     return Response(status_code=204)
 
+
 @app.get("/api/recommend/", include_in_schema=False)
 def recommend_get_noop_slash() -> Response:
     return Response(status_code=204)
@@ -331,6 +396,7 @@ def recommend_get_noop_slash() -> Response:
 # ─────────────────────────────────────────────────────────────────────────────
 # Admin-only: whitelisted sudo ops with interactive password
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class OpsRunReq(BaseModel):
     command_id: Literal[
@@ -351,7 +417,11 @@ def require_admin(req: Request):
         data = jwt.decode(tok, AUTH_SECRET, algorithms=[JWT_ALGO])
         if data.get("role") != "admin":
             raise HTTPException(status_code=403, detail="forbidden")
-        return {"id": data.get("sub"), "name": data.get("name"), "role": data.get("role")}
+        return {
+            "id": data.get("sub"),
+            "name": data.get("name"),
+            "role": data.get("role"),
+        }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="expired")
     except jwt.InvalidTokenError:
@@ -372,7 +442,9 @@ def _resolve_command(req: OpsRunReq) -> List[str]:
     return base
 
 
-async def _run_with_optional_sudo(cmd: List[str], sudo_password: Optional[str], timeout_seconds: int):
+async def _run_with_optional_sudo(
+    cmd: List[str], sudo_password: Optional[str], timeout_seconds: int
+):
     # Prefer direct run; if password provided, wrap with sudo -S -k
     if sudo_password:
         full = ["sudo", "-S", "-k", "--"] + cmd
@@ -390,7 +462,11 @@ async def _run_with_optional_sudo(cmd: List[str], sudo_password: Optional[str], 
         except asyncio.TimeoutError:
             proc.kill()
             raise HTTPException(status_code=504, detail="command timeout")
-        return proc.returncode, stdout.decode(errors="ignore"), stderr.decode(errors="ignore")
+        return (
+            proc.returncode,
+            stdout.decode(errors="ignore"),
+            stderr.decode(errors="ignore"),
+        )
     else:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -398,22 +474,32 @@ async def _run_with_optional_sudo(cmd: List[str], sudo_password: Optional[str], 
             stderr=asyncio.subprocess.PIPE,
         )
         try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(), timeout=timeout_seconds
+            )
         except asyncio.TimeoutError:
             proc.kill()
             raise HTTPException(status_code=504, detail="command timeout")
-        return proc.returncode, stdout.decode(errors="ignore"), stderr.decode(errors="ignore")
+        return (
+            proc.returncode,
+            stdout.decode(errors="ignore"),
+            stderr.decode(errors="ignore"),
+        )
 
 
 @app.post("/api/ops/run")
 async def ops_run(body: OpsRunReq, _admin=Depends(require_admin)):
     cmd = _resolve_command(body)
     started = datetime.utcnow()
-    code, out, err = await _run_with_optional_sudo(cmd, body.sudo_password, body.timeout_seconds or 20)
+    code, out, err = await _run_with_optional_sudo(
+        cmd, body.sudo_password, body.timeout_seconds or 20
+    )
     dur_ms = int((datetime.utcnow() - started).total_seconds() * 1000)
+
     # Limit payload sizes
     def _cap(s: str) -> str:
         return s if len(s) <= 20000 else s[:20000] + "\n…(truncated)…"
+
     return {
         "ok": code == 0,
         "exit_code": code,
@@ -422,4 +508,3 @@ async def ops_run(body: OpsRunReq, _admin=Depends(require_admin)):
         "duration_ms": dur_ms,
         "command": cmd,
     }
-

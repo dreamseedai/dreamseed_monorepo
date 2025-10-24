@@ -18,10 +18,14 @@ from typing import Iterable, Mapping, Optional, Sequence, Tuple
 from shared.adaptive import KeyMap, choose_next_item, run_adaptive_session
 
 # Default key mapping for the SeedTest questions schema
-SEEDTEST_KEYMAP = KeyMap(id="question_id", a="discrimination", b="difficulty", c="guessing")
+SEEDTEST_KEYMAP = KeyMap(
+    id="question_id", a="discrimination", b="difficulty", c="guessing"
+)
 
 
-def _make_prefilter(topic_ids: Optional[Iterable[int]] = None, tags_any: Optional[Iterable[str]] = None):
+def _make_prefilter(
+    topic_ids: Optional[Iterable[int]] = None, tags_any: Optional[Iterable[str]] = None
+):
     topics = set(topic_ids or [])
     tags = set(tags_any or [])
     if not topics and not tags:
@@ -53,7 +57,9 @@ def choose_next_question(
     Returns (original_item, info_value, index_in_input)
     """
     pre = _make_prefilter(topic_ids=topic_ids, tags_any=tags_any)
-    return choose_next_item(theta, items, used_ids=used_ids, keymap=SEEDTEST_KEYMAP, prefilter=pre)
+    return choose_next_item(
+        theta, items, used_ids=used_ids, keymap=SEEDTEST_KEYMAP, prefilter=pre
+    )
 
 
 def simulate_adaptive_run(

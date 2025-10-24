@@ -29,9 +29,7 @@ class TopicInsight(BaseModel):
 class RecommendationItem(BaseModel):
     topic: Optional[str] = None
     message: str
-    kind: str = Field(
-        default="study", description="study | concept | practice | meta"
-    )
+    kind: str = Field(default="study", description="study | concept | practice | meta")
 
 
 class GrowthForecastPoint(BaseModel):
@@ -45,6 +43,7 @@ class GrowthForecast(BaseModel):
     method: str = Field(
         default="linear_smoothing", description="Forecast method summary"
     )
+
     # Optional probability-of-achievement goals
     # Each goal represents P(score_scaled >= target_score) within the given horizon
     # using a Normal approximation around the forecast mean.

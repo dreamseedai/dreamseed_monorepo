@@ -17,6 +17,7 @@ from .scoring import aggregate_from_session_state
 try:
     # Optional Sentry for error notifications
     import sentry_sdk as _sentry_mod
+
     SENTRY_SDK: Any | None = _sentry_mod
 except Exception:  # pragma: no cover - optional dependency
     SENTRY_SDK = None

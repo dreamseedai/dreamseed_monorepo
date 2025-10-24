@@ -72,4 +72,5 @@ class NextStepRequest(BaseModel):
 
 class NextQuestionRequest(NextStepRequest):
     """Backward-compatible alias for legacy imports."""
+
     pass

@@ -5,7 +5,10 @@ from fastapi.testclient import TestClient
 
 # Skip if no DB configured
 if not os.getenv("DATABASE_URL"):
-    pytest.skip("DATABASE_URL not set; skipping DB-backed listing API tests", allow_module_level=True)
+    pytest.skip(
+        "DATABASE_URL not set; skipping DB-backed listing API tests",
+        allow_module_level=True,
+    )
 
 pytestmark = pytest.mark.db
 
@@ -22,9 +25,15 @@ def test_results_list_endpoint(monkeypatch):
     uid1 = "user_A"
     uid2 = "user_B"
 
-    upsert_result("lsess1", {"score": {"raw": 1, "scaled": 11}}, 1, 11, user_id=uid1, exam_id=201)
-    upsert_result("lsess2", {"score": {"raw": 2, "scaled": 22}}, 2, 22, user_id=uid1, exam_id=202)
-    upsert_result("lsess3", {"score": {"raw": 3, "scaled": 33}}, 3, 33, user_id=uid2, exam_id=201)
+    upsert_result(
+        "lsess1", {"score": {"raw": 1, "scaled": 11}}, 1, 11, user_id=uid1, exam_id=201
+    )
+    upsert_result(
+        "lsess2", {"score": {"raw": 2, "scaled": 22}}, 2, 22, user_id=uid1, exam_id=202
+    )
+    upsert_result(
+        "lsess3", {"score": {"raw": 3, "scaled": 33}}, 3, 33, user_id=uid2, exam_id=201
+    )
 
     # List by user
     r = client.get(f"/api/seedtest/results?user_id={uid1}&limit=2")
@@ -39,7 +48,9 @@ def test_results_list_endpoint(monkeypatch):
     if cur:
         cu = cur.get("updated_at")
         cid = cur.get("id")
-        r2 = client.get(f"/api/seedtest/results?user_id={uid1}&limit=2&cursor_updated_at={cu}&cursor_id={cid}")
+        r2 = client.get(
+            f"/api/seedtest/results?user_id={uid1}&limit=2&cursor_updated_at={cu}&cursor_id={cid}"
+        )
         assert r2.status_code == 200
         d2 = r2.json()
         assert "items" in d2

@@ -66,6 +66,7 @@ def test_result_pdf_stub():
 def test_post_result_returns_400_when_not_completed(monkeypatch):
     # Simulate compute_result detecting an incomplete session (DB short-circuit)
     import seedtest_api.routers.results as results_mod
+
     monkeypatch.setattr(
         results_mod,
         "compute_result",

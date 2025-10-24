@@ -16,7 +16,9 @@ def _get_engine():
         return None
 
 
-def fetch_solutions(question_ids: Iterable[str | int]) -> Dict[str | int, Dict[str, Any]]:
+def fetch_solutions(
+    question_ids: Iterable[str | int],
+) -> Dict[str | int, Dict[str, Any]]:
     """Fetch solution_html (and optional topic) for the given question ids.
 
     Assumptions:
@@ -52,7 +54,11 @@ def enrich_items_review(items: list[dict]) -> list[dict]:
     """Attach solution_html to each item if present in DB."""
     if not items:
         return items
-    qids = [x for x in ((it.get("item_id") or it.get("question_id")) for it in items if it) if x is not None]
+    qids = [
+        x
+        for x in ((it.get("item_id") or it.get("question_id")) for it in items if it)
+        if x is not None
+    ]
     sol = fetch_solutions(qids)
     for it in items:
         qid = it.get("item_id") or it.get("question_id")

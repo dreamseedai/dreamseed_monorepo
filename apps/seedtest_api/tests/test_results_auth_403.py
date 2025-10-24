@@ -16,9 +16,15 @@ client = TestClient(app)
 def test_student_forbidden_on_other_users_session(monkeypatch):
     # Use strict mode (no LOCAL_DEV bypass) only within this test
     monkeypatch.setenv("LOCAL_DEV", "false")
+
     # Token for user-1 (student)
     async def fake_decode(_token: str):
-        return {"sub": "user-1", "roles": ["student"], "org_id": 1, "scope": "exam:read"}
+        return {
+            "sub": "user-1",
+            "roles": ["student"],
+            "org_id": 1,
+            "scope": "exam:read",
+        }
 
     # Patch both the security.jwt.decode_token and deps.decode_token (direct import)
     monkeypatch.setattr(jwt_mod, "decode_token", fake_decode)

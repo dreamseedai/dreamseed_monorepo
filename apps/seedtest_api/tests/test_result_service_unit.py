@@ -54,7 +54,11 @@ def test_compute_result_cache_hit_returns_existing(monkeypatch):
         "score_scaled": 120,
         "topics": [{"topic": "algebra", "correct": 3, "total": 5, "accuracy": 0.6}],
     }
-    monkeypatch.setattr(result_service, "get_result_from_db", lambda sid, expected_user_id=None: existing)
+    monkeypatch.setattr(
+        result_service,
+        "get_result_from_db",
+        lambda sid, expected_user_id=None: existing,
+    )
 
     # Guard: ensure compute path isn't called
     def boom(_sid: str):
@@ -65,13 +69,24 @@ def test_compute_result_cache_hit_returns_existing(monkeypatch):
     out = result_service.compute_result("sess-cache", force=False)
     # Should be exactly the DB path remapped by compute_result caller (here: passthrough)
     assert out["status"] == "ready"
-    assert out.get("score_raw") == 3 or (out.get("score") and out["score"].get("raw") == 3)
+    assert out.get("score_raw") == 3 or (
+        out.get("score") and out["score"].get("raw") == 3
+    )
 
 
 def test_compute_result_force_recompute_overrides_cache(monkeypatch):
     monkeypatch.setattr(result_service, "_has_db", lambda: True)
     # Pretend there is an old cached record
-    monkeypatch.setattr(result_service, "get_result_from_db", lambda sid, expected_user_id=None: {"session_id": sid, "status": "ready", "score_raw": 1, "score_scaled": 50})
+    monkeypatch.setattr(
+        result_service,
+        "get_result_from_db",
+        lambda sid, expected_user_id=None: {
+            "session_id": sid,
+            "status": "ready",
+            "score_raw": 1,
+            "score_scaled": 50,
+        },
+    )
 
     # Provide a new state to force recompute
     def fake_state(_sid: str):
@@ -104,12 +119,21 @@ def test_compute_result_error_marks_failed(monkeypatch):
     monkeypatch.setattr(result_service, "_has_db", lambda: True)
 
     # State exists but aggregate throws
-    monkeypatch.setattr(result_service, "get_session_state", lambda _sid: {"responses": [{"correct": True}]})
+    monkeypatch.setattr(
+        result_service,
+        "get_session_state",
+        lambda _sid: {"responses": [{"correct": True}]},
+    )
+
     def boom_aggregate(_state):
         raise RuntimeError("aggregate failed")
-    monkeypatch.setattr(result_service, "aggregate_from_session_state", lambda _s: boom_aggregate(_s))
+
+    monkeypatch.setattr(
+        result_service, "aggregate_from_session_state", lambda _s: boom_aggregate(_s)
+    )
 
     failed_flag = {"called": False}
+
     def fake_fail(session_id, **kwargs):
         failed_flag["called"] = True
         assert session_id == "sess-fail"
@@ -126,7 +150,11 @@ def test_upsert_integrity_error_fetches_existing(monkeypatch):
     monkeypatch.setattr(result_service, "_has_db", lambda: True)
 
     # Return a minimal state so compute path executes
-    monkeypatch.setattr(result_service, "get_session_state", lambda _sid: {"responses": [{"correct": True}]})
+    monkeypatch.setattr(
+        result_service,
+        "get_session_state",
+        lambda _sid: {"responses": [{"correct": True}]},
+    )
 
     # Simulate integrity error on upsert (race) and existing row is retrievable
     def boom_upsert(*args, **kwargs):
@@ -136,13 +164,20 @@ def test_upsert_integrity_error_fetches_existing(monkeypatch):
     monkeypatch.setattr(
         result_service,
         "get_result_from_db",
-        lambda session_id, expected_user_id=None: {"session_id": session_id, "status": "ready", "score_raw": 1, "score_scaled": 100},
+        lambda session_id, expected_user_id=None: {
+            "session_id": session_id,
+            "status": "ready",
+            "score_raw": 1,
+            "score_scaled": 100,
+        },
     )
 
     out = result_service.compute_result("sess-race", force=True)
     assert out["status"] == "ready"
     # Ensure winner's values surfaced
-    assert out.get("score_raw") == 1 or (out.get("score") and out["score"].get("raw") == 1)
+    assert out.get("score_raw") == 1 or (
+        out.get("score") and out["score"].get("raw") == 1
+    )
 
 
 def test_db_not_completed_short_circuit(monkeypatch):

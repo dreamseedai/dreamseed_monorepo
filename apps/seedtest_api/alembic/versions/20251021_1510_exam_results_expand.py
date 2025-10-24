@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = '20251021_1510_exam_results_expand'
-down_revision = '20251021_1010_exam_results_table'
+revision = "20251021_1510_exam_results_expand"
+down_revision = "20251021_1010_exam_results_table"
 branch_labels = None
 depends_on = None
 

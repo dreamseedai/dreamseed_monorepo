@@ -56,7 +56,12 @@ def test_result_contract_keyset_snapshot(monkeypatch):
         orig_upsert(session_id, result_json, score_raw, score_scaled, **kwargs)
         fixed = datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
         with get_session() as s:
-            s.execute(text("UPDATE exam_results SET created_at=:t, updated_at=:t WHERE session_id=:sid"), {"t": fixed, "sid": session_id})
+            s.execute(
+                text(
+                    "UPDATE exam_results SET created_at=:t, updated_at=:t WHERE session_id=:sid"
+                ),
+                {"t": fixed, "sid": session_id},
+            )
 
     monkeypatch.setattr(rs, "upsert_result", patched_upsert)
 

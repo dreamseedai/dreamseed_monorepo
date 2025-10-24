@@ -13,10 +13,14 @@ class ContentItem(BaseModel):
     difficulty: Optional[float] = Field(
         default=None, description="Relative difficulty (e.g., 1..5 or 0..1)"
     )
-    format: Optional[str] = Field(default=None, description="video | article | problems | book | other")
+    format: Optional[str] = Field(
+        default=None, description="video | article | problems | book | other"
+    )
     language: Optional[str] = Field(default=None, description="e.g., ko, en")
     provider: Optional[str] = None
-    popularity_score: Optional[float] = Field(default=None, description="Relative popularity or quality score")
+    popularity_score: Optional[float] = Field(
+        default=None, description="Relative popularity or quality score"
+    )
 
 
 class ContentSearchResult(BaseModel):

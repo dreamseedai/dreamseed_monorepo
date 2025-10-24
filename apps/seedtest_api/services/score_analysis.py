@@ -98,7 +98,10 @@ def get_engine(name: str) -> BaseEngine:
     key = (name or "").strip().lower()
     if key == IrtEngine.name:
         return IrtEngine()
-    if key == MixedEffectsEngine.name or key.replace("-", "_") == MixedEffectsEngine.name:
+    if (
+        key == MixedEffectsEngine.name
+        or key.replace("-", "_") == MixedEffectsEngine.name
+    ):
         return MixedEffectsEngine()
     # default
     return HeuristicEngine()

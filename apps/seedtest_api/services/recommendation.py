@@ -65,13 +65,21 @@ class ContentBasedRecommender(BaseRecommender):
             # Collect weakest topics by accuracy
             weaknesses = sorted(insights, key=lambda t: t.accuracy)[: max(1, top_k)]
             topics = [w.topic for w in weaknesses if w.topic]
-            result = search_content(topics=topics, ability_theta=ability_theta, top_k=top_k)
+            result = search_content(
+                topics=topics, ability_theta=ability_theta, top_k=top_k
+            )
             if result.items:
                 out: List[RecommendationItem] = []
                 for it in result.items:
                     url_part = f" ({it.url})" if it.url else ""
                     msg = f"{', '.join(it.topic_tags) or '학습'} 관련 추천: {it.title}{url_part}"
-                    out.append(RecommendationItem(topic=topics[0] if topics else None, kind="content", message=msg))
+                    out.append(
+                        RecommendationItem(
+                            topic=topics[0] if topics else None,
+                            kind="content",
+                            message=msg,
+                        )
+                    )
                 return out
         except Exception:
             # Fall back to simple phrasing if catalog unavailable
@@ -81,7 +89,9 @@ class ContentBasedRecommender(BaseRecommender):
         recs: List[RecommendationItem] = []
         weaknesses = sorted(insights, key=lambda t: t.accuracy)[:top_k]
         for w in weaknesses:
-            level = "기초" if (ability_theta is not None and ability_theta < 0) else "핵심"
+            level = (
+                "기초" if (ability_theta is not None and ability_theta < 0) else "핵심"
+            )
             recs.append(
                 RecommendationItem(
                     topic=w.topic,
@@ -114,9 +124,13 @@ class HybridRecommender(BaseRecommender):
         top_k: int = 3,
     ) -> List[RecommendationItem]:
         # Try content-based; if it yields nothing, fall back to rule.
-        recs = self.content.recommend(insights, ability_theta=ability_theta, top_k=top_k)
+        recs = self.content.recommend(
+            insights, ability_theta=ability_theta, top_k=top_k
+        )
         if not recs:
-            recs = self.rule.recommend(insights, ability_theta=ability_theta, top_k=top_k)
+            recs = self.rule.recommend(
+                insights, ability_theta=ability_theta, top_k=top_k
+            )
         return recs
 
 
@@ -203,7 +217,11 @@ def get_recommender(name: str) -> BaseRecommender:
                     recs = hyb.recommend(
                         "api-user",
                         weaknesses,
-                        student_ability=float(ability_theta) if isinstance(ability_theta, (int, float)) else 0.0,
+                        student_ability=(
+                            float(ability_theta)
+                            if isinstance(ability_theta, (int, float))
+                            else 0.0
+                        ),
                         top_k=int(top_k or 3),
                     )
                     # Convert to API RecommendationItem
@@ -211,10 +229,18 @@ def get_recommender(name: str) -> BaseRecommender:
                     for r in recs:
                         url_part = f" ({r.content.url})" if r.content.url else ""
                         msg = f"{r.content.title} ({r.content.content_type.value}) - {r.reason}{url_part}"
-                        out.append(RecommendationItem(topic=(r.match_topics[0] if r.match_topics else None), kind="content", message=msg))
+                        out.append(
+                            RecommendationItem(
+                                topic=(r.match_topics[0] if r.match_topics else None),
+                                kind="content",
+                                message=msg,
+                            )
+                        )
                     if not out:
                         # fallback to rule phrasing
-                        return RuleBasedRecommender().recommend(insights, ability_theta=ability_theta, top_k=top_k)
+                        return RuleBasedRecommender().recommend(
+                            insights, ability_theta=ability_theta, top_k=top_k
+                        )
                     return out
 
             return SharedHybridAdapter()

@@ -33,7 +33,7 @@ def _extract_token(request: Request) -> str | None:
     if scheme.lower() == "bearer" and param:
         return param
     # fallback to cookie named 'auth'
-    cookie_tok = request.cookies.get('auth')
+    cookie_tok = request.cookies.get("auth")
     if cookie_tok:
         return cookie_tok
     return None

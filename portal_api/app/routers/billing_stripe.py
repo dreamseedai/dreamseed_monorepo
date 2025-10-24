@@ -15,12 +15,15 @@ router = APIRouter(prefix="/billing/stripe", tags=["billing"])
 
 settings = get_settings()
 
+
 def _ensure_stripe() -> None:
     if not settings.stripe_secret_key or not settings.stripe_price_id:
         raise HTTPException(status_code=500, detail="Stripe not configured")
     stripe.api_key = settings.stripe_secret_key
 
+
 _PROCESSED_EVENTS: set[str] = set()
+
 
 def _idempotency_key(user_id: int) -> str:
     raw = f"checkout:{user_id}:{settings.stripe_price_id}:{date.today().isoformat()}"
@@ -28,7 +31,9 @@ def _idempotency_key(user_id: int) -> str:
 
 
 @router.post("/create-checkout-session")
-def create_checkout_session(db: Session = Depends(get_db), user=Depends(get_current_user)):
+def create_checkout_session(
+    db: Session = Depends(get_db), user=Depends(get_current_user)
+):
     _ensure_stripe()
     if not user.email:
         raise HTTPException(status_code=400, detail="User email required")
@@ -60,7 +65,9 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Webhook secret not configured")
     try:
         event = stripe.Webhook.construct_event(
-            payload=payload, sig_header=sig_header, secret=settings.stripe_webhook_secret
+            payload=payload,
+            sig_header=sig_header,
+            secret=settings.stripe_webhook_secret,
         )
     except Exception as e:  # noqa: BLE001 - we want to surface any stripe error
         raise HTTPException(status_code=400, detail=f"Webhook error: {e}")
@@ -76,14 +83,18 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
 
     # extended fields
     customer_id = obj.get("customer") or obj.get("customer_id")
-    subscription_id = obj.get("subscription") if isinstance(obj.get("subscription"), str) else None
+    subscription_id = (
+        obj.get("subscription") if isinstance(obj.get("subscription"), str) else None
+    )
     amount_total = obj.get("amount_total")
     currency = obj.get("currency")
     livemode = bool(event.get("livemode", False))
     status = obj.get("status") or obj.get("payment_status")
     req = event.get("request") or {}
     request_id = req.get("id") if isinstance(req, dict) else None
-    idem_key = obj.get("idempotency_key") or (req.get("idempotency_key") if isinstance(req, dict) else None)
+    idem_key = obj.get("idempotency_key") or (
+        req.get("idempotency_key") if isinstance(req, dict) else None
+    )
 
     # persist event row for dedup and audit
     try:
@@ -96,7 +107,9 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
             subscription_id=subscription_id,
             idempotency_key=idem_key,
             request_id=request_id,
-            amount_total=(amount_total / 100.0 if isinstance(amount_total, int) else amount_total),
+            amount_total=(
+                amount_total / 100.0 if isinstance(amount_total, int) else amount_total
+            ),
             currency=currency,
             livemode=livemode,
             status=status,
@@ -108,11 +121,20 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
         db.rollback()
         return {"ok": True, "dedup": True}
 
-    if etype in ("checkout.session.completed", "invoice.payment_succeeded", "customer.subscription.updated", "customer.subscription.created"):
+    if etype in (
+        "checkout.session.completed",
+        "invoice.payment_succeeded",
+        "customer.subscription.updated",
+        "customer.subscription.created",
+    ):
         if user_id:
             u = db.get(models.User, int(user_id))
             if u:
-                prof = db.query(models.UserProfile).filter(models.UserProfile.user_id == u.id).first()
+                prof = (
+                    db.query(models.UserProfile)
+                    .filter(models.UserProfile.user_id == u.id)
+                    .first()
+                )
                 if not prof:
                     prof = models.UserProfile(user_id=u.id, subscribed=True)
                     db.add(prof)
@@ -120,8 +142,18 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
                     prof.subscribed = True
                 # map customer/subscription/status
                 if obj.get("customer") or obj.get("customer_id"):
-                    prof.stripe_customer_id = obj.get("customer") or obj.get("customer_id")
-                sub_id = obj.get("subscription") if isinstance(obj.get("subscription"), str) else (obj.get("id") if etype.startswith("customer.subscription") else None)
+                    prof.stripe_customer_id = obj.get("customer") or obj.get(
+                        "customer_id"
+                    )
+                sub_id = (
+                    obj.get("subscription")
+                    if isinstance(obj.get("subscription"), str)
+                    else (
+                        obj.get("id")
+                        if etype.startswith("customer.subscription")
+                        else None
+                    )
+                )
                 if sub_id:
                     prof.stripe_subscription_id = sub_id
                 status = obj.get("status") or obj.get("payment_status")
@@ -130,7 +162,10 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
                 cpe = obj.get("current_period_end")
                 if isinstance(cpe, int):
                     from datetime import datetime, timezone
-                    prof.current_period_end = datetime.fromtimestamp(cpe, tz=timezone.utc)
+
+                    prof.current_period_end = datetime.fromtimestamp(
+                        cpe, tz=timezone.utc
+                    )
                 cape = obj.get("cancel_at_period_end")
                 if isinstance(cape, bool):
                     prof.cancel_at_period_end = cape
@@ -139,7 +174,11 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
         if user_id:
             u = db.get(models.User, int(user_id))
             if u:
-                prof = db.query(models.UserProfile).filter(models.UserProfile.user_id == u.id).first()
+                prof = (
+                    db.query(models.UserProfile)
+                    .filter(models.UserProfile.user_id == u.id)
+                    .first()
+                )
                 if prof:
                     prof.subscribed = False
                     if etype == "customer.subscription.deleted":
@@ -147,7 +186,9 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
                     db.commit()
     # mark processed
     try:
-        db.query(models.StripeWebhookEvent).filter(models.StripeWebhookEvent.event_id == evt_id).update({"processed": True})
+        db.query(models.StripeWebhookEvent).filter(
+            models.StripeWebhookEvent.event_id == evt_id
+        ).update({"processed": True})
         db.commit()
     except Exception:
         db.rollback()
@@ -156,14 +197,24 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/status")
 def billing_status(user=Depends(get_current_user), db: Session = Depends(get_db)):
-    prof = db.query(models.UserProfile).filter(models.UserProfile.user_id == user.id).first()
+    prof = (
+        db.query(models.UserProfile)
+        .filter(models.UserProfile.user_id == user.id)
+        .first()
+    )
     return {
         "subscribed": bool(prof and prof.subscribed),
         "status": getattr(prof, "status", None) if prof else None,
-        "current_period_end": getattr(prof, "current_period_end", None) if prof else None,
-        "cancel_at_period_end": getattr(prof, "cancel_at_period_end", None) if prof else None,
+        "current_period_end": (
+            getattr(prof, "current_period_end", None) if prof else None
+        ),
+        "cancel_at_period_end": (
+            getattr(prof, "cancel_at_period_end", None) if prof else None
+        ),
         "customer_id": getattr(prof, "stripe_customer_id", None) if prof else None,
-        "subscription_id": getattr(prof, "stripe_subscription_id", None) if prof else None,
+        "subscription_id": (
+            getattr(prof, "stripe_subscription_id", None) if prof else None
+        ),
     }
 
 
@@ -192,16 +243,18 @@ def list_expiring_subscriptions(
         if p.current_period_end:
             delta = p.current_period_end - now
             days_left = max(0, int(delta.total_seconds() // 86400))
-        out.append({
-            "user_id": u.id,
-            "email": u.email,
-            "status": p.status,
-            "current_period_end": p.current_period_end,
-            "cancel_at_period_end": p.cancel_at_period_end,
-            "days_left": days_left,
-            "subscription_id": p.stripe_subscription_id,
-            "customer_id": p.stripe_customer_id,
-        })
+        out.append(
+            {
+                "user_id": u.id,
+                "email": u.email,
+                "status": p.status,
+                "current_period_end": p.current_period_end,
+                "cancel_at_period_end": p.cancel_at_period_end,
+                "days_left": days_left,
+                "subscription_id": p.stripe_subscription_id,
+                "customer_id": p.stripe_customer_id,
+            }
+        )
     return {"items": out, "count": len(out), "days": days}
 
 
@@ -215,7 +268,11 @@ def sync_one(
     u = db.get(models.User, user_id)
     if not u:
         raise HTTPException(404, "User not found")
-    p = db.query(models.UserProfile).filter(models.UserProfile.user_id == user_id).first()
+    p = (
+        db.query(models.UserProfile)
+        .filter(models.UserProfile.user_id == user_id)
+        .first()
+    )
     if not p or not p.stripe_subscription_id:
         raise HTTPException(400, "No subscription on file")
     s_id: str = cast(str, p.stripe_subscription_id)
@@ -232,7 +289,12 @@ def sync_one(
         p.stripe_customer_id = cust
     p.subscribed = p.status in ("active", "trialing") and not p.cancel_at_period_end
     db.commit()
-    return {"ok": True, "user_id": user_id, "status": p.status, "current_period_end": p.current_period_end}
+    return {
+        "ok": True,
+        "user_id": user_id,
+        "status": p.status,
+        "current_period_end": p.current_period_end,
+    }
 
 
 @router.post("/sync-all")
@@ -264,14 +326,15 @@ def sync_all(
             cust = sub.get("customer")
             if isinstance(cust, str):
                 p.stripe_customer_id = cust
-            p.subscribed = p.status in ("active", "trialing") and not p.cancel_at_period_end
+            p.subscribed = (
+                p.status in ("active", "trialing") and not p.cancel_at_period_end
+            )
             updated += 1
         except Exception:
             db.rollback()
         else:
             db.commit()
     return {"ok": True, "updated": updated}
-
 
 
 @router.get("/events")
@@ -281,9 +344,11 @@ def list_events(
     event_type: str | None = None,
     processed: bool | None = None,
     db: Session = Depends(get_db),
-    admin = Depends(require_roles("admin")),
+    admin=Depends(require_roles("admin")),
 ):
-    q = db.query(models.StripeWebhookEvent).order_by(models.StripeWebhookEvent.id.desc())
+    q = db.query(models.StripeWebhookEvent).order_by(
+        models.StripeWebhookEvent.id.desc()
+    )
     if after_id:
         q = q.filter(models.StripeWebhookEvent.id < after_id)
     if event_type:
@@ -301,7 +366,9 @@ def list_events(
             "status": r.status,
             "customer_id": r.customer_id,
             "subscription_id": r.subscription_id,
-            "amount_total": (str(r.amount_total) if r.amount_total is not None else None),
+            "amount_total": (
+                str(r.amount_total) if r.amount_total is not None else None
+            ),
             "currency": r.currency,
             "livemode": r.livemode,
             "idempotency_key": r.idempotency_key,
@@ -309,4 +376,3 @@ def list_events(
         }
         for r in rows
     ]
-

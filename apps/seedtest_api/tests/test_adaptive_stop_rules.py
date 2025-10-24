@@ -15,6 +15,7 @@ def test_max_items_stop(monkeypatch):
     from importlib import reload
 
     from apps.seedtest_api import settings as settings_mod
+
     reload(settings_mod)
 
     # Start and answer one item -> should terminate by max_items
@@ -36,11 +37,14 @@ def test_sem_threshold_stop(monkeypatch):
     client = TestClient(app)
     # Variable mode with high threshold so it trips quickly
     monkeypatch.setenv("CAT_MODE", "VARIABLE")
-    monkeypatch.setenv("CAT_SEM_THRESHOLD", "10.0")  # enormous to force stop after 1 item
+    monkeypatch.setenv(
+        "CAT_SEM_THRESHOLD", "10.0"
+    )  # enormous to force stop after 1 item
     monkeypatch.setenv("CAT_MIN_ITEMS", "1")
     from importlib import reload
 
     from apps.seedtest_api import settings as settings_mod
+
     reload(settings_mod)
 
     r = client.post("/demo/start", json={"theta0": 0.0})
@@ -61,6 +65,7 @@ def test_item_cooldown_defers_next(monkeypatch):
     from importlib import reload
 
     from apps.seedtest_api import settings as settings_mod
+
     reload(settings_mod)
 
     r = client.post("/demo/start", json={"theta0": 0.0})
@@ -98,6 +103,7 @@ def test_min_test_time_gates_sem_stop(monkeypatch):
     from importlib import reload
 
     from apps.seedtest_api import settings as settings_mod
+
     reload(settings_mod)
 
     r = client.post("/demo/start", json={"theta0": 0.0})
@@ -126,13 +132,17 @@ def test_manual_finish(monkeypatch):
     from importlib import reload
 
     from apps.seedtest_api import settings as settings_mod
+
     reload(settings_mod)
 
     r = client.post("/demo/start", json={"theta0": 0.0})
     sid = r.json()["session_id"]
     nid = r.json()["next_item_id"]
     # Request manual finish
-    r2 = client.post(f"/demo/answer/{sid}", json={"item_id": nid, "correct": True, "finish_now": True})
+    r2 = client.post(
+        f"/demo/answer/{sid}",
+        json={"item_id": nid, "correct": True, "finish_now": True},
+    )
     assert r2.status_code == 200
     body = r2.json()
     assert body["terminated"] is True
@@ -147,6 +157,7 @@ def test_time_limit_stop(monkeypatch):
     from importlib import reload
 
     from apps.seedtest_api import settings as settings_mod
+
     reload(settings_mod)
 
     r = client.post("/demo/start", json={"theta0": 0.0})

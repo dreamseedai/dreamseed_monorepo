@@ -27,8 +27,14 @@ def _local_dev_true_env(monkeypatch):
 
 def _clear_results(session_id: str):
     with get_session() as s:
-        s.execute(text("DELETE FROM exam_results WHERE session_id = :sid"), {"sid": session_id})
-        s.execute(text("DELETE FROM exam_sessions WHERE session_id = :sid"), {"sid": session_id})
+        s.execute(
+            text("DELETE FROM exam_results WHERE session_id = :sid"),
+            {"sid": session_id},
+        )
+        s.execute(
+            text("DELETE FROM exam_sessions WHERE session_id = :sid"),
+            {"sid": session_id},
+        )
 
 
 def test_post_creates_db_and_get_returns_same(monkeypatch):
@@ -56,7 +62,10 @@ def test_post_creates_db_and_get_returns_same(monkeypatch):
 
     # Row exists in DB
     with get_session() as s:
-        cnt = s.execute(text("SELECT COUNT(*) FROM exam_results WHERE session_id = :sid"), {"sid": sid}).scalar()
+        cnt = s.execute(
+            text("SELECT COUNT(*) FROM exam_results WHERE session_id = :sid"),
+            {"sid": sid},
+        ).scalar()
         assert cnt == 1
 
     # GET without refresh should fetch cached
@@ -75,7 +84,9 @@ def test_post_twice_without_force_is_idempotent(monkeypatch):
     monkeypatch.setattr(
         result_service,
         "get_session_state",
-        lambda _sid: {"responses": [{"question_id": 1, "topic": "alg", "correct": True}]},
+        lambda _sid: {
+            "responses": [{"question_id": 1, "topic": "alg", "correct": True}]
+        },
     )
 
     r1 = client.post(f"/api/seedtest/exams/{sid}/result")
@@ -89,7 +100,10 @@ def test_post_twice_without_force_is_idempotent(monkeypatch):
     assert d1["score"] == d2["score"]
 
     with get_session() as s:
-        cnt = s.execute(text("SELECT COUNT(*) FROM exam_results WHERE session_id = :sid"), {"sid": sid}).scalar()
+        cnt = s.execute(
+            text("SELECT COUNT(*) FROM exam_results WHERE session_id = :sid"),
+            {"sid": sid},
+        ).scalar()
         assert cnt == 1
 
 
@@ -149,6 +163,3 @@ def test_post_force_recompute_updates_score(monkeypatch):
     assert r2.status_code == 200
     score2 = r2.json()["score"]
     assert score2 >= score1
-
-
-    

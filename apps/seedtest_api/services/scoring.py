@@ -8,6 +8,7 @@ from .adaptive_engine import fisher_information_3pl
 
 # ------------------- Public helper functions -------------------
 
+
 def raw_to_scaled(
     raw_score: float | int,
     max_score: float | int,
@@ -49,7 +50,9 @@ def theta_to_percentile(theta: float) -> int:
         return 0
 
 
-def topic_breakdown_from_responses(responses: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def topic_breakdown_from_responses(
+    responses: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
     by_topic: Dict[str, Dict[str, int]] = {}
     for r in responses:
         t = str(r.get("topic") or "general")
@@ -79,7 +82,11 @@ def derive_recommendations(
         [x["topic"] for x in topics_list if float(x.get("accuracy") or 0.0) >= 0.75]
     )[:3]
     weaknesses = sorted(
-        [x["topic"] for x in topics_list if float(x.get("accuracy") or 0.0) <= weakness_threshold]
+        [
+            x["topic"]
+            for x in topics_list
+            if float(x.get("accuracy") or 0.0) <= weakness_threshold
+        ]
     )[:3]
     recs: List[str] = [
         f"{w} 영역의 정답률이 낮습니다. 교과서 핵심 개념을 복습하고 관련 문제 풀이를 늘려보세요."
@@ -88,7 +95,9 @@ def derive_recommendations(
     return strengths, weaknesses, recs
 
 
-def aggregate_from_session_state(state: Dict[str, Any] | None) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+def aggregate_from_session_state(
+    state: Dict[str, Any] | None,
+) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """Compute a simple result JSON and topic breakdown from a session "state" dict.
 
     The state is expected to contain a list at key "responses", where each item may have:
@@ -126,19 +135,23 @@ def aggregate_from_session_state(state: Dict[str, Any] | None) -> Tuple[Dict[str
     topics_list = topic_breakdown_from_responses(responses)
 
     # Simple strengths/weaknesses
-    strengths, weaknesses, recs = derive_recommendations(topics_list, weakness_threshold=0.60)
+    strengths, weaknesses, recs = derive_recommendations(
+        topics_list, weakness_threshold=0.60
+    )
 
     # Build questions array for UI consumption
     questions: List[Dict[str, Any]] = []
     for r in responses:
-        questions.append({
-            "question_id": r.get("question_id"),
-            "is_correct": bool(r.get("correct")),
-            "user_answer": r.get("answer"),
-            "correct_answer": r.get("correct_answer"),
-            "explanation": r.get("explanation"),
-            "topic": r.get("topic") or "general",
-        })
+        questions.append(
+            {
+                "question_id": r.get("question_id"),
+                "is_correct": bool(r.get("correct")),
+                "user_answer": r.get("answer"),
+                "correct_answer": r.get("correct_answer"),
+                "explanation": r.get("explanation"),
+                "topic": r.get("topic") or "general",
+            }
+        )
 
     # Standard error approximation via total Fisher information at final theta
     se: float | None = None
@@ -153,7 +166,7 @@ def aggregate_from_session_state(state: Dict[str, Any] | None) -> Tuple[Dict[str
             # Add prior information 1/sigma^2 if using Bayesian prior
             s = Settings()
             prior_var = float(s.CAT_PRIOR_SD or 1.0) ** 2
-            I_total += (1.0 / prior_var)
+            I_total += 1.0 / prior_var
             if I_total > 0:
                 se = float(1.0 / math.sqrt(I_total))
         except Exception:

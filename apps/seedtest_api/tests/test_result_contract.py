@@ -83,7 +83,9 @@ def test_percentile_and_accuracy_bounds_validation():
             score=100.0,
             score_detail=ScoreDetail(raw=None, scaled=100.0),
             percentile=50,
-            topic_breakdown=[TopicBreakdown(topic="t", correct=1, total=1, accuracy=1.5)],
+            topic_breakdown=[
+                TopicBreakdown(topic="t", correct=1, total=1, accuracy=1.5)
+            ],
             questions=[],
             recommendations=[],
             created_at=None,
@@ -97,6 +99,7 @@ def test_percentile_and_accuracy_bounds_validation():
 
 def test_updated_at_in_mapper():
     from datetime import datetime, timezone
+
     ts = datetime(2025, 10, 18, 10, 0, 0, tzinfo=timezone.utc)
     src = {
         "session_id": "sess-3",

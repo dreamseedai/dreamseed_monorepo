@@ -27,9 +27,7 @@ class ResultPayload(BaseModel):
                 "'percent_correct'). Values are floats."
             ),
             json_schema_extra={
-                "examples": [
-                    {"scaled": 128.5, "raw": 34.0, "percent_correct": 0.68}
-                ]
+                "examples": [{"scaled": 128.5, "raw": 34.0, "percent_correct": 0.68}]
             },
         ),
     ]
