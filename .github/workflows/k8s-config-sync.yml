@@ -64,6 +64,10 @@ jobs:
         with:
           version: 'latest'
 
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials "${{ steps.prepare.outputs.cluster }}" --location "${{ steps.prepare.outputs.location }}" --project "${{ steps.prepare.outputs.project_id }}"
+
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
@@ -78,10 +82,6 @@ jobs:
             --set installCRDs=true
           # Wait for CRDs to be established before proceeding
           kubectl wait --for=condition=Established crd/externalsecrets.external-secrets.io --timeout=180s || true
-
-      - name: Get GKE credentials
-        run: |
-          gcloud container clusters get-credentials "${{ steps.prepare.outputs.cluster }}" --location "${{ steps.prepare.outputs.location }}" --project "${{ steps.prepare.outputs.project_id }}"
 
       - name: Inject PROJECT_ID into ExternalSecrets (non-destructive)
         run: |
