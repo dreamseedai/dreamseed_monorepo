@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: seedtest-calibrate-mixed-effects
+  namespace: seedtest
+spec:
+  schedule: "30 3 * * *" # every day at 03:30
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: seedtest-calibrate-mixed-effects
+        spec:
+          restartPolicy: Never
+          serviceAccountName: seedtest-api
+          containers:
+            - name: r-glmm
+              image: ghcr.io/yourorg/r-glmm:latest # build from ops/data-science/r-glmm
+              command: ["python","-c"]
+              args:
+                - |
+                  from apps.seedtest_api.jobs.mixed_effects import run_glmm_job; run_glmm_job()
+              envFrom:
+                - configMapRef:
+                    name: seedtest-api-config
+                - secretRef:
+                    name: seedtest-api-secrets
