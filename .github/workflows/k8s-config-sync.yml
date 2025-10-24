@@ -1,0 +1,65 @@
+name: K8s Config Sync
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'ops/k8s/**'
+      - '.github/workflows/k8s-config-sync.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GKE_CLUSTER: ${{ vars.GKE_CLUSTER }}
+      GKE_LOCATION: ${{ vars.GKE_LOCATION }}
+      WIF_SA: ${{ vars.GCP_WIF_SERVICE_ACCOUNT }}
+      WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      WIF_PROVIDER_ALIAS: ${{ vars.GCP_WIF_PROVIDER }}
+      USE_GKE_GCLOUD_AUTH_PLUGIN: 'True'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare inputs
+        id: prepare
+        run: |
+          PROVIDER="${WIF_PROVIDER:-$WIF_PROVIDER_ALIAS}"
+          if [ -z "$PROJECT_ID" ] || [ -z "$GKE_CLUSTER" ] || [ -z "$GKE_LOCATION" ] || [ -z "$WIF_SA" ] || [ -z "$PROVIDER" ]; then
+            echo "Required repository Variables are missing. Please set: GCP_PROJECT_ID, GKE_CLUSTER, GKE_LOCATION, GCP_WIF_SERVICE_ACCOUNT, and GCP_WORKLOAD_IDENTITY_PROVIDER (or GCP_WIF_PROVIDER)." >&2
+            exit 1
+          fi
+          echo "provider=$PROVIDER" >> "$GITHUB_OUTPUT"
+          echo "project_id=$PROJECT_ID" >> "$GITHUB_OUTPUT"
+          echo "cluster=$GKE_CLUSTER" >> "$GITHUB_OUTPUT"
+          echo "location=$GKE_LOCATION" >> "$GITHUB_OUTPUT"
+          echo "service_account=$WIF_SA" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ steps.prepare.outputs.provider }}
+          service_account: ${{ steps.prepare.outputs.service_account }}
+          project_id: ${{ steps.prepare.outputs.project_id }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials "${{ steps.prepare.outputs.cluster }}" --location "${{ steps.prepare.outputs.location }}" --project "${{ steps.prepare.outputs.project_id }}"
+
+      - name: Inject PROJECT_ID into ExternalSecrets (non-destructive)
+        run: |
+          sed -i "s|projects/PROJECT_ID|projects/${{ steps.prepare.outputs.project_id }}|g" ops/k8s/overlays/gke/secrets/seedtest-api-jwt-externalsecret.yaml || true
+
+      - name: Apply Kustomize overlay to cluster
+        run: |
+          kubectl apply -k ops/k8s/overlays/gke
+          kubectl rollout status deploy/seedtest-api -n seedtest --timeout=120s || true
