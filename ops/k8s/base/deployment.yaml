@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seedtest-api
+  labels:
+    app: seedtest-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: seedtest-api
+  template:
+    metadata:
+      labels:
+        app: seedtest-api
+    spec:
+      serviceAccountName: seedtest-api
+      containers:
+        - name: api
+          image: ghcr.io/dreamseedai/seedtest-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

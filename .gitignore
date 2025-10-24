@@ -192,6 +192,9 @@ schema.sql
 !docker-compose.yml
 !.github/workflows/*.yml
 !.github/workflows/*.yaml
+#! Allow tracking Kubernetes manifests under ops/k8s
+!ops/k8s/**/*.yml
+!ops/k8s/**/*.yaml
 
 # TypeScript files
 *.ts
