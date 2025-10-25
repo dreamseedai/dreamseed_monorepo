@@ -299,6 +299,17 @@ pre-commit install
   - Authorization: `require_session_access` gate checks admin/teacher/student with in-memory state; if schema includes `exam_sessions.org_id`, it also validates teacher org in DB; otherwise it conservatively denies ambiguous teacher access.
   - Endpoints use strict GET-vs-POST semantics: GET returns cached-only unless `refresh=true`.
   - Snapshots exclude certain fields (`score_detail`, `updated_at`) to keep the response contract stable while internal mappers remain rich.
+
+## AI 알고리즘 및 분석 (피드백 생성) 요약
+
+성적 리포트는 다음 요소를 종합해 개인화 피드백을 제공합니다.
+
+- 혼합효과 모델: 충분한 응답 데이터가 누적되면 학생 능력과 문항 난이도를 동시에 추정하여 편향을 줄입니다. 설정 `ANALYSIS_ENGINE=mixed_effects`로 연결(스텁 포함).
+- 성장 예측: 현재 점수/능력을 바탕으로 선형-감쇠 궤적을 추정하고, 표준오차(SE)가 있으면 목표 점수 도달 확률(예: 5회 내 150점)을 계산하여 `forecast.goals`에 포함합니다.
+- 추천 엔진: 약점 토픽을 기준으로 학습 리소스를 추천합니다. 기본은 규칙 기반이며, 협업필터링/콘텐츠 기반으로 확장 가능합니다.
+- 벤치마크: 개인 성적과 집단 통계(백분위 등)를 연결합니다. 전체 분포는 배치로 갱신 가능하며 조회 시 최신 값을 사용합니다.
+
+구현 위치: `services/analysis_service.py` (`compute_analysis`) / 라우터 `routers/analysis.py`. 엔진 플러그인: `services/score_analysis.get_engine`, 추천: `services/recommendation.get_recommender`.
 # SeedTest API — Exam Results
 
 This package exposes result endpoints to compute and fetch exam session results with FastAPI + PostgreSQL (JSONB cache).
