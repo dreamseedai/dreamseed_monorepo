@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cron-irt-calibrate
+  namespace: seedtest
+spec:
+  schedule: "0 2 * * *" # 매일 02:00
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: cron-irt-calibrate
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: curl
+              image: curlimages/curl:8.8.0
+              args:
+                - "-sS"
+                - "--fail"
+                - "http://r-irt-plumber.seedtest.svc.cluster.local/irt/calibrate"
