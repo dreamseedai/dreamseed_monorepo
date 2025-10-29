@@ -1,3 +1,7 @@
+# allow ops/k8s manifests
+!ops/
+!ops/k8s/
+!ops/k8s/**
 # Dependencies
 node_modules/
 npm-debug.log*

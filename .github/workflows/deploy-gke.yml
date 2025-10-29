@@ -1,0 +1,99 @@
+name: Deploy to GKE
+# How to run (manual):
+# 1) Set repo secrets: GCP_PROJECT_ID, GCP_REGION, GKE_CLUSTER_NAME, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT_EMAIL
+# 2) Run with inputs:
+#    - manifest_path: ops/k8s (or a subfolder to target a single service)
+#    - namespace: seedtest
+#    - rollout_kind: deployment
+#    - rollout_targets: seedtest-api,portal-frontend (optional; or use -l app=...)
+#    - environment: staging|production (enforces environment approvals if configured)
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_path:
+        description: "K8s manifest path or directory (e.g., ops/k8s or ops/k8s/seedtest-api)"
+        required: true
+        default: "ops/k8s"
+      namespace:
+        description: "K8s namespace"
+        required: false
+        default: "seedtest"
+      rollout_kind:
+        description: "Rollout target kind: deployment|statefulset|daemonset (optional)"
+        required: false
+        default: "deployment"
+      rollout_targets:
+        description: "Comma-separated names OR a label selector (e.g., -l app=seedtest-api). Leave blank to skip rollout status."
+        required: false
+        default: ""
+      environment:
+        description: "Environment name (staging/production). If protected, will require approvals."
+        required: false
+        default: "production"
+
+permissions:
+  contents: read
+  id-token: write  # OIDC
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ secrets.GCP_REGION }}
+  GKE_CLUSTER_NAME: ${{ secrets.GKE_CLUSTER_NAME }}
+  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Auth to GCP (OIDC)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials "${GKE_CLUSTER_NAME}" \
+            --region "${GCP_REGION}" \
+            --project "${GCP_PROJECT_ID}"
+
+      - name: Create namespace if missing
+        run: |
+          kubectl get ns "${{ github.event.inputs.namespace }}" >/dev/null 2>&1 || \
+          kubectl create ns "${{ github.event.inputs.namespace }}"
+
+      - name: Apply manifests
+        run: |
+          kubectl apply -n "${{ github.event.inputs.namespace }}" -f "${{ github.event.inputs.manifest_path }}"
+
+      - name: Optional rollout status
+        if: ${{ github.event.inputs.rollout_targets != '' }}
+        run: |
+          KIND="${{ github.event.inputs.rollout_kind }}"
+          TARGETS="${{ github.event.inputs.rollout_targets }}"
+          NS="${{ github.event.inputs.namespace }}"
+
+          if [[ "$TARGETS" == -* ]]; then
+            echo "Checking rollout by label selector: $TARGETS"
+            kubectl rollout status "$KIND" $TARGETS -n "$NS" --timeout=5m
+          else
+            IFS=',' read -ra ARR <<< "$TARGETS"
+            for name in "${ARR[@]}"; do
+              name_trimmed="$(echo "$name" | xargs)"
+              [[ -z "$name_trimmed" ]] && continue
+              echo "Checking rollout: $KIND/$name_trimmed"
+              kubectl rollout status "$KIND/$name_trimmed" -n "$NS" --timeout=5m
+            done
+          fi
