@@ -7,9 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from ..deps import User, get_current_user, require_session_access
 from ..schemas.analysis import AnalysisReport
 from ..services.analysis_service import compute_analysis
-from ..settings import Settings, settings
+from ..core.config import config
 
-router = APIRouter(prefix=f"{settings.API_PREFIX}", tags=["analysis"])
+router = APIRouter(prefix=f"{config.API_PREFIX}", tags=["analysis"])
 
 
 @router.get(
@@ -29,8 +29,7 @@ async def get_analysis(
     current_user: User = Depends(get_current_user),
     _: None = Depends(require_session_access),
 ) -> Any:
-    s = Settings()
-    if not s.ENABLE_ANALYSIS:
+    if not getattr(config, "ENABLE_ANALYSIS", True):
         raise HTTPException(status_code=501, detail="Analysis disabled")
     uid = current_user.user_id if current_user else None
     # Parse overrides if provided

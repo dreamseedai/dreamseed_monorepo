@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: report-renderer
+  namespace: seedtest
+  labels:
+    app.kubernetes.io/name: report-renderer
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: report-renderer
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: renderer
+          image: ghcr.io/dreamseedai/report-renderer:latest
+          args: ["--run-once"]
+          resources:
+            requests: { cpu: "500m", memory: "1Gi" }
+            limits:   { cpu: "2",    memory: "4Gi" }

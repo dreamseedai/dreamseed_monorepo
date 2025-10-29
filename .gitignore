@@ -348,3 +348,11 @@ tsconfig.json
 apps/seedtest_api/.venv/
 apps/seedtest_api/**/__pycache__/
 apps/seedtest_api/**/*.pyc
+
+# --- Branding assets (track SVGs and docs under assets/branding) ---
+!assets/
+!assets/branding/
+!assets/branding/**
+!assets/branding/**/*.md
+!assets/branding/**/*.svg
+.venv-tools/
