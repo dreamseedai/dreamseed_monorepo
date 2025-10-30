@@ -1,0 +1,8 @@
+# CODEOWNERS
+
+/ops/k8s/**                 @dreamseedai/devops-team
+/portal_front/**            @dreamseedai/frontend-team
+/portal_api/**              @dreamseedai/backend-team
+
+# Fallback reviewers
+*                           @mpcstudy @kerry-xxxx

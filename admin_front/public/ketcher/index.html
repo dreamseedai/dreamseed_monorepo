@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ketcher - Chemical Structure Editor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    #ketcher-container { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="ketcher-container"></div>
+
+  <!-- Optional static loader template (used when ?loader=static) -->
+  <!-- The vendoring script will keep this integrity attribute updated -->
+  <script
+    id="ds-ketcher-static-template"
+    src="standalone/main.js"
+    integrity="sha256-PLACEHOLDER"
+    crossorigin="anonymous"
+    defer
+    type="application/json"
+  ></script>
+
+  <!-- Dynamic loader: read sri.json if present, load standalone/main.js or fallback, then start app -->
+  <script>
+    (function(){
+      function getLoaderMode(){
+        try {
+          var params = new URLSearchParams(window.location.search || '');
+          var m = (params.get('loader') || '').toLowerCase();
+          return m === 'static' ? 'static' : 'dynamic';
+        } catch { return 'dynamic'; }
+      }
+      function addScript(src, integrity){
+        return new Promise(function(resolve, reject){
+          var s = document.createElement('script');
+          s.src = src;
+          s.defer = true;
+          if (integrity) { s.integrity = integrity; s.crossOrigin = 'anonymous'; }
+          s.onload = function(){ resolve(); };
+          s.onerror = function(){ reject(new Error('Failed to load '+src)); };
+          document.head.appendChild(s);
+        });
+      }
+      async function loadKetcher(){
+        var mode = getLoaderMode();
+        if (mode === 'static') {
+          // Use the static template tag's attributes to inject a real script
+          var tpl = document.getElementById('ds-ketcher-static-template');
+          if (tpl) {
+            try {
+              await addScript(tpl.getAttribute('src'), tpl.getAttribute('integrity'));
+            } catch (e) {
+              console.error('Static loader failed, falling back to dynamic:', e);
+              mode = 'dynamic';
+            }
+          } else {
+            mode = 'dynamic';
+          }
+        }
+        if (mode === 'dynamic') {
+          var sri = {};
+          try {
+            var r = await fetch('standalone/sri.json', { cache: 'no-store' });
+            if (r.ok) sri = await r.json();
+          } catch {}
+          try {
+            await addScript('standalone/main.js', sri['main.js']);
+          } catch (e1) {
+            try {
+              await addScript('standalone/index.js', sri['index.js']);
+            } catch (e2) {
+              await addScript('https://unpkg.com/ketcher-standalone@latest/dist/main.js');
+            }
+          }
+        }
+        if (typeof window.__startKetcherApp === 'function') {
+          window.__startKetcherApp();
+        }
+      }
+      document.addEventListener('DOMContentLoaded', loadKetcher);
+    })();
+  </script>
+
+  <script>
+    // Ketcher 초기화 (동적 로더가 스크립트 로드 후 호출)
+    let ketcherInstance = null;
+    window.__startKetcherApp = async () => {
+      try {
+        const Provider = window.Ketcher?.StandaloneStructServiceProvider || window.Ketcher?.StandaloneStructService;
+        if (!Provider) {
+          console.error('Ketcher Standalone provider not found');
+          return;
+        }
+        const structServiceProvider = new Provider();
+
+        ketcherInstance = await window.Ketcher.Editor.create(
+          document.getElementById('ketcher-container'),
+          { structServiceProvider }
+        );
+
+        // TinyMCE에 준비 완료 알림
+        window.parent?.postMessage({ type: 'dreamseed:chem:ready' }, '*');
+
+        // 초기 데이터 수신 대기
+        window.addEventListener('message', async (ev) => {
+          const data = ev?.data;
+          if (!data || typeof data !== 'object') return;
+          if (data.type === 'dreamseed:chem:init') {
+            if (data.molfile) {
+              try {
+                if (ketcherInstance.setMolecule) await ketcherInstance.setMolecule(data.molfile);
+                else if (ketcherInstance.setMolfile) await ketcherInstance.setMolfile(data.molfile);
+              } catch (e) {
+                console.error('Failed to load molfile:', e);
+              }
+            }
+          }
+        });
+
+        // 전역 함수로 내보내기
+        window.submitStructure = async () => {
+          try {
+            const molfile = ketcherInstance.getMolfile ? await ketcherInstance.getMolfile() : (ketcherInstance.getMol ? await ketcherInstance.getMol() : '');
+            const svg = ketcherInstance.getSVG ? await ketcherInstance.getSVG() : (ketcherInstance.getSvg ? await ketcherInstance.getSvg() : '');
+            window.parent?.postMessage({ type: 'dreamseed:chem:submit', molfile, svg }, '*');
+          } catch (e) {
+            console.error('Failed to get structure:', e);
+            alert('구조를 가져오는데 실패했습니다.');
+          }
+        };
+
+        window.cancelStructure = () => {
+          window.parent?.postMessage({ type: 'dreamseed:chem:cancel' }, '*');
+        };
+
+        // 단축키 등록
+        document.addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            window.submitStructure();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            window.cancelStructure();
+          }
+        });
+      } catch (error) {
+        console.error('Ketcher initialization failed:', error);
+        alert('Ketcher를 초기화하는데 실패했습니다.');
+      }
+    };
+  </script>
+
+  <!-- 하단 버튼 (TinyMCE 다이얼로그 내에서는 보이지 않지만, 독립 실행 시 유용) -->
+  <div style="position: fixed; bottom: 10px; right: 10px; z-index: 10000; display: flex; gap: 8px;">
+    <button 
+      onclick="window.submitStructure?.()" 
+      style="padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;"
+    >
+      삽입 (Ctrl+Enter)
+    </button>
+    <button 
+      onclick="window.cancelStructure?.()" 
+      style="padding: 8px 16px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;"
+    >
+      취소 (Esc)
+    </button>
+  </div>
+</body>
+</html>

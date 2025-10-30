@@ -395,6 +395,32 @@ GitHub Actions를 통한 자동 배포:
 | `DB_PATH` | SQLite 데이터베이스 경로 | ./dreamseed_analytics.db | ✅ |
 | `LOG_LEVEL` | 로그 레벨 | INFO | ❌ |
 
+### 업로드(문항 에디터)
+
+문항 본문 편집기에서 이미지 삽입을 지원합니다. 두 가지 경로를 제공하며, 환경에 맞게 선택/혼용할 수 있습니다.
+
+- 서버 업로드(기본): 파일을 FastAPI 백엔드로 업로드 후 공개 URL(`/uploads/...`)을 본문에 마크다운으로 삽입
+	- 엔드포인트: `POST /api/seedtest/uploads/images` (multipart/form-data, field: `file`)
+	- 권한: 관리자/교사
+	- 환경변수(백엔드)
+		- `UPLOAD_DIR` (기본: `apps/seedtest_api/data/uploads`)
+		- `UPLOAD_MAX_MB` (기본: 10)
+		- `ALLOWED_IMAGE_MIME` (CSV, 예: `image/png,image/jpeg,image/webp`)
+	- 공개 URL: FastAPI가 `/uploads` 정적 mount로 서빙 (org_id가 있으면 `/uploads/{org}/...`)
+
+- S3 사전서명 업로드(선택): 브라우저가 S3에 직접 업로드 → CDN/퍼블릭 URL을 본문에 삽입
+	- 사전서명 엔드포인트: `POST /api/seedtest/uploads/images/presign` (body: `{ filename, content_type }`)
+	- 권한: 관리자/교사
+	- 환경변수(백엔드)
+		- `AWS_S3_BUCKET`, `AWS_S3_REGION` (필수)
+		- `AWS_S3_PUBLIC_BASE` (선택, CDN 도메인), `AWS_S3_PREFIX` (기본: `uploads`)
+		- `UPLOAD_MAX_MB` (정책에 반영), `ALLOWED_IMAGE_MIME`
+	- 환경변수(프런트엔드)
+		- `NEXT_PUBLIC_UPLOAD_MODE=presigned` 설정 시 사전서명 경로를 우선 시도, 실패 시 서버 업로드로 폴백
+
+프런트엔드에서 URL로 삽입(수동): “이미지(URL)” 버튼으로 `![ALT](https://...)` 형태를 즉시 삽입하며 성공 토스트를 표시합니다.
+
+
 ### 데이터베이스 설정
 
 #### SQLite

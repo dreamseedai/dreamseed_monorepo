@@ -1,0 +1,28 @@
+{
+  "name": "Main protection",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/heads/main"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    { "type": "pull_request" },
+    { "type": "required_signatures" },
+    { "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          {
+            "context": "DreamSeed Python CI / Black / isort / Flake8"
+          }
+        ]
+      }
+    },
+    { "type": "required_linear_history" }
+  ],
+  "bypass_actors": [],
+  "bypass_mode": "always"
+}

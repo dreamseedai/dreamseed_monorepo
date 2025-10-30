@@ -97,7 +97,7 @@ class ForceRequest(BaseModel):
         "- 500: internal error\n"
     ),
     response_model=ResultContract,
-    response_model_exclude={"score_detail", "updated_at"},
+    response_model_exclude={"updated_at"},
     # Keep None fields in POST response so contract keyset remains stable (exam_id may be null)
     response_model_exclude_none=False,
     responses={
@@ -226,7 +226,7 @@ async def create_or_refresh_result(
         "- 500: internal error\n"
     ),
     response_model=ResultContract,
-    response_model_exclude={"score_detail", "updated_at"},
+    response_model_exclude={"updated_at"},
     response_model_exclude_none=True,
     responses={
         200: {

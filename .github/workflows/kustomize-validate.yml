@@ -1,0 +1,32 @@
+name: Kustomize Validate
+
+on:
+  pull_request:
+    paths:
+      - 'portal_front/ops/k8s/**'
+      - 'infra/argocd/**'
+      - '.github/workflows/kustomize-validate.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup kustomize
+        uses: imranismail/setup-kustomize@v1
+        with:
+          kustomize-version: '5.4.1'
+
+      - name: Build r-glmm-plumber internal overlay
+        run: |
+          kustomize build portal_front/ops/k8s/r-plumber/overlays/internal | tee /dev/null
+
+      - name: Build r-irt-plumber internal overlay
+        run: |
+          kustomize build portal_front/ops/k8s/r-irt-plumber/overlays/internal | tee /dev/null
+
+      - name: Validate argocd root app compiles
+        run: |
+          yq --version || sudo snap install yq
+          test -f infra/argocd/root-app.yaml

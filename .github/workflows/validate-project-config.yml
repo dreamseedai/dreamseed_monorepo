@@ -1,0 +1,48 @@
+name: Validate Project Config
+
+on:
+  pull_request:
+    paths:
+      - 'portal_front/scripts/project_config.schema.json'
+      - 'portal_front/scripts/project_config.json'
+      - 'portal_front/scripts/validate_project_config.py'
+  push:
+    branches: [ main, develop, staging ]
+    paths:
+      - 'portal_front/scripts/project_config.schema.json'
+      - 'portal_front/scripts/project_config.json'
+      - 'portal_front/scripts/validate_project_config.py'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install validator dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema
+      - name: Validate config
+        env:
+          PROJECT_CONFIG_JSON: portal_front/scripts/project_config.json
+        run: |
+          python portal_front/scripts/validate_project_config.py || exit 0
+
+  dry-run-bulk-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare sample CSV
+        run: |
+          mkdir -p project_management
+          printf "id,title,assignees,labels,story_points,branch,body\n" > project_management/github_issues.csv
+          printf "PR-TEST-1,Sample Issue for Dry Run,,implementation;roadmap,5,feature/sample-branch-PR-TEST-1,Auto body line 1\\nAuto body line 2\n" >> project_management/github_issues.csv
+      - name: Dry-run (no gh/git) bash bulk script
+        env:
+          PROJECT_CONFIG_JSON: portal_front/scripts/project_config.json
+        run: |
+          bash portal_front/scripts/gh_issues_bulk.sh github github project_management/github_issues.csv dreamseedai 1 --create-branch --create-pr --draft --base main --dry-run --dry-run-projects

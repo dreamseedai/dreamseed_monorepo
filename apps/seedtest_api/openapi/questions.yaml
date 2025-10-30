@@ -1,0 +1,1122 @@
+openapi: 3.0.3
+info:
+  title: SeedTest Questions API
+  version: "1.0.0"
+  description: |
+    Questions CRUD and search endpoints for SeedTest.
+    - All endpoints require a valid JWT with `role` claim (`admin` or `teacher`) unless stated otherwise.
+    - Org-scoped authorization applies server-side (teachers restricted to their org; admins per platform policy).
+    - Idempotency-Key: POST/PUT/DELETE accept an optional `Idempotency-Key` header to safely retry without duplicate side effects. Reusing the same key with a different body yields 409 `idempotency_key_conflict`.
+    - ETag/If-Match: GET returns `ETag`. PUT/DELETE honor `If-Match` for optimistic concurrency; servers MAY require preconditions (428) and return 412 on ETag mismatch.
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: http://localhost:8000
+    description: Local Dev
+tags:
+  - name: Questions
+    description: Manage and search questions
+paths:
+  /api/seedtest/topics:
+    get:
+      tags: [Questions]
+      summary: List topics for dropdowns
+      operationId: listTopics
+      security:
+        - bearerAuth: []
+      description: |
+        Returns a lightweight list of topics for use in filters and forms. Servers MAY cache this result aggressively
+        as topics change infrequently. Implementations MAY support subject-level filtering.
+      parameters:
+        - name: subject
+          in: query
+          required: false
+          description: Optional subject name/code to filter topics (e.g., Math)
+          schema:
+            type: string
+        - name: org_id
+          in: query
+          required: false
+          description: Admin-only. Scope topics to an organization. When provided, `include_global` controls whether to include global topics together.
+          schema:
+            type: integer
+        - name: include_global
+          in: query
+          required: false
+          description: Admin-only with org_id. Include global topics along with the organization topics. Defaults to true.
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                    - $ref: '#/components/schemas/Topic'
+                    - type: string
+    post:
+      tags: [Questions]
+      summary: Create a topic (admin)
+      operationId: createTopic
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicCreate'
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topic'
+        '403': { description: Forbidden }
+        '409': { description: Conflict }
+
+  /api/seedtest/topics/{id}:
+    put:
+      tags: [Questions]
+      summary: Update a topic (admin)
+      operationId: updateTopic
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topic'
+        '403': { description: Forbidden }
+        '404': { description: Not Found }
+        '409': { description: Conflict }
+
+    delete:
+      tags: [Questions]
+      summary: Delete a topic (admin)
+      operationId: deleteTopic
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicDeleteResponse'
+        '403': { description: Forbidden }
+        '404': { description: Not Found }
+        '409': { description: Conflict — topic in use }
+
+  /api/seedtest/topics/{id}/merge:
+    post:
+      tags: [Questions]
+      summary: Merge a topic into another (admin)
+      operationId: mergeTopic
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicMerge'
+      responses:
+        '200':
+          description: Merged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicMergeResponse'
+        '403': { description: Forbidden }
+        '404': { description: Not Found }
+        '409': { description: Conflict }
+              examples:
+                objects:
+                  value:
+                    - id: 5
+                      name: "미분"
+                      subject: "Math"
+                    - id: 6
+                      name: "적분"
+                      subject: "Math"
+                strings:
+                  value: ["미분", "적분", "행렬"]
+        '422':
+          description: Unprocessable Entity — invalid query parameter
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/seedtest/topics/cache/invalidate:
+    post:
+      tags: [Questions]
+      summary: Invalidate topics cache (admin)
+      operationId: invalidateTopicsCache
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cache invalidated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheInvalidateResponse'
+        '403': { description: Forbidden }
+  /api/seedtest/questions:
+    get:
+      tags: [Questions]
+      summary: List and search questions (paged)
+      operationId: listQuestions
+      security:
+        - bearerAuth: []
+      description: |
+        Retrieves a paginated list of questions with filtering/sorting.
+        - Supports lightweight `content_snippet` for preview (first ~100 chars).
+        - Large datasets should ensure proper DB indexing.
+      parameters:
+        - name: keyword
+          in: query
+          description: Full-text keyword to search question content (ILIKE or text search)
+          required: false
+          schema:
+            type: string
+        - name: topic_id
+          in: query
+          description: Filter by topic identifier (or name, server may resolve)
+          required: false
+          schema:
+            type: integer
+        - name: topic
+          in: query
+          description: Legacy topic name filter; use topic_id when possible.
+          required: false
+          schema:
+            type: string
+        - name: difficulty_min
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: difficulty_max
+          in: query
+          required: false
+          schema:
+            type: number
+            maximum: 1
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [difficulty, created_at, updated_at, topic, discrimination, guessing]
+            default: updated_at
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionListResponse'
+              examples:
+                default:
+                  value:
+                    total: 1245
+                    page: 2
+                    page_size: 50
+                    questions:
+                      - question_id: 101
+                        content_snippet: "다음 함수의 극값은?"
+                        difficulty: 0.0
+                        discrimination: 1.2
+                        guessing: 0.0
+                        topic: "미분"
+                        updated_at: "2025-09-10T12:30:00"
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '422':
+          description: Unprocessable Entity — invalid query parameter (e.g., bad page/order/sort_by)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags: [Questions]
+      summary: Create a new question
+      operationId: createQuestion
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: |
+            Optional idempotency key to safely retry the same create request without creating duplicates.
+            If provided and the same key was used for an identical request recently, the server should return the original result.
+          schema:
+            type: string
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionCreateInput'
+            examples:
+              default:
+                value:
+                  content: "문제 내용..."
+                  solution_explanation: "해설..."
+                  topic_id: 5
+                  difficulty: 0.0
+                  discrimination: 1.0
+                  guessing: 0.25
+                  choices:
+                    - content: "보기1 내용"
+                      is_correct: false
+                    - content: "보기2 내용"
+                      is_correct: true
+      responses:
+        '201':
+          description: |
+            Created; inserts the question and choices within a single transaction.
+            Idempotency: If a client supplies the same `Idempotency-Key` and the request body is identical, the server should return the same response without creating a duplicate record.
+          headers:
+            ETag:
+              description: Entity tag for the created resource; clients may store and use in subsequent If-Match conditions
+              schema:
+                type: string
+            Warning:
+              description: |
+                Optional warnings about out-of-recommended-range IRT parameters (e.g., discrimination too high/low, guessing near 0 or >= 1).
+                Present only when the server determines values merit client/operator attention.
+              schema:
+                type: string
+            X-Warning:
+              description: |
+                Same as Warning; provided for environments or proxies that might strip the standard Warning header. Clients MAY read either header.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionCreateResponse'
+              examples:
+                default:
+                  value:
+                    question_id: 1234
+                    message: "Question created successfully"
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '409':
+          description: Conflict — duplicate create attempt detected for the same Idempotency-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                duplicate-create:
+                  value:
+                    error: "Conflict"
+                    detail: "Duplicate create attempt for Idempotency-Key"
+                    idempotency_key: "abcd-1234"
+                    original_question_id: 1234
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                duplicate-create-problem:
+                  value:
+                    type: "about:blank"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Duplicate create attempt for Idempotency-Key"
+                    instance: "/api/seedtest/questions"
+        '422':
+          description: Unprocessable Entity — body validation error (Pydantic)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/seedtest/questions/{id}:
+    get:
+      tags: [Questions]
+      summary: Get a question by ID
+      operationId: getQuestion
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          headers:
+            ETag:
+              description: Entity tag for this resource; supply via If-Match on updates for concurrency control
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionDetail'
+              examples:
+                default:
+                  value:
+                    question_id: 101
+                    content: "문항 내용 본문..."
+                    solution_explanation: "이 문제의 해설은 ..."
+                    topic_id: 5
+                    difficulty: 0.0
+                    discrimination: 1.2
+                    guessing: 0.25
+                    choices:
+                      - choice_id: 201
+                        content: "선택지1 내용"
+                        is_correct: false
+                      - choice_id: 202
+                        content: "선택지2 내용"
+                        is_correct: true
+                    created_by: 7
+                    updated_by: "7"
+                    created_at: "2025-09-01T09:00:00"
+                    updated_at: "2025-09-10T12:30:00"
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden-org:
+                  value:
+                    type: "about:blank"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "forbidden_org"
+                    instance: "/api/seedtest/questions/101"
+                forbidden-global:
+                  value:
+                    type: "about:blank"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "forbidden_global"
+                    instance: "/api/seedtest/questions/101"
+        '422':
+          description: Unprocessable Entity — invalid path parameter
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags: [Questions]
+      summary: Update a question
+      description: |
+        Full replacement update. The server updates the base question row and replaces all choices:
+        - Existing choices are deleted and the provided `choices` array is inserted anew.
+        - `choice_id` values are not preserved across updates (clients should not rely on stable choice IDs).
+        - Operation runs within a single transaction; on any error, all changes are rolled back.
+        Idempotency: PUT is idempotent. Repeating the same update body results in the same persisted state and a 200 response.
+        If partial updates are desired, consider a PATCH endpoint in the future.
+
+        Authorization rules:
+        - Teacher may update when either:
+          1) question.org_id equals the teacher's org_id, or
+          2) the question is global (org_id is null) AND the teacher is the creator/author of the question (created_by/author equals JWT subject).
+        - Otherwise, 403 will be returned (forbidden_org or forbidden_global).
+        - Admins may update; global edit may still be restricted by platform policy (PLATFORM_GLOBAL_EDITABLE=false returns 403).
+      operationId: updateQuestion
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: |
+            Optional idempotency key to safely retry the same update without applying it twice. When provided, repeating the same body with the same key will return the original response. A different body with the same key will return 409 Conflict.
+          schema:
+            type: string
+            maxLength: 128
+        - name: If-Match
+          in: header
+          required: false
+          description: |
+            Concurrency control. Supply the current entity tag (ETag). If it is missing while preconditions are required, 428 Precondition Required is returned. If it does not match the current server state, 412 Precondition Failed is returned.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionUpdateInput'
+            examples:
+              default:
+                value:
+                  content: "문제 내용(수정)..."
+                  solution_explanation: "해설(수정)..."
+                  topic_id: 5
+                  difficulty: 0.2
+                  discrimination: 1.1
+                  guessing: 0.2
+                  choices:
+                    - content: "보기1(수정)"
+                      is_correct: false
+                    - content: "보기2(수정)"
+                      is_correct: true
+      responses:
+        '200':
+          description: Updated. Server may return a simple message or the full updated resource.
+          headers:
+            ETag:
+              description: New entity tag of the updated resource (when returning the representation)
+              schema:
+                type: string
+            Warning:
+              description: |
+                Optional warnings about out-of-recommended-range IRT parameters (e.g., discrimination too high/low, guessing near 0 or >= 1).
+                Present only when the server determines values merit client/operator attention.
+              schema:
+                type: string
+            X-Warning:
+              description: |
+                Same as Warning; provided for environments or proxies that might strip the standard Warning header. Clients MAY read either header.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/MessageResponse'
+                  - $ref: '#/components/schemas/QuestionDetail'
+              examples:
+                message:
+                  value:
+                    message: "Updated"
+                detail:
+                  value:
+                    question_id: 101
+                    content: "문항 내용 본문(수정)..."
+                    solution_explanation: "이 문제의 해설(수정) ..."
+                    topic_id: 5
+                    difficulty: 0.2
+                    discrimination: 1.1
+                    guessing: 0.2
+                    choices:
+                      - choice_id: 201
+                        content: "선택지1 내용(수정)"
+                        is_correct: false
+                      - choice_id: 202
+                        content: "선택지2 내용(수정)"
+                        is_correct: true
+                    created_by: "7"
+                    updated_by: "7"
+                    created_at: "2025-09-01T09:00:00"
+                    updated_at: "2025-09-10T12:31:00"
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden-org:
+                  value:
+                    type: "about:blank"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "forbidden_org"
+                    instance: "/api/seedtest/questions/101"
+                forbidden-global:
+                  value:
+                    type: "about:blank"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "forbidden_global"
+                    instance: "/api/seedtest/questions/101"
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict — other conflicts (e.g., idempotency key conflict when different body is used)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                idempotency-conflict:
+                  value:
+                    type: "about:blank"
+                    title: "Conflict"
+                    status: 409
+                    detail: "idempotency_key_conflict"
+                    instance: "/api/seedtest/questions/101"
+        '412':
+          description: Precondition Failed — ETag mismatch (If-Match does not match current resource)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                etag-mismatch:
+                  value:
+                    type: "about:blank"
+                    title: "Precondition Failed"
+                    status: 412
+                    detail: "etag_mismatch"
+                    instance: "/api/seedtest/questions/101"
+        '428':
+          description: Precondition Required — If-Match header required by server policy
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                precondition-required:
+                  value:
+                    type: "about:blank"
+                    title: "Precondition Required"
+                    status: 428
+                    detail: "precondition_required"
+                    instance: "/api/seedtest/questions/101"
+        '422':
+          description: Unprocessable Entity — body validation error (Pydantic)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags: [Questions]
+      summary: Delete a question
+      description: |
+        Deletes the question. If the question has been used in prior exam results, the server SHOULD log a warning for auditing.
+        FK is configured with ON DELETE CASCADE so related choices are removed automatically. Alternatively, servers MAY implement
+        soft-delete (e.g., `is_deleted` flag) and preserve the record.
+
+        Authorization rules:
+        - Teacher may delete when either:
+          1) question.org_id equals the teacher's org_id, or
+          2) the question is global (org_id is null) AND the teacher is the creator/author of the question (created_by/author equals JWT subject).
+        - Otherwise, 403 will be returned (forbidden_org or forbidden_global).
+        - Admins may delete; global delete may still be restricted by platform policy (PLATFORM_GLOBAL_EDITABLE=false returns 403).
+      operationId: deleteQuestion
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: |
+            Optional idempotency key to safely retry the same delete without deleting twice. When provided, repeating the same request with the same key will return the original response.
+          schema:
+            type: string
+            maxLength: 128
+        - name: If-Match
+          in: header
+          required: false
+          description: |
+            Concurrency control. Supply the current entity tag (ETag). If it is missing while preconditions are required, 428 Precondition Required is returned. If it does not match the current server state, 412 Precondition Failed is returned.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Question deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              examples:
+                default:
+                  value:
+                    message: "Question deleted"
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden-org:
+                  value:
+                    type: "about:blank"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "forbidden_org"
+                    instance: "/api/seedtest/questions/101"
+                forbidden-global:
+                  value:
+                    type: "about:blank"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "forbidden_global"
+                    instance: "/api/seedtest/questions/101"
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict — server refused deletion due to related data or policy
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                in-use:
+                  value:
+                    type: "about:blank"
+                    title: "Conflict"
+                    status: 409
+                    detail: "question_has_responses"
+                    instance: "/api/seedtest/questions/101"
+        '412':
+          description: Precondition Failed — ETag mismatch (If-Match does not match current resource)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                etag-mismatch:
+                  value:
+                    type: "about:blank"
+                    title: "Precondition Failed"
+                    status: 412
+                    detail: "etag_mismatch"
+                    instance: "/api/seedtest/questions/101"
+        '428':
+          description: Precondition Required — If-Match header required by server policy
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                precondition-required:
+                  value:
+                    type: "about:blank"
+                    title: "Precondition Required"
+                    status: 428
+                    detail: "precondition_required"
+                    instance: "/api/seedtest/questions/101"
+        '422':
+          description: Unprocessable Entity — invalid path parameter
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    QuestionListItem:
+      type: object
+      properties:
+        question_id:
+          type: integer
+        content_snippet:
+          type: string
+          description: ~100 characters
+        difficulty:
+          type: number
+          minimum: 0
+          maximum: 1
+        discrimination:
+          type: number
+        guessing:
+          type: number
+        topic:
+          oneOf:
+            - type: string
+            - type: integer
+        updated_at:
+          type: string
+          format: date-time
+      required: [question_id, content_snippet, difficulty, topic, updated_at]
+    QuestionListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionListItem'
+      required: [total, page, page_size, questions]
+    Question:
+      type: object
+      properties:
+        id: { type: integer }
+        stem: { type: string }
+        explanation: { type: string, nullable: true }
+        options:
+          type: array
+          items: { type: string }
+        answer: { type: integer, description: index of options }
+        difficulty: { type: string, enum: [easy, medium, hard] }
+        topic: { type: string, nullable: true }
+        topic_id: { type: integer, nullable: true }
+        tags:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [draft, published, deleted] }
+        author: { type: string, nullable: true }
+        discrimination: { type: number, nullable: true }
+        guessing: { type: number, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, stem, options, answer, difficulty, status, tags, created_at, updated_at]
+    Choice:
+      type: object
+      properties:
+        choice_id:
+          type: integer
+        content:
+          type: string
+        is_correct:
+          type: boolean
+      required: [choice_id, content, is_correct]
+    QuestionDetail:
+      type: object
+      description: Detailed question view for editor; choices may be empty for subjective items.
+      properties:
+        question_id:
+          type: integer
+        content:
+          type: string
+        solution_explanation:
+          type: string
+        topic_id:
+          type: integer
+          nullable: true
+        difficulty:
+          type: number
+          description: Difficulty parameter in [0,1]
+          minimum: 0
+          maximum: 1
+        discrimination:
+          type: number
+          nullable: true
+        guessing:
+          type: number
+          nullable: true
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Choice'
+        created_by:
+          type: string
+          description: User ID (JWT subject or external IdP identifier) that created the question
+        updated_by:
+          type: string
+          description: User ID (JWT subject or external IdP identifier) that last updated the question
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        etag:
+          type: string
+          description: Optional mirror of the ETag response header for convenience; clients should prefer the ETag header
+      required: [question_id, content, topic_id, difficulty, choices, created_at, updated_at]
+    ChoiceCreate:
+      type: object
+      properties:
+        content:
+          type: string
+        is_correct:
+          type: boolean
+      required: [content, is_correct]
+    QuestionCreateInput:
+      type: object
+      description: |
+        Create payload. For subjective questions, send an empty choices array.
+        Servers should validate required fields and return 400 on invalid input.
+        Validation constraints:
+        - If `choices` is non-empty, it MUST contain at least one item with `is_correct = true`.
+        - Recommended: exactly one correct choice for standard MCQ (the API does not strictly require uniqueness but servers may enforce it).
+        - `difficulty` MUST be within [0, 1].
+        - 3PL parameters: if provided, `discrimination (a) > 0`, `guessing (c) in [0, 1)`; `b` is model/scale-dependent and typically ~[-3,3].
+      properties:
+        content:
+          type: string
+        solution_explanation:
+          type: string
+          nullable: true
+        topic_id: { type: integer, nullable: true }
+        topic: { type: string, nullable: true, description: Legacy name; server may map from topic_id }
+        difficulty:
+          type: number
+          minimum: 0
+          maximum: 1
+        discrimination:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          nullable: true
+        guessing:
+          type: number
+          minimum: 0
+          maximum: 1
+          exclusiveMaximum: true
+          nullable: true
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChoiceCreate'
+          minItems: 0
+      required: [content, difficulty]
+    QuestionCreateResponse:
+      type: object
+      properties:
+        question_id:
+          type: integer
+        message:
+          type: string
+          example: "Question created successfully"
+      required: [question_id, message]
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Updated"
+        warning:
+          type: string
+          description: Optional warning message (e.g., when deleting a question that appears in past results)
+          example: "This question appears in past results; deletion was logged"
+      required: [message]
+    ErrorResponse:
+      type: object
+      description: Generic error envelope
+      properties:
+        error:
+          type: string
+          example: "Conflict"
+        detail:
+          type: string
+          example: "Duplicate create attempt for Idempotency-Key"
+      additionalProperties: true
+      required: [error]
+    ProblemDetails:
+      type: object
+      description: RFC 7807 Problem Details
+      properties:
+        type:
+          type: string
+          format: uri
+          example: "about:blank"
+        title:
+          type: string
+          example: "Conflict"
+        status:
+          type: integer
+          example: 409
+        detail:
+          type: string
+          example: "Duplicate create attempt for Idempotency-Key"
+        instance:
+          type: string
+          example: "/api/seedtest/questions/101"
+      additionalProperties: true
+    TopicDeleteResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Topic deleted"
+        deleted_id:
+          type: integer
+        deleted:
+          $ref: '#/components/schemas/Topic'
+      required: [message, deleted_id, deleted]
+    TopicMergeResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Merged"
+        from:
+          $ref: '#/components/schemas/Topic'
+        to:
+          $ref: '#/components/schemas/Topic'
+        updated_questions:
+          type: integer
+          nullable: true
+      required: [message, from, to]
+    Topic:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        org_id:
+          type: integer
+          nullable: true
+        parent_topic_id:
+          type: integer
+          nullable: true
+      required: [id, name]
+
+    TopicCreate:
+      type: object
+      properties:
+        name: { type: string }
+        org_id: { type: integer, nullable: true }
+        parent_topic_id: { type: integer, nullable: true }
+      required: [name]
+
+    TopicUpdate:
+      type: object
+      properties:
+        name: { type: string, nullable: true }
+        parent_topic_id: { type: integer, nullable: true }
+
+    TopicMerge:
+      type: object
+      properties:
+        target_id: { type: integer }
+      required: [target_id]
+    CacheInvalidateResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Cache invalidated"
+        deleted_keys:
+          type: integer
+          example: 42
+      required: [message]
+    QuestionUpdateInput:
+      allOf:
+        - $ref: '#/components/schemas/QuestionCreateInput'
+
+x-notes:
+  indexing:
+    - name: idx_questions_content_gin
+      description: GIN index for full-text search over content/stem
+    - name: idx_questions_topic
+      description: BTREE index on topic_id/name for exact filters
+    - name: idx_questions_difficulty
+      description: BTREE index on difficulty for range filters
+    - name: idx_questions_updated_at
+      description: BTREE index on updated_at for common sorting
+  validation:
+    - If choices is non-empty, ensure ≥1 correct choice (and preferably exactly 1 for MCQ).
+    - difficulty in [0,1].
+    - Treat PUT as full replacement (delete+reinsert choices); do not preserve choice_id across updates.
+  idempotency:
+    - POST supports optional Idempotency-Key header to prevent duplicate creates on retries.
+    - PUT is idempotent by nature; repeated identical bodies yield the same state.

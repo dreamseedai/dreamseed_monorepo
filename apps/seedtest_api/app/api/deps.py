@@ -9,6 +9,8 @@ from typing import Callable, Dict
 from fastapi import Depends, HTTPException
 
 from ...security.jwt import require_scopes
+from ...settings import settings
+from ..clients.r_plumber import RPlumberClient
 
 
 async def get_current_user(user: Dict = Depends(require_scopes("exam:read"))) -> Dict:
@@ -41,3 +43,24 @@ def require_session_access(session_owner_id_getter: Callable[[str], str | None])
 
 
 __all__ = ["get_current_user", "require_session_access", "require_scopes"]
+
+
+def get_r_plumber_client() -> RPlumberClient:
+    """Provide an RPlumberClient using workspace settings.
+
+    Resolution order:
+    - If settings.R_PLUMBER_BASE_URL is set, use it.
+    - Else if LOCAL_DEV, default to http://127.0.0.1:8000 for convenience.
+    - Else raise 503 to signal the dependency is not configured.
+    """
+    base = settings.R_PLUMBER_BASE_URL
+    if not base and settings.LOCAL_DEV:
+        base = "http://127.0.0.1:8000"
+    if not base:
+        raise HTTPException(status_code=503, detail="r_plumber_unconfigured")
+    return RPlumberClient(
+        base_url=base,
+        timeout=settings.R_PLUMBER_TIMEOUT_SECS,
+        internal_token=settings.R_PLUMBER_INTERNAL_TOKEN,
+    )
+

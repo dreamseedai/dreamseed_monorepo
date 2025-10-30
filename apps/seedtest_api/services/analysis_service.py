@@ -1,3 +1,29 @@
+"""
+AI 알고리즘 및 분석(피드백 생성) — 구현 개요
+
+본 모듈은 성적 리포트 생성 시 다음 요소를 종합하여 개인화 피드백을 생성합니다.
+
+1) 혼합효과 모델(Mixed Effects)
+    - 많은 응답 데이터가 축적될 경우, 학생 개인차(능력)와 문항 난이도를 동시에 추정하여 편향을 제거합니다.
+    - 구성요소: 학생 랜덤효과(ability), 문항 난이도(item difficulty). 결과는 공정하고 일관된 능력 측정을 담보합니다.
+    - 구성 선택: config.ANALYSIS_ENGINE = "heuristic" | "irt" | "mixed_effects" 에 따라 엔진이 교체됩니다.
+
+2) 성장 예측(Growth Forecast)
+    - 현재 점수/능력을 기반으로 향후 성취 궤적을 예측합니다.
+    - 본 구현은 기본적으로 완만한 선형-감쇠 가정(linear taper)을 사용하되,
+      표준오차(SE)를 활용해 목표 점수 도달 확률(예: 5회 내 150점 달성 확률)을 계산하여 리포트에 포함합니다.
+    - Bayesian Update 기반의 보다 정교한 추정은 엔진 확장 시 대체 가능합니다.
+
+3) 추천 엔진(Recommendations)
+    - 약점 토픽을 추정하여 학습 리소스를 추천합니다.
+    - 기본(rule-based) → 고장 시 내부 규칙으로 폴백. 향후 협업필터링/콘텐츠 메타데이터 기반 엔진으로 교체 가능.
+
+4) 비교 및 벤치마크(Benchmark)
+    - 개인 성적과 집단 통계(백분위 등)를 연결합니다.
+    - 전체 분포는 배치로 갱신 가능(예: 1일 1회), 조회 시 최신 기준을 표시합니다.
+
+본 파일의 compute_analysis()는 위 요소들을 조합하여 AnalysisReport 스키마를 반환합니다.
+"""
 from __future__ import annotations
 
 import logging
@@ -16,7 +42,7 @@ from ..schemas.analysis import (
 from ..services import result_service
 from ..services.recommendation import get_recommender
 from ..services.score_analysis import get_engine
-from ..settings import Settings
+from ..core.config import config
 
 
 def _derive_topic_insights(topics: List[Dict[str, Any]]) -> List[TopicInsight]:
@@ -80,7 +106,7 @@ def compute_analysis(
     goal_targets: Optional[list[float]] = None,
     goal_horizons: Optional[list[int]] = None,
 ) -> AnalysisReport:
-    s = Settings()
+    s = config
     # Prefer cached result from DB; otherwise compute in-memory
     try:
         res = result_service.get_result_from_db(session_id, expected_user_id=user_id)
@@ -100,23 +126,14 @@ def compute_analysis(
                 exam_session_id=session_id,
                 user_id=user_id,
                 ability=AbilityEstimate(
-                    theta=0.0, standard_error=None, method=s.ANALYSIS_ENGINE
+                    theta=0.0, standard_error=None, method=getattr(s, "ANALYSIS_ENGINE", "heuristic")
                 ),
             )
 
     topics = res.get("topics") or res.get("topic_breakdown") or []
     insights = _derive_topic_insights(topics if isinstance(topics, list) else [])
-    # Use pluggable recommender (defaults to rule-based); fall back to internal rule if anything fails
-    try:
-        rec_engine = get_recommender(s.RECOMMENDER_ENGINE)
-        recs = rec_engine.recommend(insights, ability_theta=None, top_k=3)
-        if not isinstance(recs, list) or not all(hasattr(r, "message") for r in recs):
-            raise ValueError("invalid_recs")
-    except Exception:
-        recs = _recommend_from_topics(insights)
-
     # Ability estimate: delegate to configured engine (heuristic | irt | mixed_effects)
-    eng = get_engine(s.ANALYSIS_ENGINE)
+    eng = get_engine(getattr(s, "ANALYSIS_ENGINE", "heuristic"))
     theta, se, method = eng.estimate_ability(
         score_scaled=res.get("score_scaled")
         or (
@@ -138,6 +155,15 @@ def compute_analysis(
         method=method,
     )
 
+    # Use pluggable recommender (defaults to rule-based); prefer passing computed ability
+    try:
+        rec_engine = get_recommender(getattr(s, "RECOMMENDER_ENGINE", "rule"))
+        recs = rec_engine.recommend(insights, ability_theta=ability.theta, top_k=3)
+        if not isinstance(recs, list) or not all(hasattr(r, "message") for r in recs):
+            raise ValueError("invalid_recs")
+    except Exception:
+        recs = _recommend_from_topics(insights)
+
     # Growth forecast from current score (ensure we cover requested horizons if any)
     score_scaled = res.get("score_scaled") or (
         (res.get("score") or {}).get("scaled")
@@ -146,9 +172,18 @@ def compute_analysis(
     )
     # Resolve goal config: prefer per-request overrides, else settings
     if not goal_targets:
-        goal_targets = s.analysis_goal_targets or []
+        # Prefer uppercase env-driven names; keep lowercase for back-compat
+        goal_targets = (
+            getattr(s, "ANALYSIS_GOAL_TARGETS", None)
+            or getattr(s, "analysis_goal_targets", None)
+            or []
+        )
     if not goal_horizons:
-        goal_horizons = s.analysis_goal_horizons or []
+        goal_horizons = (
+            getattr(s, "ANALYSIS_GOAL_HORIZONS", None)
+            or getattr(s, "analysis_goal_horizons", None)
+            or []
+        )
     # Defaults if still empty
     if not goal_targets:
         goal_targets = [150.0]

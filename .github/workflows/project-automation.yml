@@ -1,0 +1,198 @@
+name: Project Automation
+
+on:
+  issues:
+    types: [opened, labeled]
+  pull_request:
+    types: [opened]
+
+jobs:
+  add-to-project:
+    if: github.event_name == 'issues' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add to project
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN || secrets.PROJECT_TOKEN || github.token }}
+          script: |
+            const projectUrl = '${{ secrets.PROJECT_URL }}';
+            const projectNumber = '${{ secrets.PROJECT_NUMBER }}';
+            
+            if (projectUrl) {
+              // Use add-to-project action via URL
+              const { execSync } = require('child_process');
+              try {
+                execSync(`npx @actions/add-to-project@v0.5.0 --project-url "${projectUrl}" --github-token "${{ secrets.GH_TOKEN || secrets.PROJECT_TOKEN || github.token }}"`, { stdio: 'inherit' });
+                core.info('Added to project via URL');
+                return;
+              } catch (error) {
+                core.warning('Failed to add via URL, trying fallback method');
+              }
+            }
+            
+            if (projectNumber) {
+              // Fallback: Add via org/project number
+              const org = '${{ secrets.PROJECT_ORG }}' || context.repo.owner;
+              const number = parseInt(projectNumber, 10);
+              const contentId = context.payload.issue?.node_id || context.payload.pull_request?.node_id;
+              if (!contentId) { core.setFailed('No issue/PR content id found'); return; }
+              const projRes = await github.graphql(`
+                query($org:String!,$number:Int!){ organization(login:$org){ projectV2(number:$number){ id title } } }
+              `, { org, number });
+              const projectId = projRes.organization?.projectV2?.id;
+              if (!projectId) { core.setFailed('Project not found'); return; }
+              const addRes = await github.graphql(`
+                mutation($project:ID!,$content:ID!){ addProjectV2ItemById(input:{projectId:$project, contentId:$content}) { item { id } } }
+              `, { project: projectId, content: contentId });
+              core.info('Added content to project via number: ' + JSON.stringify(addRes));
+            } else {
+              core.info('No PROJECT_URL or PROJECT_NUMBER provided; skipping.');
+            }
+
+  assign-default-reviewers:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request default reviewers
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const reviewers = (process.env.DEFAULT_REVIEWERS || '').split(',').map(s => s.trim()).filter(Boolean);
+            if (reviewers.length === 0) {
+              core.info('No DEFAULT_REVIEWERS provided. Skipping.');
+              return;
+            }
+            await github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              reviewers
+            });
+        env:
+          DEFAULT_REVIEWERS: ${{ secrets.DEFAULT_REVIEWERS }}
+
+  update-project-fields:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Projects V2 fields via GraphQL (Status, Story Points, Priority, Iteration)
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN || secrets.PROJECT_TOKEN || github.token }}
+          script: |
+            // Resolve org/number from either URL or explicit secrets
+            let org = '${{ secrets.PROJECT_ORG }}' || context.repo.owner;
+            let number = null;
+            const projectUrl = '${{ secrets.PROJECT_URL }}';
+            const projectNumber = '${{ secrets.PROJECT_NUMBER }}';
+            if (projectUrl) {
+              const m = projectUrl.match(/https:\/\/github\.com\/orgs\/([^\/]+)\/projects\/(\d+)/);
+              if (!m) { core.setFailed('Could not parse PROJECT_URL'); return; }
+              org = m[1];
+              number = parseInt(m[2], 10);
+            } else if (projectNumber) {
+              number = parseInt(projectNumber, 10);
+            } else {
+              core.info('No PROJECT_URL or PROJECT_NUMBER provided; skipping.'); return;
+            }
+
+            const isIssue = !!context.payload.issue;
+            if (!isIssue) { core.info('Not an issue event; skipping fields update.'); return; }
+
+            // Resolve project and fields
+            const projRes = await github.graphql(`
+              query($org:String!,$number:Int!){
+                organization(login:$org){
+                  projectV2(number:$number){ id title fields(first:100){ nodes { __typename ... on ProjectV2FieldCommon { id name } ... on ProjectV2SingleSelectField { id name options { id name } } ... on ProjectV2IterationField { id name configuration { iterations { id title } } } } } }
+                }
+              }
+            `, { org, number });
+            const project = projRes.organization?.projectV2;
+            if (!project) { core.setFailed('Project not found'); return; }
+            const fields = project.fields.nodes;
+            const statusField = fields.find(f => f.name === 'Status');
+            const spField = fields.find(f => f.name === 'Story Points');
+            const prioField = fields.find(f => f.name === 'Priority');
+            const iterField = fields.find(f => f.name === 'Iteration');
+
+            // Add content to project (idempotent)
+            const issueNodeId = context.payload.issue.node_id;
+            const addRes = await github.graphql(`
+              mutation($project:ID!,$content:ID!){ addProjectV2ItemById(input:{projectId:$project, contentId:$content}) { item { id } } }
+            `, { project: project.id, content: issueNodeId });
+            const itemId = addRes.addProjectV2ItemById.item.id;
+
+            const labels = (context.payload.issue.labels || []).map(l => (typeof l === 'string' ? l : l.name)).filter(Boolean).map(s => String(s));
+
+            // Status from labels/state
+            let statusName = 'Inbox';
+            const lower = labels.map(s => s.toLowerCase());
+            if (lower.includes('implementation') || lower.includes('in progress')) statusName = 'In Progress';
+            if (lower.includes('blocked')) statusName = 'Blocked';
+            if (context.payload.issue.state === 'closed' || lower.includes('done')) statusName = 'Done';
+            if (statusField?.options) {
+              const opt = statusField.options.find(o => o.name === statusName);
+              if (opt) {
+                await github.graphql(`
+                  mutation($project:ID!,$item:ID!,$field:ID!,$opt:String!){
+                    updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$opt}}){ clientMutationId }
+                  }
+                `, { project: project.id, item: itemId, field: statusField.id, opt: opt.id });
+              } else {
+                core.info(`Status option ${statusName} not found; skipping.`);
+              }
+            }
+
+            // Story Points from labels like sp:3 or sp:3.5
+            let sp = null;
+            for (const l of lower) {
+              const m = /^sp:(\d+(?:\.\d+)?)$/.exec(l);
+              if (m) { sp = parseFloat(m[1]); break; }
+            }
+            if (spField && sp != null) {
+              await github.graphql(`
+                mutation($project:ID!,$item:ID!,$field:ID!,$sp:Float!){ updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{number:$sp}}){ clientMutationId } }
+              `, { project: project.id, item: itemId, field: spField.id, sp });
+            }
+
+            // Priority from labels: priority:high -> High; p1/p2 -> P1/P2
+            if (prioField?.options) {
+              let prioLabel = null;
+              for (const l of lower) {
+                let m = /^priority:(.+)$/.exec(l);
+                if (m) { prioLabel = m[1].trim(); break; }
+                if (l === 'p1' || l === 'p2') { prioLabel = l.toUpperCase(); break; }
+              }
+              if (prioLabel) {
+                // Title-case common names (high/medium/low)
+                const pretty = prioLabel.length <= 3 ? prioLabel.toUpperCase() : prioLabel.charAt(0).toUpperCase() + prioLabel.slice(1);
+                const opt = prioField.options.find(o => o.name === pretty);
+                if (opt) {
+                  await github.graphql(`
+                    mutation($project:ID!,$item:ID!,$field:ID!,$opt:String!){ updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$opt}}){ clientMutationId } }
+                  `, { project: project.id, item: itemId, field: prioField.id, opt: opt.id });
+                } else {
+                  core.info(`Priority option ${pretty} not found; skipping.`);
+                }
+              }
+            }
+
+            // Iteration from label iter:YYYYwWW
+            if (iterField?.configuration?.iterations?.length) {
+              let iterTitle = null;
+              for (const l of labels) {
+                const m = /^iter:(.+)$/i.exec(l);
+                if (m) { iterTitle = m[1].trim(); break; }
+              }
+              if (iterTitle) {
+                const it = iterField.configuration.iterations.find(i => i.title === iterTitle);
+                if (it) {
+                  await github.graphql(`
+                    mutation($project:ID!,$item:ID!,$field:ID!,$iter:String!){ updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{iterationId:$iter}}){ clientMutationId } }
+                  `, { project: project.id, item: itemId, field: iterField.id, iter: it.id });
+                } else {
+                  core.info(`Iteration title ${iterTitle} not found; skipping.`);
+                }
+              }
+            }

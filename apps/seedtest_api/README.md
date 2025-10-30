@@ -57,14 +57,19 @@ Notes
 
 Ensure a local Postgres instance is running and that your `DATABASE_URL` points to a created database.
 
-Apply Alembic migrations for SeedTest API:
+We include Alembic config at the repo root (`alembic.ini`) and environment (`alembic/env.py`). To apply all migrations (initial `questions` table + helpful indexes):
 
 ```bash
-# From repo root, add apps/ to PYTHONPATH so alembic can import modules
-PYTHONPATH=apps alembic -c apps/seedtest_api/alembic.ini upgrade head
+# From repo root
+export DATABASE_URL=postgresql+psycopg2://USER:PASS@127.0.0.1:5432/dreamseed_db
+alembic upgrade head
 ```
 
-If you run into an Alembic version length issue (VARCHAR(32)), see repo README section “Alembic version length” for details. The above command uses the project’s Alembic config which already sets a longer version column type.
+Notes
+- If you prefer SQLite, set `DATABASE_URL=sqlite+pysqlite:////abs/path/to/seedtest.db?check_same_thread=False`.
+- No need to set PYTHONPATH for this Alembic config; it imports models via absolute paths.
+- The follow-up migration adds indexes on `(status, updated_at)`, and single-column indexes for `updated_at`, `created_at`, `topic`, `difficulty`.
+ - Postgres-only migrations also add a partial index on `updated_at` where `status <> 'deleted'` and GIN indexes on `tags` and `options` for JSON queries.
 
 Optional: You can also use the DB test harness script which ensures migrations are applied before running tests:
 
@@ -82,6 +87,109 @@ PYTHONPATH=apps uvicorn seedtest_api.main:app --reload --port 8002
 
 - OpenAPI docs: http://127.0.0.1:8002/docs
 - Healthcheck: GET http://127.0.0.1:8002/api/seedtest/health
+
+## Idempotency + ETag quickstart
+
+This API supports two important HTTP robustness features on mutation endpoints (Questions CRUD shown below):
+
+- Idempotency-Key: pass the same key to safely retry POST/PUT/DELETE without creating duplicates. If the request body changes between retries, the server returns 409 idempotency_key_conflict.
+- ETag + If-Match: conditional updates/deletes to prevent lost updates. On GET, the server returns an ETag header. On PUT/DELETE, send If-Match with that ETag; the server returns 412 etag_mismatch when the resource changed. If configured to require a precondition, missing If-Match returns 428 precondition_required.
+
+Settings
+- ENABLE_IDEMPOTENCY=true (default) toggles idempotency handling.
+- IDEMPOTENCY_TTL_SECS=86400 controls replay window.
+- REQUIRE_IF_MATCH_PRECONDITION=false by default; set true to mandate If-Match on PUT/DELETE.
+
+Examples (Questions)
+
+1) Create with idempotency and capture ETag
+
+```bash
+curl -i -X POST http://127.0.0.1:8002/api/seedtest/questions \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: create-q1-123' \
+  -d '{
+        "title": "Q1",
+        "stem": "2+2?",
+        "options": ["1","2","3","4"],
+        "answer": 3,
+        "difficulty": 0.3,
+        "topic": "arithmetic",
+        "tags": ["demo"]
+      }'
+# → 201 Created
+# → Headers include: ETag: W/"q:<id>:<ts_ms>"
+```
+
+2) Retry the same POST safely
+
+```bash
+# Reusing the same Idempotency-Key replays the same 201 response
+curl -i -X POST http://127.0.0.1:8002/api/seedtest/questions \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: create-q1-123' \
+  -d '{
+        "title": "Q1",
+        "stem": "2+2?",
+        "options": ["1","2","3","4"],
+        "answer": 3,
+        "difficulty": 0.3,
+        "topic": "arithmetic",
+        "tags": ["demo"]
+      }'
+# → 201 Created (replayed) with the same body and ETag
+```
+
+3) Update with If-Match
+
+```bash
+ETAG=$(curl -s http://127.0.0.1:8002/api/seedtest/questions/<QUESTION_ID> -i | grep -i ETag | awk '{print $2}')
+curl -i -X PUT http://127.0.0.1:8002/api/seedtest/questions/<QUESTION_ID> \
+  -H 'Content-Type: application/json' \
+  -H "If-Match: ${ETAG}" \
+  -H 'Idempotency-Key: update-q1-123' \
+  -d '{
+        "title": "Q1 (edited)",
+        "stem": "2+2?",
+        "options": ["1","2","3","4"],
+        "answer": 3,
+        "difficulty": 0.3,
+        "topic": "arithmetic",
+        "tags": ["demo"]
+      }'
+# → 200 OK, returns a new ETag
+```
+
+4) Concurrent update protection
+
+```bash
+# If the resource changed, the old ETag will be rejected
+curl -i -X PUT http://127.0.0.1:8002/api/seedtest/questions/<QUESTION_ID> \
+  -H 'Content-Type: application/json' \
+  -H 'If-Match: W/"q:<old>"' \
+  -d '{"title": "stale"}'
+# → 412 Precondition Failed (etag_mismatch)
+```
+
+5) Delete with If-Match and idempotency
+
+```bash
+ETAG=$(curl -s http://127.0.0.1:8002/api/seedtest/questions/<QUESTION_ID> -i | grep -i ETag | awk '{print $2}')
+curl -i -X DELETE http://127.0.0.1:8002/api/seedtest/questions/<QUESTION_ID> \
+  -H "If-Match: ${ETAG}" \
+  -H 'Idempotency-Key: delete-q1-123'
+# → 200 OK {"ok": true}
+
+# Retry with the same key safely replays {"ok": true}
+curl -i -X DELETE http://127.0.0.1:8002/api/seedtest/questions/<QUESTION_ID> \
+  -H 'Idempotency-Key: delete-q1-123'
+# → 200 OK {"ok": true}
+```
+
+Notes
+- In non-DB mode, idempotent responses are cached in-process for IDEMPOTENCY_TTL_SECS.
+- In DB mode, responses are stored in `idempotency_records` with a unique scope of (method, path, user_id, org_id, idempotency_key).
+- GET /questions/{id} always returns ETag; PUT/DELETE validate If-Match when provided and can require it via settings.
 
 ## 4) Try the exam flow locally
 
@@ -146,6 +254,38 @@ DB_PORT=5433 bash apps/seedtest_api/scripts/dev_db_test.sh apps/seedtest_api/tes
 ```
 
 This repo includes both unit tests (no DB) and DB-backed tests for results and listing endpoints. All should pass green after setup.
+
+### Question Bank DB-backed tests
+
+You can run the DB-backed Question Bank tests (SQLite temp DB) without Alembic:
+
+```bash
+# From repo root
+pytest -q apps/seedtest_api/tests/test_questions_db_integration.py
+pytest -q apps/seedtest_api/tests/test_questions_db_keyset_filters.py
+```
+
+These tests set `LOCAL_DEV=true`, create the `questions` table directly from SQLAlchemy metadata, and validate:
+- Create/Update/Delete/Get paths hitting the DB
+- Topics endpoint excluding deleted entries
+- Keyset pagination with `next_cursor_opaque` and richer filter/sort combinations
+
+### Question Bank indexing (Postgres)
+
+If you plan to filter/search inside JSON columns (e.g., tags/options containment), apply the provided Postgres-only migrations (included in `alembic/versions`) which create GIN indexes on `tags` and `options`. They’re no-ops on non-Postgres engines.
+
+Equivalent raw SQL if you manage indexes outside Alembic:
+
+```sql
+-- GIN on tags/options (cast to jsonb)
+CREATE INDEX IF NOT EXISTS ix_questions_tags_gin ON questions USING GIN ((tags::jsonb));
+CREATE INDEX IF NOT EXISTS ix_questions_options_gin ON questions USING GIN ((options::jsonb));
+
+-- Partial index to accelerate default list (exclude deleted)
+CREATE INDEX IF NOT EXISTS ix_questions_updated_at_not_deleted
+  ON questions (updated_at DESC)
+  WHERE status <> 'deleted';
+```
 
 ### Minimal Docker run with Postgres healthcheck (alternative)
 
@@ -286,6 +426,28 @@ pre-commit install
   - Add this as a scheduled monitor (Cloud SQL job, CronJob, or observability query) and page when count > 0.
   - See also: `ops/monitoring/README.md` for ready-to-use cron and Cloud Run Job snippets.
 
+### E2E smoke test (CI-ready)
+
+DevOps note: A lightweight end-to-end smoke can be run in CI to ensure the exam flow and results API stay healthy without external services.
+
+- Script: `apps/seedtest_api/scripts/e2e_smoke_test.py`
+  - Uses FastAPI TestClient to:
+    1) Create a session
+    2) Fetch next question and submit several answers
+    3) Fetch the result with `refresh=true`
+    4) Optionally fetch analysis (if enabled)
+  - Exits non-zero on any failure.
+
+- Run locally:
+
+```bash
+PYTHONPATH=apps LOCAL_DEV=true RESULT_EXCLUDE_TIMESTAMPS=true \
+  python apps/seedtest_api/scripts/e2e_smoke_test.py
+```
+
+- CI workflow: `.github/workflows/seedtest-api-e2e-smoke.yml` runs this script on PRs touching `apps/seedtest_api/**`.
+  - Default profile is serverless/in-process (no DB). An optional DB-backed profile is commented in the workflow and can be enabled after wiring Alembic in CI.
+
 - Snapshot-friendly responses
   - Set `RESULT_EXCLUDE_TIMESTAMPS=true` (env) to omit `created_at` and `updated_at` from result responses, stabilizing contract snapshots. Default is `false`.
   - Per-request override: pass `stable=true|false` on POST/GET single-result endpoints and on the list endpoint.
@@ -299,6 +461,17 @@ pre-commit install
   - Authorization: `require_session_access` gate checks admin/teacher/student with in-memory state; if schema includes `exam_sessions.org_id`, it also validates teacher org in DB; otherwise it conservatively denies ambiguous teacher access.
   - Endpoints use strict GET-vs-POST semantics: GET returns cached-only unless `refresh=true`.
   - Snapshots exclude certain fields (`score_detail`, `updated_at`) to keep the response contract stable while internal mappers remain rich.
+
+## AI 알고리즘 및 분석 (피드백 생성) 요약
+
+성적 리포트는 다음 요소를 종합해 개인화 피드백을 제공합니다.
+
+- 혼합효과 모델: 충분한 응답 데이터가 누적되면 학생 능력과 문항 난이도를 동시에 추정하여 편향을 줄입니다. 설정 `ANALYSIS_ENGINE=mixed_effects`로 연결(스텁 포함).
+- 성장 예측: 현재 점수/능력을 바탕으로 선형-감쇠 궤적을 추정하고, 표준오차(SE)가 있으면 목표 점수 도달 확률(예: 5회 내 150점)을 계산하여 `forecast.goals`에 포함합니다.
+- 추천 엔진: 약점 토픽을 기준으로 학습 리소스를 추천합니다. 기본은 규칙 기반이며, 협업필터링/콘텐츠 기반으로 확장 가능합니다.
+- 벤치마크: 개인 성적과 집단 통계(백분위 등)를 연결합니다. 전체 분포는 배치로 갱신 가능하며 조회 시 최신 값을 사용합니다.
+
+구현 위치: `services/analysis_service.py` (`compute_analysis`) / 라우터 `routers/analysis.py`. 엔진 플러그인: `services/score_analysis.get_engine`, 추천: `services/recommendation.get_recommender`.
 # SeedTest API — Exam Results
 
 This package exposes result endpoints to compute and fetch exam session results with FastAPI + PostgreSQL (JSONB cache).

@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seedtest-api
+  namespace: seedtest
+  labels:
+    app.kubernetes.io/name: seedtest-api
+    app.kubernetes.io/part-of: dreamseed
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: seedtest-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: seedtest-api
+        app.kubernetes.io/part-of: dreamseed
+    spec:
+      terminationGracePeriodSeconds: 30
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values: [seedtest-api]
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: seedtest-api
+      containers:
+        - name: api
+          image: ghcr.io/dreamseedai/seedtest-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: ENV
+              value: "production"
+            - name: USE_MPC_LEGACY_READONLY
+              value: "false"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 12
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh","-c","sleep 5"]

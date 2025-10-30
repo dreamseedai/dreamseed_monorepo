@@ -1,0 +1,47 @@
+name: Backend Smoke
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  smoke-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install -r apps/seedtest_api/requirements.txt --quiet
+
+      - name: Start backend
+        env:
+          LOCAL_DEV: "true"
+          USE_MPC_LEGACY_READONLY: "false"
+        run: |
+          . .venv/bin/activate
+          nohup python -m uvicorn apps.seedtest_api.app.main:app --port 8015 --log-level warning &
+          # wait for health
+          for i in {1..30}; do
+            if curl -sSf http://127.0.0.1:8015/healthz >/dev/null; then echo "API up"; break; fi
+            sleep 1
+          done
+
+      - name: Run backend smoke
+        env:
+          BACKEND_URL: http://127.0.0.1:8015
+          SKIP_FRONTEND: "1"
+          SMOKE_STRICT: "1"
+        run: |
+          bash scripts/smoke-local.sh

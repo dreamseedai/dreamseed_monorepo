@@ -1,0 +1,31 @@
+### IRT Health
+GET http://localhost:8001/api/seedtest/analysis/irt/health
+Authorization: Bearer {{token}}
+
+### IRT Calibrate (toy)
+POST http://localhost:8001/api/seedtest/analysis/irt/calibrate
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "responses": [
+    [1, 0, 1, 1],
+    [0, 0, 1, 1],
+    [1, 1, 1, 1]
+  ]
+}
+
+### IRT Score (will return 501 for now)
+POST http://localhost:8001/api/seedtest/analysis/irt/score
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "item_params": [
+    {"item":"Item.1", "a":1.0, "b":0.0, "c":0.2},
+    {"item":"Item.2", "a":1.2, "b":-0.5, "c":0.2}
+  ],
+  "responses": [
+    [1, 0]
+  ]
+}

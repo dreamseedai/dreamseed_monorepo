@@ -1,0 +1,164 @@
+name: Deploy to Cloud Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      service_name:
+        description: "Cloud Run service name"
+        required: true
+      source_path:
+        description: "Path to source (for gcloud run deploy --source). Leave blank to deploy a container image."
+        required: false
+        default: ""
+      image:
+        description: "Container image (e.g., asia-northeast3-docker.pkg.dev/PROJECT/repo/image:tag). Used when source_path is empty."
+        required: false
+        default: ""
+      region:
+        description: "Region override (default uses secret GCP_REGION)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  DEFAULT_REGION: ${{ secrets.GCP_REGION }}
+  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Auth to GCP (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Determine region
+        id: region
+        run: |
+          if [[ -n "${{ github.event.inputs.region }}" ]]; then
+            echo "val=${{ github.event.inputs.region }}" >> $GITHUB_OUTPUT
+          else
+            echo "val=${{ env.DEFAULT_REGION }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build & Deploy from source (if source_path provided)
+        if: ${{ github.event.inputs.source_path != '' }}
+        run: |
+          REGION="${{ steps.region.outputs.val }}"
+          gcloud run deploy "${{ github.event.inputs.service_name }}" \
+            --source "${{ github.event.inputs.source_path }}" \
+            --region "${REGION}" \
+            --project "${GCP_PROJECT_ID}" \
+            --allow-unauthenticated
+
+      - name: Deploy prebuilt image (if image provided)
+        if: ${{ github.event.inputs.source_path == '' && github.event.inputs.image != '' }}
+        run: |
+          REGION="${{ steps.region.outputs.val }}"
+          gcloud run deploy "${{ github.event.inputs.service_name }}" \
+            --image "${{ github.event.inputs.image }}" \
+            --region "${REGION}" \
+            --project "${GCP_PROJECT_ID}" \
+            --allow-unauthenticated
+
+      - name: Fail if neither source nor image is provided
+        if: ${{ github.event.inputs.source_path == '' && github.event.inputs.image == '' }}
+        run: |
+          echo "::error::Provide either source_path or image"
+          exit 1
+name: Deploy (Cloud Run)
+
+on:
+  workflow_dispatch:
+    inputs:
+      service_name:
+        description: 'Cloud Run service name'
+        required: true
+        default: 'dreamseed-api'
+      source_path:
+        description: 'Source path for build/deploy (e.g., apps/portal_api)'
+        required: true
+        default: '.'
+      region:
+        description: 'GCP region (fallback to secret GCP_REGION if empty)'
+        required: false
+        default: ''
+      environment:
+        description: 'Environment name (for display/protection)'
+        required: false
+        default: 'production'
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+
+permissions:
+  contents: read
+  id-token: write  # OIDC token for GCP auth
+
+concurrency:
+  group: deploy-cloudrun-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ secrets.GCP_REGION }}
+  WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve region
+        id: region
+        run: |
+          REGION_INPUT="${{ inputs.region }}"
+          if [[ -n "$REGION_INPUT" ]]; then echo "region=$REGION_INPUT" >> $GITHUB_OUTPUT; else echo "region=${GCP_REGION}" >> $GITHUB_OUTPUT; fi
+
+      - name: Validate inputs/secrets
+        run: |
+          : "${{ inputs.service_name }}" || { echo 'service_name is required'; exit 1; }
+          : "${{ inputs.source_path }}" || { echo 'source_path is required'; exit 1; }
+          : "${GCP_PROJECT_ID}" || { echo 'GCP_PROJECT_ID secret missing'; exit 1; }
+          : "${{ steps.region.outputs.region }}" || { echo 'region missing (input or GCP_REGION secret)'; exit 1; }
+          : "${WORKLOAD_IDENTITY_PROVIDER}" || { echo 'GCP_WORKLOAD_IDENTITY_PROVIDER secret missing'; exit 1; }
+          : "${GCP_SERVICE_ACCOUNT_EMAIL}" || { echo 'GCP_SERVICE_ACCOUNT_EMAIL secret missing'; exit 1; }
+
+      - id: auth
+        name: Auth to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy Cloud Run service
+        run: |
+          gcloud run deploy "${{ inputs.service_name }}" \
+            --source "${{ inputs.source_path }}" \
+            --region "${{ steps.region.outputs.region }}" \
+            --project "${GCP_PROJECT_ID}" \
+            --allow-unauthenticated
