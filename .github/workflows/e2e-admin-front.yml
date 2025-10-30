@@ -1,0 +1,458 @@
+name: E2E (admin_front)
+
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: 'Number of shards (parallel splits)'
+        required: false
+        default: '4'
+        type: choice
+        options: ['1','2','3','4','5','6','7','8']
+      maxShards:
+        description: 'Maximum allowed shards (cap)'
+        required: false
+        default: '6'
+        type: choice
+        options: ['1','2','3','4','5','6','7','8']
+      maxParallel:
+        description: 'Max concurrent shard jobs'
+        required: false
+        default: '4'
+        type: choice
+        options: ['1','2','3','4','5','6','7','8']
+      idSortModes:
+        description: 'Comma-separated ID sort modes to run (native,map-created_at,hide)'
+        required: false
+        default: 'native'
+        type: string
+      patternGroups:
+        description: 'Comma-separated pattern groups (all,list-pagination,upload,delete)'
+        required: false
+        default: 'all'
+        type: string
+  pull_request:
+    paths:
+      - 'admin_front/**'
+      - '.github/workflows/e2e-admin-front.yml'
+  push:
+    branches:
+      - main
+      - develop
+      - feat/**
+    paths:
+      - 'admin_front/**'
+      - '.github/workflows/e2e-admin-front.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  checks: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/')) && format('e2e-admin_front-{0}-protected', github.repository) || format('e2e-admin_front-{0}-{1}', github.repository, github.run_id) }}
+  cancel-in-progress: true
+
+jobs:
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      total: ${{ steps.compute.outputs.total }}
+      indices: ${{ steps.compute.outputs.indices }}
+      maxParallel: ${{ steps.compute.outputs.maxParallel }}
+      idSortModes: ${{ steps.compute.outputs.idSortModes }}
+      groups: ${{ steps.compute.outputs.groups }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute shard matrix
+        id: compute
+        env:
+          INPUT_SHARDS: ${{ github.event.inputs.shards }}
+          INPUT_MAX_SHARDS: ${{ github.event.inputs.maxShards }}
+          INPUT_MAX_PARALLEL: ${{ github.event.inputs.maxParallel }}
+          INPUT_ID_SORT_MODES: ${{ github.event.inputs.idSortModes }}
+          INPUT_PATTERN_GROUPS: ${{ github.event.inputs.patternGroups }}
+        run: |
+          # Determine shard count
+          if [ -n "$INPUT_SHARDS" ]; then
+            SHARDS="$INPUT_SHARDS"
+            echo "Using provided shards: $SHARDS"
+          else
+            # Adaptive default based on test file count in admin_front/tests
+            if [ -d admin_front/tests ]; then
+              TEST_COUNT=$(ls -1 admin_front/tests/*.spec.* 2>/dev/null | wc -l | tr -d ' ')
+            else
+              TEST_COUNT=0
+            fi
+            if [ "$TEST_COUNT" -ge 12 ]; then
+              SHARDS=5
+            elif [ "$TEST_COUNT" -ge 6 ]; then
+              SHARDS=4
+            else
+              SHARDS=3
+            fi
+            echo "Computed adaptive shards: $SHARDS (from test files: $TEST_COUNT)"
+          fi
+          # Apply max shards cap
+          MAX_SHARDS=${INPUT_MAX_SHARDS:-6}
+          if [ "$SHARDS" -gt "$MAX_SHARDS" ]; then
+            echo "Capping shards $SHARDS to max $MAX_SHARDS"
+            SHARDS=$MAX_SHARDS
+          fi
+          echo "Using SHARDS=$SHARDS"
+          IDX=$(node -e "const n=Number(process.env.S)||4; const a=Array.from({length:n},(_,i)=>i+1); process.stdout.write(JSON.stringify(a));" S=$SHARDS)
+          echo "indices=$IDX" >> $GITHUB_OUTPUT
+          echo "total=$SHARDS" >> $GITHUB_OUTPUT
+          # Determine max parallel
+          MP=${INPUT_MAX_PARALLEL:-4}
+          # Ensure maxParallel does not exceed total shards
+          if [ "$MP" -gt "$SHARDS" ]; then MP=$SHARDS; fi
+          echo "maxParallel=$MP" >> $GITHUB_OUTPUT
+
+          # Determine ID sort modes
+          MODES_IN=${INPUT_ID_SORT_MODES:-native}
+          # Branch-based overrides (optional): create branches like compat/id-sort-map or compat/id-sort-hide
+          if [[ "${GITHUB_REF_NAME}" == compat/id-sort-map* ]]; then MODES_IN="map-created_at"; fi
+          if [[ "${GITHUB_REF_NAME}" == compat/id-sort-hide* ]]; then MODES_IN="hide"; fi
+          # Normalize and validate list
+          IFS=',' read -r -a ARR <<< "$MODES_IN"
+          VALID=()
+          for m in "${ARR[@]}"; do
+            case "$m" in
+              native|map-created_at|hide) VALID+=("$m");;
+            esac
+          done
+          if [ ${#VALID[@]} -eq 0 ]; then VALID=(native); fi
+          JSON=$(node -e "const a='${VALID[@]}'.split(' '); process.stdout.write(JSON.stringify(a));")
+          echo "idSortModes=$JSON" >> $GITHUB_OUTPUT
+
+          # Determine pattern groups to run (optional)
+          GROUPS_IN=${INPUT_PATTERN_GROUPS:-all}
+          IFS=',' read -r -a GARR <<< "$GROUPS_IN"
+          GVALID=()
+          for g in "${GARR[@]}"; do
+            case "$g" in
+              all|list-pagination|upload|delete) GVALID+=("$g");;
+            esac
+          done
+          if [ ${#GVALID[@]} -eq 0 ]; then GVALID=(all); fi
+          GJSON=$(node -e "const a='${GVALID[@]}'.split(' '); process.stdout.write(JSON.stringify(a));")
+          echo "groups=$GJSON" >> $GITHUB_OUTPUT
+
+  e2e:
+    needs: prepare-matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' }}
+      matrix:
+        shardIndex: ${{ fromJSON(needs.prepare-matrix.outputs.indices) }}
+        shardTotal:
+          - ${{ needs.prepare-matrix.outputs.total }}
+        idSortMode: ${{ fromJSON(needs.prepare-matrix.outputs.idSortModes) }}
+        group: ${{ fromJSON(needs.prepare-matrix.outputs.groups) }}
+      max-parallel: ${{ needs.prepare-matrix.outputs.maxParallel }}
+    env:
+      PLAYWRIGHT_JUNIT_OUTPUT_NAME: results-${{ matrix.shardIndex }}.xml
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: admin_front/package-lock.json
+
+      - name: Install dependencies
+        working-directory: admin_front
+        run: npm ci
+
+      - name: Install Playwright (browsers + deps)
+        working-directory: admin_front
+        run: npx playwright install --with-deps
+
+      - name: Build Next.js (prod)
+        working-directory: admin_front
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3030
+          NEXT_PUBLIC_API_PREFIX: /api/seedtest
+          NEXT_PUBLIC_ID_SORT_MODE: ${{ matrix.idSortMode }}
+          E2E: '1'
+        run: npm run build
+
+      # Note: Spec discovery is automatic via admin_front/playwright.config.ts (testDir: ./tests).
+      # New *.spec.ts files under admin_front/tests are picked up without workflow changes.
+      - name: Run Playwright tests (group ${{ matrix.group }}, shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }}) [${{ matrix.idSortMode }}]
+        working-directory: admin_front
+        env:
+          CI: 'true'
+          SKIP_EXTRA_BROWSERS: ${{ (github.ref_name == 'main' || github.ref_name == 'develop' || startsWith(github.ref_name, 'release/') || startsWith(github.ref_name, 'beta/') || startsWith(github.ref_name, 'hotfix/') || github.event_name == 'workflow_dispatch') && '' || '1' }}
+          NEXT_PUBLIC_ID_SORT_MODE: ${{ matrix.idSortMode }}
+        run: |
+          # Optional pattern-based grouping: limit test set by file globs per group
+          case "${{ matrix.group }}" in
+            all)
+              PATTERN="";;
+            list-pagination)
+              PATTERN="tests/*pagination*.spec.ts tests/*sort*.spec.ts tests/*search*.spec.ts tests/url_sync.spec.ts tests/no_results.spec.ts";;
+            upload)
+              PATTERN="tests/*upload*.spec.ts";;
+            delete)
+              PATTERN="tests/*delete*.spec.ts";;
+            *)
+              PATTERN="";;
+          esac
+          if [ -n "$PATTERN" ]; then
+            echo "Running with patterns: $PATTERN"
+            npx playwright test $PATTERN --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --reporter=blob,html,json > shard-summary-${{ matrix.shardIndex }}.json
+          else
+            npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --reporter=blob,html,json > shard-summary-${{ matrix.shardIndex }}.json
+          fi
+
+      - name: Upload Playwright HTML report (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-shard-${{ matrix.idSortMode }}-${{ matrix.group }}-${{ matrix.shardIndex }}
+          path: admin_front/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload Playwright blob report (for merge)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-shard-${{ matrix.idSortMode }}-${{ matrix.group }}-${{ matrix.shardIndex }}
+          path: admin_front/blob-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload JSON summary (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: json-summary-shard-${{ matrix.idSortMode }}-${{ matrix.group }}-${{ matrix.shardIndex }}
+          path: admin_front/shard-summary-${{ matrix.shardIndex }}.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  merge-report:
+    name: Merge Playwright reports
+    needs: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: always()
+    outputs:
+      total: ${{ steps.aggregate.outputs.total }}
+      passed: ${{ steps.aggregate.outputs.passed }}
+      failed: ${{ steps.aggregate.outputs.failed }}
+      skipped: ${{ steps.aggregate.outputs.skipped }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download blob reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: blob-report-shard-*
+          path: ./blob-collect
+
+      - name: Install Playwright CLI
+        working-directory: admin_front
+        run: npm ci --omit=optional --no-audit --no-fund
+
+      - name: Merge reports into HTML
+        working-directory: admin_front
+        run: |
+          npx playwright merge-reports --reporter=html ../blob-collect/*
+
+      - name: Download JSON summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: json-summary-shard-*
+          path: ./json-collect
+
+      - name: Aggregate test counts
+        id: aggregate
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = path.resolve('json-collect');
+          let total=0, passed=0, failed=0, skipped=0;
+          function walkTests(obj){
+            if (!obj) return;
+            const suites = obj.suites || [];
+            for (const s of suites) walkTests(s);
+            const tests = obj.tests || [];
+            for (const t of tests){
+              const results = t.results || [];
+              const st = results.length ? results[results.length-1].status : (t.outcome || t.status);
+              total += 1;
+              if (st === 'passed') passed += 1;
+              else if (st === 'skipped') skipped += 1;
+              else failed += 1;
+            }
+          }
+          if (fs.existsSync(dir)){
+            const entries = fs.readdirSync(dir);
+            for (const entry of entries){
+              const p = path.join(dir, entry);
+              if (fs.statSync(p).isDirectory()){
+                for (const f of fs.readdirSync(p)){
+                  if (f.endsWith('.json')){
+                    try { walkTests(JSON.parse(fs.readFileSync(path.join(p,f),'utf-8'))); } catch {}
+                  }
+                }
+              } else if (p.endsWith('.json')) {
+                try { walkTests(JSON.parse(fs.readFileSync(p,'utf-8'))); } catch {}
+              }
+            }
+          }
+          const lines = [`total=${total}`, `passed=${passed}`, `failed=${failed}`, `skipped=${skipped}`];
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, lines.join('\n') + '\n');
+          console.log('Aggregated counts:', lines.join(' '));
+          NODE
+
+      - name: Upload merged HTML report (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-merged
+          path: admin_front/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Pages artifact (merged report)
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: admin_front/playwright-report
+
+      - name: Job summary with links
+        if: always()
+        run: |
+          echo "## Playwright reports" >> $GITHUB_STEP_SUMMARY
+          echo "- Combined HTML report: artifact 'playwright-report-merged' (see Artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "- Per-shard HTML artifacts are named 'playwright-report-shard-<index>' for each shard (1..N)." >> $GITHUB_STEP_SUMMARY
+
+  deploy-pages:
+    name: Deploy merged report to GitHub Pages
+    needs: [prepare-matrix, merge-report, e2e]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: "Job summary: modes and live report URL"
+        if: always()
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          ID_SORT_MODES: ${{ needs.prepare-matrix.outputs.idSortModes }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const url = process.env.PAGE_URL || '';
+          let modes = [];
+          try { modes = JSON.parse(process.env.ID_SORT_MODES || '[]'); } catch {}
+          const lines = [];
+          lines.push('## Live Playwright report');
+          lines.push(url);
+          lines.push('');
+          lines.push('### ID sort modes');
+          if (Array.isArray(modes) && modes.length) {
+            for (const m of modes) lines.push(`- ${m}`);
+          } else {
+            lines.push('- native (default)');
+          }
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+          NODE
+
+      - name: Create/Update Check Run with report link
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+        with:
+          script: |
+            const url = process.env.PAGE_URL;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const name = 'Playwright Report';
+            const head_sha = context.sha;
+            const overall = (process.env.E2E_RESULT || '').toLowerCase();
+            const conclusion = overall === 'success' ? 'success' : 'failure';
+            if (!url) {
+              core.info('No page URL available to publish as a check.');
+            } else {
+              // Try to find existing check run
+              const existingResp = await github.rest.checks.listForRef({ owner, repo, ref: head_sha, check_name: name });
+              const existing = (existingResp.data.check_runs || [])[0];
+              const output = {
+                title: name,
+                summary: `${conclusion === 'success' ? 'All tests passed' : 'Some tests failed'}\n\nLive HTML report: ${url}`,
+                text: `Open the merged Playwright HTML report at: ${url}`,
+              };
+              if (existing) {
+                await github.rest.checks.update({ owner, repo, check_run_id: existing.id, status: 'completed', conclusion, output });
+                core.info('Updated existing check run.');
+              } else {
+                await github.rest.checks.create({ owner, repo, name, head_sha, status: 'completed', conclusion, output });
+                core.info('Created new check run.');
+              }
+            }
+
+      - name: Create/Update Tests Summary Check Run
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          TOTAL: ${{ needs.merge-report.outputs.total }}
+          PASSED: ${{ needs.merge-report.outputs.passed }}
+          FAILED: ${{ needs.merge-report.outputs.failed }}
+          SKIPPED: ${{ needs.merge-report.outputs.skipped }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const name = 'Tests Summary';
+            const head_sha = context.sha;
+            const total = Number(process.env.TOTAL || 0);
+            const passed = Number(process.env.PASSED || 0);
+            const failed = Number(process.env.FAILED || 0);
+            const skipped = Number(process.env.SKIPPED || 0);
+            const conclusion = failed > 0 ? 'failure' : 'success';
+            const summary = `Total: ${total}  Passed: ${passed}  Failed: ${failed}  Skipped: ${skipped}`;
+            // Update or create
+            const existingResp = await github.rest.checks.listForRef({ owner, repo, ref: head_sha, check_name: name });
+            const existing = (existingResp.data.check_runs || [])[0];
+            const output = { title: name, summary };
+            if (existing) {
+              await github.rest.checks.update({ owner, repo, check_run_id: existing.id, status: 'completed', conclusion, output });
+            } else {
+              await github.rest.checks.create({ owner, repo, name, head_sha, status: 'completed', conclusion, output });
+            }
+
+      
+
+      - name: Upload test-results (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: admin_front/test-results
+          if-no-files-found: ignore

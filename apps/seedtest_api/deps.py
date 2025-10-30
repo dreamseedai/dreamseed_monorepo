@@ -12,6 +12,8 @@ from .services.adaptive_engine import get_session_state
 from .services.db import get_session as _db_get_session
 from .services.result_service import get_result_from_db
 from .settings import Settings
+from .app.clients.r_plumber import RPlumberClient
+from .app.clients.r_irt import RIRTClient
 
 
 class User(BaseModel):
@@ -36,10 +38,13 @@ async def get_current_user(creds=Security(bearer)) -> User:
     # Allow LOCAL_DEV without header
     s = Settings()
     if (s.LOCAL_DEV or os.getenv("LOCAL_DEV", "false").lower() == "true") and not creds:
+        # Allow overriding roles via env for local development (e.g., LOCAL_DEV_ROLES="teacher admin")
+        roles_env = os.getenv("LOCAL_DEV_ROLES", "teacher")
+        roles = [r for r in (roles_env.split() if roles_env else []) if r]
         return User(
             user_id="dev-user",
             org_id=1,
-            roles=["student"],
+            roles=roles or ["teacher"],
             scope="exam:read exam:write",
         )
     if not creds:
@@ -164,3 +169,45 @@ def require_session_access(
 
     # Not found anywhere
     raise HTTPException(404, "Session not found")
+
+
+def get_r_plumber_client() -> RPlumberClient:
+    """Build an R Plumber client from environment/settings.
+
+    Resolution order:
+    - Settings.R_PLUMBER_BASE_URL when provided
+    - If LOCAL_DEV true, default to http://127.0.0.1:8000 for developer ergonomics
+    - Else 503 to indicate misconfiguration
+    """
+    s = Settings()
+    base = s.R_PLUMBER_BASE_URL
+    if not base and (s.LOCAL_DEV or os.getenv("LOCAL_DEV", "false").lower() == "true"):
+        base = "http://127.0.0.1:8000"
+    if not base:
+        raise HTTPException(status_code=503, detail="r_plumber_unconfigured")
+    return RPlumberClient(
+        base_url=base,
+        timeout=float(s.R_PLUMBER_TIMEOUT_SECS),
+        internal_token=s.R_PLUMBER_INTERNAL_TOKEN,
+    )
+
+
+def get_r_irt_client() -> RIRTClient:
+    """Build an R IRT Plumber client from environment/settings.
+
+    Resolution order:
+    - Settings.R_IRT_BASE_URL when provided
+    - If LOCAL_DEV true, default to http://127.0.0.1:8000 for developer ergonomics
+    - Else 503 to indicate misconfiguration
+    """
+    s = Settings()
+    base = s.R_IRT_BASE_URL
+    if not base and (s.LOCAL_DEV or os.getenv("LOCAL_DEV", "false").lower() == "true"):
+        base = "http://127.0.0.1:8000"
+    if not base:
+        raise HTTPException(status_code=503, detail="r_irt_unconfigured")
+    return RIRTClient(
+        base_url=base,
+        timeout=float(s.R_IRT_TIMEOUT_SECS),
+        internal_token=s.R_IRT_INTERNAL_TOKEN,
+    )

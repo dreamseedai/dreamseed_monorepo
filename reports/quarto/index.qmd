@@ -1,0 +1,6 @@
+---
+title: "Dreamseed Reports"
+author: "Dreamseed AI"
+---
+
+Welcome to the Dreamseed reporting portal. Use the left navigation to open the student report template.
