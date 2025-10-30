@@ -132,15 +132,6 @@ def compute_analysis(
 
     topics = res.get("topics") or res.get("topic_breakdown") or []
     insights = _derive_topic_insights(topics if isinstance(topics, list) else [])
-    # Use pluggable recommender (defaults to rule-based); fall back to internal rule if anything fails
-    try:
-        rec_engine = get_recommender(getattr(s, "RECOMMENDER_ENGINE", "rule_based"))
-        recs = rec_engine.recommend(insights, ability_theta=None, top_k=3)
-        if not isinstance(recs, list) or not all(hasattr(r, "message") for r in recs):
-            raise ValueError("invalid_recs")
-    except Exception:
-        recs = _recommend_from_topics(insights)
-
     # Ability estimate: delegate to configured engine (heuristic | irt | mixed_effects)
     eng = get_engine(getattr(s, "ANALYSIS_ENGINE", "heuristic"))
     theta, se, method = eng.estimate_ability(
@@ -164,6 +155,15 @@ def compute_analysis(
         method=method,
     )
 
+    # Use pluggable recommender (defaults to rule-based); prefer passing computed ability
+    try:
+        rec_engine = get_recommender(getattr(s, "RECOMMENDER_ENGINE", "rule"))
+        recs = rec_engine.recommend(insights, ability_theta=ability.theta, top_k=3)
+        if not isinstance(recs, list) or not all(hasattr(r, "message") for r in recs):
+            raise ValueError("invalid_recs")
+    except Exception:
+        recs = _recommend_from_topics(insights)
+
     # Growth forecast from current score (ensure we cover requested horizons if any)
     score_scaled = res.get("score_scaled") or (
         (res.get("score") or {}).get("scaled")
@@ -172,9 +172,18 @@ def compute_analysis(
     )
     # Resolve goal config: prefer per-request overrides, else settings
     if not goal_targets:
-        goal_targets = getattr(s, "analysis_goal_targets", None) or []
+        # Prefer uppercase env-driven names; keep lowercase for back-compat
+        goal_targets = (
+            getattr(s, "ANALYSIS_GOAL_TARGETS", None)
+            or getattr(s, "analysis_goal_targets", None)
+            or []
+        )
     if not goal_horizons:
-        goal_horizons = getattr(s, "analysis_goal_horizons", None) or []
+        goal_horizons = (
+            getattr(s, "ANALYSIS_GOAL_HORIZONS", None)
+            or getattr(s, "analysis_goal_horizons", None)
+            or []
+        )
     # Defaults if still empty
     if not goal_targets:
         goal_targets = [150.0]

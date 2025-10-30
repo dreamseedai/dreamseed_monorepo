@@ -6,7 +6,7 @@ from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision = "20251021_0004_tags_column"
-down_revision = "20251021_0003_seed_data"
+down_revision = "2025102100001"
 branch_labels = None
 depends_on = None
 

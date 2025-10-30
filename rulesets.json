@@ -4,7 +4,7 @@
   "enforcement": "active",
   "conditions": {
     "ref_name": {
-      "include": ["main"],
+      "include": ["refs/heads/main"],
       "exclude": []
     }
   },
@@ -15,7 +15,9 @@
       "parameters": {
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
-          "DreamSeed Python CI / Black / isort / Flake8"
+          {
+            "context": "DreamSeed Python CI / Black / isort / Flake8"
+          }
         ]
       }
     },

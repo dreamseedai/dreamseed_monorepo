@@ -1,0 +1,61 @@
+@base = http://127.0.0.1:8000
+# Adjust the base to your SeedTest API host (not the R service). E.g., http://localhost:8000 or http://seedtest-api.local
+
+### R Plumber health passthrough
+GET {{base}}/api/seedtest/analysis/rplumber/health
+
+### GLMM fit via API passthrough
+POST {{base}}/api/seedtest/analysis/glmm/fit
+Content-Type: application/json
+
+{
+  "observations": [
+    {"student_id": "s1", "item_id": "i1", "correct": 1},
+    {"student_id": "s1", "item_id": "i2", "correct": 0},
+    {"student_id": "s2", "item_id": "i1", "correct": 1},
+    {"student_id": "s2", "item_id": "i2", "correct": 1}
+  ]
+}
+
+### GLMM predict via API passthrough
+# Paste model from the fit response below
+POST {{base}}/api/seedtest/analysis/glmm/predict
+Content-Type: application/json
+
+{
+  "model": {
+    "fixed_effects": {"(Intercept)": 0},
+    "ranef": {"student_id": [], "item_id": []}
+  },
+  "newdata": [
+    {"student_id": "s1", "item_id": "i1"}
+  ]
+}
+
+### Forecast summary via API passthrough
+POST {{base}}/api/seedtest/analysis/forecast/summary
+Content-Type: application/json
+
+{
+  "mean": 0.1,
+  "sd": 0.5,
+  "target": 0.0
+}
+
+### Student abilities (computed in API)
+POST {{base}}/api/seedtest/analysis/student-abilities
+Content-Type: application/json
+
+{
+  "model": {
+    "fixed_effects": {"(Intercept)": 0},
+    "ranef": {
+      "student_id": [
+        {"id": "s1", "(Intercept)": 0.2},
+        {"id": "s2", "(Intercept)": -0.1}
+      ]
+    }
+  },
+  "student_ids": ["s1", "s2"],
+  "include_fixed_intercept": true
+}

@@ -59,6 +59,28 @@ gcloud iam service-accounts add-iam-policy-binding ${SA}@${PROJECT}.iam.gservice
 
 브랜치 제한을 강화하려면 `attribute.ref=refs/heads/main` 조건을 provider 측 규칙에 추가하세요.
 
+## 프로젝트별 값 (DreamSeed 현재 환경)
+
+- 프로젝트 ID: `univprepai`
+- 프로젝트 번호: `353830576946`
+- GKE 클러스터: `seedtest-main`
+- 리전: `asia-northeast3`
+- WIF Provider 경로 예시:
+
+```
+projects/353830576946/locations/global/workloadIdentityPools/gh-pool/providers/gh-provider
+```
+
+권장 GitHub Secrets 값:
+
+```
+GCP_PROJECT_ID = univprepai
+GCP_REGION = asia-northeast3
+GKE_CLUSTER_NAME = seedtest-main
+GCP_WORKLOAD_IDENTITY_PROVIDER = projects/353830576946/locations/global/workloadIdentityPools/gh-pool/providers/gh-provider
+GCP_SERVICE_ACCOUNT_EMAIL = gha-deployer@univprepai.iam.gserviceaccount.com
+```
+
 ## 4) GitHub Actions에서 사용 (샘플)
 
 `.github/workflows/deploy-gke.yml`:
@@ -84,15 +106,15 @@ jobs:
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: "projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/gh-pool/providers/gh-provider"
-          service_account: "gha-deployer@YOUR_GCP_PROJECT_ID.iam.gserviceaccount.com"
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
       - uses: google-github-actions/setup-gcloud@v2
 
       # GKE 배포 예시
       - name: GKE auth
         run: |
-          gcloud container clusters get-credentials dreamseed-cluster --region asia-northeast3 --project YOUR_GCP_PROJECT_ID
+          gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --region ${GCP_REGION} --project ${GCP_PROJECT_ID}
 
       - name: Deploy
         run: |
@@ -118,3 +140,10 @@ Cloud Run 예시:
 - 감사/로깅: 배포 로그를 GCP Cloud Logging/BigQuery로 수집
 
 > `PROJECT_NUMBER`는 `gcloud projects describe YOUR_GCP_PROJECT_ID --format='value(projectNumber)'`로 조회하세요.
+
+### GitHub Secrets 권장 세트
+- `GCP_PROJECT_ID`: GCP 프로젝트 ID
+- `GCP_REGION`: 기본 리전 (예: `asia-northeast3`)
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`: `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/gh-pool/providers/gh-provider`
+- `GCP_SERVICE_ACCOUNT_EMAIL`: `gha-deployer@YOUR_GCP_PROJECT_ID.iam.gserviceaccount.com`
+- (GKE) `GKE_CLUSTER_NAME`

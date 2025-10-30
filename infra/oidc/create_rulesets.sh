@@ -20,6 +20,6 @@ echo "Creating ruleset from $RULESET_JSON for $OWNER/$REPO"
 gh api -X POST \
   "/repos/$OWNER/$REPO/rulesets" \
   -H "Accept: application/vnd.github+json" \
-  -F "ruleset=@$RULESET_JSON"
+  --input "$RULESET_JSON"
 
 echo "Done. Review Repo → Settings → Rules."

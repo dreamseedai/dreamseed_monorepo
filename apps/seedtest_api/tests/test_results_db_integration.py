@@ -31,10 +31,15 @@ def _clear_results(session_id: str):
             text("DELETE FROM exam_results WHERE session_id = :sid"),
             {"sid": session_id},
         )
-        s.execute(
-            text("DELETE FROM exam_sessions WHERE session_id = :sid"),
-            {"sid": session_id},
-        )
+        # exam_sessions may not exist in some environments; ignore if missing
+        try:
+            s.execute(
+                text("DELETE FROM exam_sessions WHERE session_id = :sid"),
+                {"sid": session_id},
+            )
+        except Exception:
+            # Table absent or other non-critical issue; continue cleanup
+            pass
 
 
 def test_post_creates_db_and_get_returns_same(monkeypatch):

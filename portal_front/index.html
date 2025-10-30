@@ -4,6 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DreamSeed Portal</title>
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = (saved==='dark'||(saved==='system'&&prefersDark))?'dark':(saved==='light'?'light':(prefersDark?'dark':'light'));
+          document.documentElement.classList.toggle('dark', theme==='dark');
+          document.documentElement.style.colorScheme = theme==='dark'?'dark':'light';
+        } catch (e) {}
+        // Listen for parent broadcast and apply without persisting
+        window.addEventListener('message', function(ev) {
+          try {
+            var msg = ev.data || {};
+            if (msg && msg.type === 'dreamseed:theme' && (msg.resolved === 'light' || msg.resolved === 'dark')) {
+              document.documentElement.classList.toggle('dark', msg.resolved === 'dark');
+              document.documentElement.style.colorScheme = msg.resolved;
+            }
+          } catch (_) {}
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
