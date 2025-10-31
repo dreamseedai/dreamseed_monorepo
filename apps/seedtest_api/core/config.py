@@ -51,6 +51,14 @@ class Config(BaseSettings):
 config = Config()
 
 # Back-compat export of legacy settings
-from ..settings import settings as settings  # noqa: E402
+try:
+    from ..settings import settings as settings  # noqa: E402
+except ImportError:
+    # If legacy settings module doesn't exist, use Config as a compatibility layer
+    class SettingsCompat:
+        def __getattr__(self, name: str):
+            return getattr(config, name, None)
+    
+    settings = SettingsCompat()
 
 __all__ = ["Config", "config", "settings"]

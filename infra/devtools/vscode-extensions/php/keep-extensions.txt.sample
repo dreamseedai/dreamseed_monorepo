@@ -1,0 +1,7 @@
+# One extension ID per line to KEEP (never uninstall) during cleanup
+# Copy this file to keep-extensions.txt and uncomment lines you need.
+# Common examples:
+# github.copilot
+# Continue.continue
+# redhat.vscode-yaml
+# ms-python.python

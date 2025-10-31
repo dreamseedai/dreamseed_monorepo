@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
+from datetime import date
 
 
 class AbilityEstimate(BaseModel):
@@ -70,3 +71,20 @@ class AnalysisReport(BaseModel):
     recommendations: List[RecommendationItem] = Field(default_factory=list)
     forecast: Optional[GrowthForecast] = None
     benchmark: Optional[Benchmark] = None
+
+
+# --- Metrics API Schemas ---
+
+class KPIValues(BaseModel):
+    I_t: Optional[float] = None
+    E_t: Optional[float] = None
+    R_t: Optional[float] = None
+    A_t: Optional[float] = None
+    P: Optional[float] = None
+    S: Optional[float] = None
+
+
+class WeeklyKPI(BaseModel):
+    user_id: str
+    week_start: date
+    kpis: KPIValues

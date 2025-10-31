@@ -18,6 +18,12 @@ from ..services import db as db_service
 from .api.routers.analysis import router as analysis_router
 from .api.routers.exams import router as exams_router
 from .api.routers.results import router as results_router
+from .api.routers.classrooms import router as classrooms_router
+from .api.routers.sessions import router as sessions_router
+from .api.routers.goals import router as goals_router
+from .api.routers.features import router as features_router
+from ..routers.metrics import router as metrics_router
+from ..routers.wizard import router as wizard_router
 
 
 @asynccontextmanager
@@ -85,6 +91,12 @@ app.add_middleware(CorrelationIdMiddleware)
 app.include_router(exams_router)
 app.include_router(results_router)
 app.include_router(analysis_router)
+app.include_router(metrics_router)
+app.include_router(classrooms_router)
+app.include_router(sessions_router)
+app.include_router(goals_router)
+app.include_router(features_router)
+app.include_router(wizard_router)  # V1: Tutor onboarding wizard
 
 
 @app.get("/healthz")

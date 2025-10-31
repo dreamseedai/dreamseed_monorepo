@@ -196,7 +196,7 @@ async def create_or_refresh_result(
         exclude_ts = (
             bool(stable)
             if stable is not None
-            else bool(Settings().RESULT_EXCLUDE_TIMESTAMPS)
+            else bool(getattr(Settings(), 'RESULT_EXCLUDE_TIMESTAMPS', False))
         )
         if exclude_ts:
             return JSONResponse(content=resp)
