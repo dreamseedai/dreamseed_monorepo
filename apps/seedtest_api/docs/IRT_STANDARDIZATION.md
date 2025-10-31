@@ -83,30 +83,111 @@ WHERE meta @> '{"tags": ["algebra"]}'::jsonb;
 
 ---
 
-### 2. Attempt VIEW (표준 스키마)
+### 2. Attempt VIEW (표준 스키마) - 🔒 V1 Spec Locked
 
 **목적:** `exam_results` 테이블을 표준화된 attempt 스키마로 매핑하여 분석 코드의 일관성 확보.
 
-**VIEW 정의:**
+**현재 상태:** ✅ **V1 스키마 고정 완료 (2025-11-01)**
+- 명시적 타입 캐스팅 (`::bigint`, `::uuid`, `::boolean`, `::int`)
+- NULL 처리 표준화 (`NULLIF`, `COALESCE`)
+- `student_id` 결정론적 생성 (MD5 기반 UUID)
+- `attempt_no` 순서 보장 (`ROW_NUMBER` + `PARTITION BY`)
+
+**VIEW 정의 (20251101_0900_attempt_view_lock):**
 ```sql
-CREATE VIEW attempt AS
--- exam_results.result_json.questions 배열을 행으로 변환
--- 각 문항별 응답을 표준화된 컬럼으로 매핑
+CREATE OR REPLACE VIEW attempt AS
+WITH q AS (
+  SELECT
+    er.id                  AS exam_result_id,
+    er.user_id             AS user_id_text,
+    er.session_id          AS session_id,
+    COALESCE(er.updated_at, er.created_at) AS completed_at,
+    jsonb_array_elements(er.result_json->'questions') AS qelem
+  FROM exam_results er
+)
 SELECT
-    <synthetic_id> AS id,                    -- 고유 ID (해시 기반)
-    user_id::uuid AS student_id,             -- 학생 식별자
-    (question_doc->>'question_id')::bigint AS item_id,  -- 문항 ID
-    (question_doc->>'is_correct')::boolean AS correct,  -- 정답 여부
-    (question_doc->>'time_spent_sec')::numeric * 1000 AS response_time_ms,
-    (question_doc->>'used_hints')::int > 0 AS hint_used,
-    ROW_NUMBER() OVER (...) AS attempt_no,   -- 문항별 시도 횟수
-    completed_at - interval 'X ms' AS started_at,
-    completed_at,
-    session_id,
-    question_doc->>'topic' AS topic_id
-FROM exam_results
-...
+  -- Deterministic id: hash of exam_result_id + question_id
+  (('x' || substr(md5(q.exam_result_id::text || '-' || (q.qelem->>'question_id')), 1, 16))::bit(64)::bigint) AS id,
+
+  -- student_id: cast user_id if UUID format, else generate deterministic UUID from md5
+  (
+    CASE
+      WHEN q.user_id_text ~* '^[0-9a-fA-F-]{36}$' THEN q.user_id_text::uuid
+      ELSE (
+        substr(md5(q.user_id_text),1,8) || '-' ||
+        substr(md5(q.user_id_text),9,4) || '-' ||
+        substr(md5(q.user_id_text),13,4) || '-' ||
+        substr(md5(q.user_id_text),17,4) || '-' ||
+        substr(md5(q.user_id_text),21,12)
+      )::uuid
+    END
+  ) AS student_id,
+
+  -- item_id: question identifier (NULL if empty)
+  NULLIF(q.qelem->>'question_id','')::bigint AS item_id,
+
+  -- correct: is_correct or correct field, default FALSE
+  COALESCE(
+    (q.qelem->>'is_correct')::boolean,
+    (q.qelem->>'correct')::boolean,
+    FALSE
+  ) AS correct,
+
+  -- response_time_ms: time_spent_sec * 1000, rounded to int, default 0
+  COALESCE(
+    ROUND((NULLIF(q.qelem->>'time_spent_sec','')::numeric) * 1000.0)::int,
+    0
+  ) AS response_time_ms,
+
+  -- hint_used: used_hints > 0
+  COALESCE((q.qelem->>'used_hints')::int, 0) > 0 AS hint_used,
+
+  -- completed_at: from exam_results.updated_at or created_at
+  q.completed_at AS completed_at,
+
+  -- started_at: completed_at - response_time_ms
+  (q.completed_at - make_interval(secs => COALESCE(ROUND((NULLIF(q.qelem->>'time_spent_sec','')::numeric))::int, 0))) AS started_at,
+
+  -- attempt_no: ROW_NUMBER partitioned by student_id + item_id, ordered by completed_at
+  ROW_NUMBER() OVER (
+    PARTITION BY
+      (
+        CASE
+          WHEN q.user_id_text ~* '^[0-9a-fA-F-]{36}$' THEN q.user_id_text::uuid
+          ELSE (
+            substr(md5(q.user_id_text),1,8) || '-' ||
+            substr(md5(q.user_id_text),9,4) || '-' ||
+            substr(md5(q.user_id_text),13,4) || '-' ||
+            substr(md5(q.user_id_text),17,4) || '-' ||
+            substr(md5(q.user_id_text),21,12)
+          )::uuid
+        END
+      ),
+      NULLIF(q.qelem->>'question_id','')::bigint
+    ORDER BY q.completed_at ASC, q.exam_result_id ASC
+  )::int AS attempt_no,
+
+  -- session_id: for joins
+  q.session_id AS session_id,
+
+  -- topic_id: from questions array
+  NULLIF(q.qelem->>'topic','')::text AS topic_id
+
+FROM q
+WHERE NULLIF(q.qelem->>'question_id','') IS NOT NULL;
 ```
+
+**스키마 안정성 보장:**
+- ✅ **타입 고정:** `id` (bigint), `student_id` (uuid), `correct` (boolean), `response_time_ms` (integer) 등
+- ✅ **NULL 방지:** 모든 NOT NULL 컬럼은 `COALESCE` 기본값 제공
+- ✅ **결정론적 ID:** 동일 `user_id` → 동일 `student_id` (멱등성 보장)
+- ✅ **순서 보장:** `attempt_no`는 `(completed_at ASC, exam_result_id ASC)` 정렬로 일관성 유지
+
+**Breaking Change 방지:**
+- ❌ 컬럼명 변경 금지 (e.g., `response_time_ms` → `response_time`)
+- ❌ 타입 변경 금지 (e.g., `bigint` → `integer`)
+- ❌ `student_id` 해시 알고리즘 변경 금지
+- ❌ `attempt_no` 정렬 로직 변경 금지
 
 **표준 attempt 스키마:**
 
@@ -304,8 +385,9 @@ DO UPDATE SET
 
 ### 순서:
 1. `20251031_2100_question_table` - question 테이블 + meta JSONB
-2. `20251031_2110_attempt_view` - attempt VIEW 생성
+2. `20251031_2110_attempt_view` - attempt VIEW 생성 (초기 버전)
 3. `20251031_2120_features_kpi_cols` - features_topic_daily KPI 컬럼 추가
+4. **`20251101_0900_attempt_view_lock`** - 🔒 **attempt VIEW V1 스키마 고정 (명시적 캐스팅 + NULL 처리)**
 
 ### 실행:
 ```bash
@@ -323,6 +405,9 @@ psql $DATABASE_URL -c "\d features_topic_daily"
 
 # 샘플 데이터 확인
 psql $DATABASE_URL -c "SELECT COUNT(*) FROM attempt;"
+
+# Smoke 테스트 (attempt VIEW 스키마 검증)
+pytest tests/test_attempt_view_smoke.py -v
 ```
 
 ---
@@ -335,7 +420,20 @@ export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/dreamseed"
 .venv/bin/pytest tests/test_irt_standardization.py -v
 ```
 
-### 테스트 커버리지:
+### Attempt VIEW Smoke 테스트:
+```bash
+# 스키마 고정 검증 (20251101_0900 마이그레이션 후 실행)
+pytest tests/test_attempt_view_smoke.py -v
+```
+
+**Smoke 테스트 커버리지:**
+- ✅ `test_attempt_view_columns_exist`: 11개 필수 컬럼 존재 확인
+- ✅ `test_attempt_view_select_minimal`: 기본 SELECT 쿼리 오류 없음
+- ✅ `test_attempt_view_types`: PostgreSQL 타입 정합성 검증 (bigint, uuid, boolean, integer, timestamptz, text)
+- ✅ `test_attempt_view_student_id_determinism`: 동일 user_id → 동일 student_id (멱등성)
+- ✅ `test_attempt_view_no_nulls_in_required_fields`: NOT NULL 보장 확인 (id, student_id, item_id, correct, response_time_ms, hint_used, completed_at, attempt_no)
+
+### IRT 통합 테스트 커버리지:
 - ✅ Question.meta JSONB 삽입 및 IRT 파라미터 쿼리
 - ✅ Attempt VIEW 매핑 검증
 - ✅ Attempt VIEW 집계 쿼리
