@@ -470,6 +470,49 @@ GitHub Actions를 통한 자동 배포:
 
 ---
 
+
+---
+
+## 🛡️ V1 Guardrails (Tutor-only Scope)
+
+DreamSeed V1은 **"튜터가 첫 PDF를 얻기까지 60분 이내"**라는 North Star를 따릅니다.
+
+### 📍 North Star Metrics
+- **TTFP (Time to First PDF)**: ≤ 60분
+- **14일 재시험율**: ≥ 40%
+- **트라이얼→유료 전환**: ≥ 20%
+
+### ✅ V1 In-Scope (5 items only)
+1. **Wizard** - 튜터 온보딩, 시험 설정
+2. **Exam** - 시험 생성, PDF 다운로드, 채점
+3. **Assign** - 학생 초대, 시험 배정, 결과 확인
+4. **Payment** - 튜터 개인 결제 (PG 연동)
+5. **Logging** - 기본 추적 (amplitude/cloudwatch)
+
+### ❌ V1 Out-of-Scope (Tech Debt Log로 이동)
+- 학원 관리 (multi-branch, academy billing)
+- SSO/SAML
+- 학급/학년 대시보드
+- 인프라 고도화 (multi-region, auto-scaling)
+- Advanced Analytics (장기 추세, 조직별 집계)
+
+👉 자세한 내용: **[GUARDRAILS.md](docs/GUARDRAILS.md)** | **[DEBT.md](DEBT.md)** (V2 백로그)
+
+### 🤖 AI-Driven Development Rules
+1. **Dev Contract ≤ 150 lines**: PR 당 실 코드 150줄 제한 (주석/공백 제외)
+2. **Single-purpose PR**: 하나의 기능/버그 수정만
+3. **No premature abstraction**: 3회 반복 전까지 추상화 금지
+4. **Decision Filter**: 모든 기능 추가 시 "이게 TTFP ≤60분에 직접 기여하는가?" 질문
+
+### 🚦 Automated Enforcement
+- **PR Template**: V1 Compliance Checklist (North Star Impact, Dev Contract ≤150, Scope Verification)
+- **GitHub Actions**: `.github/workflows/scope-guard.yml`
+  - Allowlist: `portal_front/`, `apps/seedtest_api/`, `shared/`, `policies/`, `docs/`
+  - Denylist: `infra/cloudwatch/`, `ops/`, `admin`, `academy`, `sso/`, `multi-branch`
+  - PR 템플릿 섹션 검증 (What & Why, Dev Contract, Release Notes)
+  - Dependency change warnings
+
+---
 ## 🙏 감사의 말
 
 이 프로젝트는 다음 오픈소스 프로젝트들의 도움을 받았습니다:
