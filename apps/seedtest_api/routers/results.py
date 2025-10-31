@@ -475,22 +475,69 @@ def _to_contract_response(
     return resp
 
 
-# TODO(feature): Wire a feature flag (e.g., Settings().FEATURE_RESULT_PDF) to gate this
-# endpoint and flip to implementation when the renderer is ready. Keep returning 501 until then.
 @router.get(
     "/exams/{session_id}/result/pdf",
-    summary="Result PDF (stub)",
+    summary="Download exam result as PDF",
     description=(
-        "PDF generation is not implemented yet. This endpoint currently returns 501.\n"
-        "Future behavior: render a PDF report (graphs, breakdowns) and stream the file or return a download link."
+        "Generate and stream PDF report for exam result.\n"
+        "Includes score summary, topic breakdown, and recommendations.\n"
+        "Returns: application/pdf with inline disposition."
     ),
+    responses={
+        200: {"content": {"application/pdf": {}}, "description": "PDF stream"},
+        404: {"description": "Result not found"},
+        500: {"description": "PDF generation failed"},
+    },
 )
 async def get_result_pdf(
     session_id: str,
+    brand: str = Query(default="DreamSeed", description="Tutor/school brand name"),
+    format: str = Query(default="A4", description="Page format (A4 or Letter)"),
     current_user: User = Depends(get_current_user),
     _: None = Depends(require_session_access),
-) -> None:
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+):
+    """
+    Generate PDF from cached exam result.
+    Falls back to computing result if not cached.
+    """
+    from fastapi.responses import Response
+    
+    # Fetch cached result or compute
+    user_id = current_user.user_id if current_user else None
+    res = compute_result(session_id, force=False, user_id=user_id)
+    
+    status = str(res.get("status") or "").lower()
+    if status == "not_found":
+        raise HTTPException(404, "Result not found")
+    if status == "not_completed":
+        raise HTTPException(400, "Exam not completed yet")
+    
+    # Generate PDF (inline import to avoid Lambda dependency in main app)
+    try:
+        from infra.pdf_lambda.exam_renderer import render_exam_pdf
+        
+        pdf_bytes = render_exam_pdf(
+            result_data=res,
+            tutor_brand=brand,
+            page_format=format.upper(),
+        )
+        
+        filename = f"exam_result_{session_id[:8]}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{filename}"',
+                "Content-Length": str(len(pdf_bytes)),
+            },
+        )
+    except ImportError:
+        raise HTTPException(
+            500,
+            detail="PDF renderer not available (Lambda-only module)",
+        )
+    except Exception as e:
+        raise HTTPException(500, detail=f"PDF generation failed: {str(e)}")
 
 
 @router.get("/results", summary="List results with filters + keyset pagination")
