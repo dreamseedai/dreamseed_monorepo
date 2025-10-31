@@ -1,0 +1,194 @@
+name: Scope Guard (V1 Tutor Only)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed files
+        id: diff
+        run: |
+          git fetch origin ${{ github.base_ref }} || git fetch origin main
+          BASE_REF=${{ github.base_ref }}
+          if [ -z "$BASE_REF" ]; then
+            BASE_REF="main"
+          fi
+          git diff --name-only origin/$BASE_REF...HEAD > files.txt || true
+          echo "FILES<<EOF" >> $GITHUB_OUTPUT
+          cat files.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "Changed files:"
+          cat files.txt
+
+      - name: Enforce V1 scope (allowlist/denylist)
+        run: |
+          # V1 Tutor-only allowlist (레포지토리 구조에 맞춤)
+          ALLOW='^(portal_front/|apps/seedtest_api/|apps/portal_api/|shared/|policies/|docs/|\.github/|infra/pdf_lambda/)'
+          
+          # Out-of-Scope denylist (V1에서 절대 변경 금지)
+          DENY='^(infra/cloudwatch/|infra/k8s/|ops/|portal_front/.*admin.*|portal_front/.*academy.*|apps/.*/org_dashboard|apps/.*/school_|sso/|billing/academy|.*multi.*branch|.*hierarchy)'
+          
+          bad=0
+          warn=0
+          
+          while read -r f; do
+            [[ -z "$f" ]] && continue
+            
+            # Denylist 체크 (Out-of-Scope)
+            if echo "$f" | grep -qE "$DENY"; then
+              echo "::error file=$f::❌ Out-of-scope for V1 (Tutor-only). 이 파일은 SSO/학원관리/인프라 등 V1 범위 밖입니다."
+              bad=1
+              continue
+            fi
+            
+            # Allowlist 체크
+            if ! echo "$f" | grep -qE "$ALLOW"; then
+              echo "::warning file=$f::⚠️ Not in V1 allowlist. 필요성을 검토하세요 (GUARDRAILS.md 참고)."
+              warn=1
+            fi
+          done < files.txt
+          
+          if [ $bad -eq 1 ]; then
+            echo ""
+            echo "============================================"
+            echo "❌ Scope Guard Failed"
+            echo "============================================"
+            echo "이 PR은 V1 Out-of-Scope 파일을 변경하려 합니다."
+            echo ""
+            echo "V1 In-Scope (허용):"
+            echo "  - 튜터 위자드 (portal_front/)"
+            echo "  - SeedTest API (apps/seedtest_api/)"
+            echo "  - 공유 모델 (shared/)"
+            echo "  - OPA 정책 (policies/)"
+            echo "  - 문서 (docs/)"
+            echo ""
+            echo "V1 Out-of-Scope (금지):"
+            echo "  - SSO/SAML 통합"
+            echo "  - 학원/지점 관리"
+            echo "  - 전교/학년 대시보드"
+            echo "  - 인프라 고도화 (CloudWatch, K8s 제외 PDF Lambda)"
+            echo ""
+            echo "Decision Filter를 통과한 경우에만 scope-override 라벨로 예외 승인."
+            echo "자세한 내용: docs/GUARDRAILS.md"
+            echo "============================================"
+            exit 1
+          fi
+          
+          if [ $warn -eq 1 ]; then
+            echo ""
+            echo "⚠️ Some files are outside V1 core paths but not blocked."
+            echo "Review necessity against GUARDRAILS.md"
+          fi
+          
+          exit 0
+
+      - name: Check PR template sections (required)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # PR body 가져오기
+          PR_NUM=${{ github.event.pull_request.number }}
+          
+          # gh CLI가 없으면 curl 사용
+          if command -v gh &> /dev/null; then
+            body=$(gh pr view $PR_NUM --json body -q .body)
+          else
+            body=$(curl -s -H "Authorization: token $GH_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUM" \
+              | jq -r .body)
+          fi
+          
+          echo "Checking PR body for required sections..."
+          
+          missing=0
+          
+          # 필수 섹션 체크
+          for key in "What & Why" "Dev Contract" "Checklist" "Release Notes"; do
+            if ! echo "$body" | grep -q "$key"; then
+              echo "::error::❌ PR missing required section: $key"
+              missing=1
+            else
+              echo "✅ Found section: $key"
+            fi
+          done
+          
+          # North Star Impact 체크 (적어도 하나는 체크되어야 함)
+          if ! echo "$body" | grep -qE '\[x\].*TTFP|\[x\].*재시험|\[x\].*전환'; then
+            echo "::warning::⚠️ No North Star impact checked (TTFP/재시험/전환). 명확히 표시하세요."
+          fi
+          
+          # In-Scope Item 체크
+          if ! echo "$body" | grep -qE '\[x\].*위자드|\[x\].*적응 모의|\[x\].*Quick Assign|\[x\].*결제|\[x\].*로깅'; then
+            echo "::warning::⚠️ No In-Scope item selected (1~5). V1 범위를 명확히 하세요."
+          fi
+          
+          if [ $missing -eq 1 ]; then
+            echo ""
+            echo "============================================"
+            echo "❌ PR Template Incomplete"
+            echo "============================================"
+            echo "PR 설명에 필수 섹션이 누락되었습니다:"
+            echo "  - What & Why (North Star 영향)"
+            echo "  - Dev Contract (≤150 lines)"
+            echo "  - Checklist (V1 Scope Compliance)"
+            echo "  - Release Notes (튜터 관점)"
+            echo ""
+            echo "템플릿: .github/pull_request_template.md"
+            echo "가이드: docs/GUARDRAILS.md"
+            echo "============================================"
+            exit 1
+          fi
+          
+          echo ""
+          echo "✅ PR template sections complete!"
+          exit 0
+
+      - name: Check for new dependencies
+        if: always()
+        run: |
+          echo "Checking for new dependencies..."
+          
+          deps_changed=0
+          
+          while read -r f; do
+            [[ -z "$f" ]] && continue
+            
+            case "$f" in
+              *package.json|*requirements.txt|*Pipfile|*poetry.lock|*yarn.lock)
+                echo "::warning file=$f::⚠️ Dependency file changed. V1은 신규 의존성 추가를 지양합니다."
+                deps_changed=1
+                ;;
+            esac
+          done < files.txt
+          
+          if [ $deps_changed -eq 1 ]; then
+            echo ""
+            echo "⚠️ Dependency files changed. 필수 여부를 검토하세요:"
+            echo "  - 기존 패키지로 해결 가능한가?"
+            echo "  - 번들 사이즈/보안 영향은?"
+            echo "  - Decision Filter 통과하는가?"
+            echo ""
+            echo "승인이 필요하면 'deps-approved' 라벨을 추가하세요."
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo ""
+          echo "============================================"
+          echo "✅ Scope Guard Check Complete"
+          echo "============================================"
+          echo "V1 Tutor-Only 가드레일:"
+          echo "  - In-Scope: 튜터 위자드, 적응 모의, Quick Assign, 결제, 로깅"
+          echo "  - Out-of-Scope: SSO, 학원관리, 전교대시보드"
+          echo "  - Decision Filter: User/Scope/Simplicity/Telemetry/Cutline"
+          echo ""
+          echo "자세한 내용: docs/GUARDRAILS.md"
+          echo "============================================"
