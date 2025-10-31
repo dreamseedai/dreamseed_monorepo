@@ -3,6 +3,15 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ..services.db import get_session
+
+
+@pytest.fixture
+def db_session():
+    """Provide a database session for tests."""
+    with get_session() as session:
+        yield session
+
 
 def test_attempt_view_columns_exist(db_session: Session):
     """Verify all expected columns exist in attempt VIEW"""

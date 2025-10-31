@@ -109,8 +109,27 @@ WHERE NULLIF(q.qelem->>'question_id','') IS NOT NULL;
 """
 
 
+def _table_exists(conn, table_name: str) -> bool:
+    """Check if a table exists."""
+    result = conn.execute(
+        text(f"""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'public'
+            AND table_name = '{table_name}'
+        )
+        """)
+    )
+    return result.scalar()
+
+
 def upgrade():
     conn = op.get_bind()
+    
+    # Only create attempt VIEW if exam_results table exists
+    if not _table_exists(conn, "exam_results"):
+        return  # Skip if exam_results doesn't exist yet
+    
     conn.execute(text("DROP VIEW IF EXISTS attempt CASCADE;"))
     conn.execute(text(VIEW_SQL))
 

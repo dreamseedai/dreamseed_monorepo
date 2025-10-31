@@ -46,8 +46,27 @@ def _view_exists(conn: Connection, view_name: str) -> bool:
     return result.scalar()
 
 
+def _table_exists(conn: Connection, table_name: str) -> bool:
+    """Check if a table exists."""
+    from sqlalchemy import text
+    result = conn.execute(
+        text(f"""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'public'
+            AND table_name = '{table_name}'
+        )
+        """)
+    )
+    return result.scalar()
+
+
 def upgrade() -> None:
     conn = op.get_bind()
+    
+    # Only create attempt VIEW if exam_results table exists
+    if not _table_exists(conn, "exam_results"):
+        return  # Skip if exam_results doesn't exist yet
     
     # Drop view if it exists (to allow idempotent re-creation)
     if _view_exists(conn, "attempt"):
