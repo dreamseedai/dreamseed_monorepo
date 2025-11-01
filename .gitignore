@@ -114,6 +114,9 @@ mpcstudy_*.db
 !README.md
 !CHANGELOG.md
 !README_PROJECTS_AUTOMATION.md
+!*_TEMPLATE.md
+!RUNBOOK_*.md
+!DEPLOYMENT_GUIDE_*.md
 
 # Configuration files
 .editorconfig
