@@ -7,10 +7,9 @@ Create Date: 2025-10-30 12:00:00
 
 from __future__ import annotations
 
+from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
-
-from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "20251030_1200_metrics_tables"
