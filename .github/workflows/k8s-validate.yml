@@ -54,12 +54,13 @@ jobs:
       - name: Kubeconform validate ${{ matrix.target }}
         run: |
           echo "Validating ${{ matrix.target }}"
-          # Validate with core and CRD schema locations
+          # Validate with core and CRD schema locations. Ignore missing schemas for CRDs.
           kubeconform \
             -summary \
-            -kubernetes-version ${K8S_VERSION} \
+            -kubernetes-version ${K8S_VERSION/v/} \
             -schema-location default \
-            -schema-location "${CRD_SCHEMA_REGISTRY}" \
+            -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}_{{ .ResourceAPIVersion }}_{{ .ResourceKind }}.json" \
+            -ignore-missing-schemas \
             -output tap < /tmp/rendered.yaml
 
       - name: Archive rendered manifests (artifact)
