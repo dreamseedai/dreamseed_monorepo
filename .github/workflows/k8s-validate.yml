@@ -63,11 +63,18 @@ jobs:
             -ignore-missing-schemas \
             -output tap < /tmp/rendered.yaml
 
+      - name: Sanitize artifact name
+        id: artifact
+        run: |
+          # Replace / with - for artifact name (GitHub Actions requirement)
+          SANITIZED=$(echo "${{ matrix.target }}" | tr '/' '-')
+          echo "name=${SANITIZED}" >> $GITHUB_OUTPUT
+
       - name: Archive rendered manifests (artifact)
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: rendered-${{ matrix.target }}
+          name: rendered-${{ steps.artifact.outputs.name }}
           path: /tmp/rendered.yaml
 
   policy:
