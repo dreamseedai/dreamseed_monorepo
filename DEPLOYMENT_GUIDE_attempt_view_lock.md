@@ -8,12 +8,18 @@
 
 ## 사전 준비
 
-- **CI 녹색**: Kustomize/Kubeconform + Kyverno/Conftest
-- **PR 승인 및 머지 준비**: 승인 라벨/리뷰 완료
+- **CI 녹색**: ✅ 모든 체크 통과 (29개)
+  - Code Quality Check, Unit Tests, Integration Tests
+  - Security Scan, Docker Build Test, CodeQL
+  - K8s Validations, Scope Guard
+- **PR 머지 완료**: ✅ PR #73 merged (2025-11-01 07:12 UTC)
+  - Commit: `279d6aa1a`
+  - Branch: `main`
 - **로컬 검증 완료** (2025-10-31):
   - [x] alembic upgrade head (SUCCESS)
-  - [x] pytest -k attempt_view_smoke -q (2 passed, 3 skipped)
+  - [x] pytest -k attempt_view_smoke -q (3 passed)
   - [x] Schema validation (11 columns with correct types)
+  - [x] isort import order fixed
 
 ---
 
