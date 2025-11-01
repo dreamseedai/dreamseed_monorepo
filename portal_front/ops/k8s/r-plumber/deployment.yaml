@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: r-glmm-plumber
+  labels:
+    app: r-glmm-plumber
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: r-glmm-plumber
+  template:
+    metadata:
+      labels:
+        app: r-glmm-plumber
+    spec:
+      containers:
+        - name: r-glmm-plumber
+          image: gcr.io/univprepai/r-glmm-plumber:1.0.1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          env:
+            - name: PORT
+              value: "8000"
+            - name: R_PLUMBER_VERSION
+              value: "v1.0"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: r-glmm-plumber
+  labels:
+    app: r-glmm-plumber
+spec:
+  selector:
+    app: r-glmm-plumber
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: r-glmm-plumber
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  tls:
+    - hosts:
+        - r-glmm-plumber.your-domain.com
+      secretName: r-glmm-plumber-tls
+  rules:
+    - host: r-glmm-plumber.your-domain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: r-glmm-plumber
+                port:
+                  number: 80

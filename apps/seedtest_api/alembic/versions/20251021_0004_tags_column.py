@@ -1,17 +1,31 @@
 import os
 
 import sqlalchemy as sa
-
 from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision = "20251021_0004_tags_column"
-down_revision = "20251021_0003_seed_data"
+down_revision = None  # First migration
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
+    # Check if tags column already exists
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            """
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='questions' AND column_name='tags'
+            """
+        )
+    )
+    if result.fetchone():
+        # Column already exists, skip creation
+        return
+
     # Determine tags kind from -x tags_kind=... or env ALEMBIC_TAGS_KIND
     x = context.get_x_argument(as_dictionary=True)
     raw = x.get("tags_kind", os.getenv("ALEMBIC_TAGS_KIND", "")).lower()

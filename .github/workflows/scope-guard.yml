@@ -1,0 +1,69 @@
+name: Scope Guard (V1)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [ main, develop, "release/*" ]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute changed files
+        id: diff
+        run: |
+          set -euo pipefail
+          base_ref="${{ github.base_ref || 'main' }}"
+          git fetch origin "$base_ref" --depth=50 || true
+          git diff --name-only "origin/$base_ref...HEAD" > changed.txt || true
+          echo "Changed files:" && cat changed.txt || true
+
+      - name: Enforce V1 scope (allow/deny)
+        run: |
+          set -euo pipefail
+
+          # Allowlist: primary V1 surfaces
+          ALLOW_RE='^(portal_front/|apps/seedtest_api/|shared/|infra/pdf_lambda/|infra/nginx/|apps/portal_front/|apps/seedtest_api/|apps/seedtest_api_clean/|policy/k8s/|\.github/workflows/)'
+
+          # Explicit exemptions within infra (V1-relevant ops tooling)
+          EXEMPT_RE='^(infra/pdf_lambda/|infra/nginx/|infra/k8s/cronjobs/|infra/devtools/|ops/k8s/)'
+
+          # Denylist: block off non‑V1 areas
+          DENY_RE='^(ops/|infra/|portal_front/(admin|org|school)|apps/.*/(org_|school_|academy_)|sso/|billing/(academy|school)|gatekeeper|lms_)'
+
+          blocked=0
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+
+            # Deny if matches DENY_RE and not exempted
+            if echo "$f" | grep -E "$DENY_RE" >/dev/null; then
+              if ! echo "$f" | grep -E "$EXEMPT_RE" >/dev/null; then
+                echo "::error file=$f::Blocked by V1 guard (DENY)"
+                blocked=1
+              fi
+            fi
+
+            # Warn if outside ALLOW_RE (still allowed, but needs justification)
+            if ! echo "$f" | grep -E "$ALLOW_RE" >/dev/null; then
+              echo "::warning file=$f::Outside V1 allowlist (justify with TTFP/Retake impact)"
+            fi
+          done < changed.txt
+
+          if [ $blocked -ne 0 ]; then
+            echo "Denied changes detected. Failing job."
+            exit 1
+          fi
+
+      - name: Validate PR template presence
+        run: |
+          if [ ! -f .github/pull_request_template.md ]; then
+            echo "::warning::V1 PR template missing (.github/pull_request_template.md)"
+          fi

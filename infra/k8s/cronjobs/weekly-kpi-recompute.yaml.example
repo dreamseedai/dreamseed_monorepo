@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: seedtest-weekly-kpi-recompute
+  namespace: default
+spec:
+  # 매주 월요일 04:15 UTC
+  schedule: "15 4 * * 1"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: weekly-kpi-recompute
+              image: ghcr.io/dreamseedai/seedtest-api:latest
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-api-db
+                      key: DATABASE_URL
+                - name: METRICS_USE_IRT_THETA
+                  value: "true"
+                - name: KPI_USERS_SINCE_DAYS
+                  value: "120"
+                # KPI_WEEK_START을 강제하고 싶으면 주석 해제
+                # - name: KPI_WEEK_START
+                #   value: "2025-10-27"
+              command: ["/bin/sh","-lc"]
+              args:
+                - |
+                  set -euo pipefail
+                  echo "Running weekly KPI recompute..."
+                  python -m seedtest_api.jobs.recompute_weekly_kpi

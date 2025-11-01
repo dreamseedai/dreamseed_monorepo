@@ -1,0 +1,26 @@
+# DreamSeed-Full: suggested removals (conflicts/duplicates/noise)
+# Safe: these are optional and commonly conflict with our recommended tools.
+
+# AI duplicates (we standardize on Copilot + Continue)
+codeium.codeium
+visualstudioexptteam.vscodeintellicode-completions
+visualstudioexptteam.vscodeintellicode-insiders
+
+# DB client duplication (pick one if needed; many prefer CLI/kubectl port-forward + psql/mysql)
+mtxr.sqltools
+mtxr.sqltools-driver-mysql
+cweijan.vscode-database-client2
+cweijan.dbclient-jdbc
+
+# HTTP client duplication (keep REST Client if used)
+anweber.vscode-httpyac
+rangav.vscode-thunder-client
+
+# Generic runners that can conflict with tasks/debug (optional)
+formulahendry.code-runner
+
+# Less-used general tools (optional)
+alefragnani.project-manager
+deerawan.vscode-dash
+mintlify.document
+trabpukcip.wolf

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import TopMpcBanner from '../components/TopMpcBanner';
@@ -6,9 +6,12 @@ import ProfileSelect from '../components/ProfileSelect';
 import CategoryGrid from '../components/CategoryGrid';
 import MyPlanPanel from '../components/MyPlanPanel';
 import { startCheckout } from '../lib/pay';
+import CopyAllButton from '../components/CopyAllButton';
+import { FEATURES } from '../lib/FEATURES';
 
 export default function HomePage() {
   const [recommendations, setRecommendations] = useState<{ title:string; slug:string }[]>([]);
+  const ctaRef = useRef<HTMLDivElement | null>(null);
 
   const categories = [
     { title: 'English', slug: 'english' },
@@ -51,7 +54,14 @@ export default function HomePage() {
             <div className="relative bg-slate-900/85 text-white px-6 py-12 text-center backdrop-blur">
               <h2 id="hero-heading" className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Plan your path with DreamSeedAI</h2>
               <p className="text-slate-200/90 mb-8 max-w-2xl mx-auto">Personalised guides, study plans, and expert recommendations for US/CA students.</p>
-              <a href="/guides/us" className="inline-block bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400">Explore US Guides</a>
+              <div className="flex items-center justify-center gap-3">
+                <a href="/guides/us" className="inline-block bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400">Explore US Guides</a>
+                {FEATURES.TUTOR_WIZARD && (
+                  <a href="/wizard" className="inline-block bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white">
+                    Create Your First Exam
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </section>
@@ -82,11 +92,17 @@ export default function HomePage() {
         {/* My Plan Panel */}
         <MyPlanPanel cards={recommendations} />
 
-        {/* Subscribe CTA */}
-        <section className="rounded-2xl p-8 text-center shadow-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white">
-          <h3 className="text-xl font-semibold mb-2">Subscribe for Full Access</h3>
-          <p className="text-white/90 mb-6">Unlock exclusive guides, personalised recommendations, and more.</p>
-          <button onClick={() => startCheckout()} className="inline-block bg-white text-slate-900 px-6 py-3 rounded-full hover:bg-slate-100 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white">Subscribe Now</button>
+        {/* Subscribe CTA (big blue box) */}
+        <section className="rounded-2xl p-8 text-center shadow-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white relative">
+          <div ref={ctaRef} id="ds-subscribe-cta" className="space-y-2">
+            <h3 className="text-xl font-semibold">Subscribe for Full Access</h3>
+            <p className="text-white/90">Unlock exclusive guides, personalised recommendations, and more.</p>
+            <button onClick={() => startCheckout()} className="inline-block bg-white text-slate-900 px-6 py-3 rounded-full hover:bg-slate-100 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white">Subscribe Now</button>
+          </div>
+          {/* Copy-all button at the bottom-right of the blue box */}
+          <div className="absolute right-3 bottom-3">
+            <CopyAllButton targetRef={ctaRef as any} label="복사" />
+          </div>
         </section>
           </div>
         </div>

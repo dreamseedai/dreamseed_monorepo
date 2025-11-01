@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import UserStatus from './UserStatus';
+import { FEATURES } from '../lib/FEATURES';
 
 export default function Header() {
   const [dark, setDark] = useState(false);
@@ -17,6 +18,9 @@ export default function Header() {
             <a href="/guides/us" className="text-slate-600 dark:text-slate-300 no-underline">US Guides</a>
             <a href="/guides/ca" className="text-slate-600 dark:text-slate-300 no-underline">CA Guides</a>
             <a href="/content/list" className="text-slate-600 dark:text-slate-300 no-underline">Content</a>
+            {FEATURES.TUTOR_WIZARD && (
+              <a href="/wizard" className="text-blue-600 dark:text-blue-400 font-medium no-underline">Wizard</a>
+            )}
           </nav>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

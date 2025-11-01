@@ -81,7 +81,45 @@ PYTHONPATH=apps uvicorn seedtest_api.main:app --reload --port 8002
 ```
 
 - OpenAPI docs: http://127.0.0.1:8002/docs
-- Healthcheck: GET http://127.0.0.1:8002/api/seedtest/health
+- Healthcheck: GET http://127.0.0.1:8002/healthz
+
+### Core domain endpoints (new)
+
+All under the API prefix `"/api/seedtest"`:
+
+- **Classrooms**
+  - `POST /api/seedtest/classrooms` — Create classroom (requires `exam:write`, teacher/admin only)
+  - `GET /api/seedtest/classrooms?org_id=ORG&limit=50&offset=0` — List by organization (requires `exam:read`, same-org check)
+  
+- **Sessions** *(supports ownership - see SESSION_OWNERSHIP.md)*
+  - `POST /api/seedtest/sessions` — Create session record (requires `exam:write`)
+    - Students: auto-assigned to caller's `user_id`/`org_id`
+    - Teachers: can create within their org; `user_id` optional
+    - Admins: full control
+  - `GET /api/seedtest/sessions/{id}` — Fetch by id (requires `exam:read`)
+    - Students: can only read own sessions
+    - Teachers: can read sessions in their org
+    - Admins: unrestricted
+  
+- **Interest Goals**
+  - `POST /api/seedtest/interest-goals` — Upsert goal for (user_id, topic_id) (requires `exam:write`)
+    - Students: restricted to own `user_id`
+  - `GET /api/seedtest/interest-goals?user_id=USER` — List user goals (requires `exam:read`)
+    - Students: restricted to own `user_id`
+  
+- **Features (topic daily)**
+  - `POST /api/seedtest/features/daily` — Upsert daily aggregates (requires `exam:write`)
+    - Students: restricted to own `user_id`
+  - `GET /api/seedtest/features/daily?user_id=USER&topic_id=TOPIC&start=YYYY-MM-DD&end=YYYY-MM-DD&limit=100` — Query features (requires `exam:read`)
+    - Students: restricted to own `user_id`
+
+**Access Control Summary:**
+- `LOCAL_DEV=true`: Uses stub identity `{"sub": "dev-user", "org_id": 1, "roles": ["student"]}`
+- Students: Can only access/modify their own resources within their org
+- Teachers: Can access/modify resources within their org
+- Admins: Unrestricted access across all orgs
+
+See `docs/SESSION_OWNERSHIP.md` for detailed ownership enforcement examples.
 
 ## 4) Try the exam flow locally
 
@@ -231,6 +269,46 @@ pre-commit install
   - Ensure your deploy pipeline runs Alembic before starting new app versions:
     - `PYTHONPATH=apps alembic -c apps/seedtest_api/alembic.ini upgrade head`
   - The included Alembic config sets a longer version column width so long revision IDs won’t fail.
+
+- Weekly KPI backfill/recompute:
+  - To populate the new `weekly_kpi` table for active users in the recent window, call the API:
+
+    ```bash
+    # Recompute for users active in the last 1 week (default) and store under current week bucket
+    curl -s -X POST "http://127.0.0.1:8002/metrics/weekly/recompute" \
+      -H 'Content-Type: application/json' \
+      -d '{"weeks_window":1, "limit_users":1000}' | jq .
+    ```
+
+  - This endpoint approximates weekly KPIs using activity in the last N weeks and persists them under the current ISO week_start. Historical backfill (past weeks) can be added later if needed.
+
+  - Run on a schedule (example: Kubernetes CronJob):
+
+    ```yaml
+    apiVersion: batch/v1
+    kind: CronJob
+    metadata:
+      name: seedtest-weekly-kpi
+    spec:
+      schedule: "0 3 * * 1" # Every Monday at 03:00
+      jobTemplate:
+        spec:
+          template:
+            spec:
+              restartPolicy: OnFailure
+              containers:
+                - name: weekly-kpi
+                  image: curlimages/curl:8.10.1
+                  env:
+                    - name: API_URL
+                      value: "http://seedtest-api:8002"
+                  command: ["/bin/sh","-lc"]
+                  args:
+                    - >-
+                      curl -s -X POST "$API_URL/api/seedtest/metrics/weekly/recompute"
+                      -H 'Content-Type: application/json'
+                      -d '{"weeks_window":1,"limit_users":5000}'
+    ```
 
 - Monorepo CI test selection:
   - Pytest discovery and coverage are scoped to `apps/seedtest_api` via `pyproject.toml`.

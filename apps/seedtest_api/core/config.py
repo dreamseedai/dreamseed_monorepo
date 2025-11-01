@@ -39,6 +39,12 @@ class Config(BaseSettings):
     # Local dev convenience
     LOCAL_DEV: bool = False
 
+    # Result response configuration
+    RESULT_EXCLUDE_TIMESTAMPS: bool = Field(
+        default=False,
+        description="When true, omit volatile fields (timestamps) from result responses",
+    )
+
     model_config = SettingsConfigDict(
         env_file=(".env", "apps/seedtest_api/.env"),
         env_file_encoding="utf-8",
@@ -51,6 +57,14 @@ class Config(BaseSettings):
 config = Config()
 
 # Back-compat export of legacy settings
-from ..settings import settings as settings  # noqa: E402
+try:
+    from ..settings import settings as settings  # noqa: E402
+except ImportError:
+    # If legacy settings module doesn't exist, use Config as a compatibility layer
+    class SettingsCompat:
+        def __getattr__(self, name: str):
+            return getattr(config, name, None)
+
+    settings = SettingsCompat()
 
 __all__ = ["Config", "config", "settings"]

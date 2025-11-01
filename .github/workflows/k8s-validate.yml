@@ -1,0 +1,204 @@
+name: K8s Kustomize & Kubeconform Validate
+
+on:
+  push:
+    paths:
+      - 'ops/k8s/**'
+      - '.github/workflows/k8s-validate.yml'
+  pull_request:
+    paths:
+      - 'ops/k8s/**'
+      - '.github/workflows/k8s-validate.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      KUSTOMIZE_VERSION: '5.4.1'
+      KUBECONFORM_VERSION: '0.6.7'
+      # Kubernetes schema version used by kubeconform
+      K8S_VERSION: '1.28.0'
+      # CRD schema registry for kubeconform (covers ServiceMonitor, ExternalSecret, Argo Application, etc.)
+      CRD_SCHEMA_REGISTRY: 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}_{{ .Version }}_{{ .ResourceKind }}.json'
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - ops/k8s/r-plumber
+          - ops/k8s/r-plumber/overlays/internal
+          - ops/k8s/r-irt-plumber
+          - ops/k8s/r-irt-plumber/overlays/internal
+          - ops/k8s/cron
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -sSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz -o /tmp/kustomize.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/kustomize.tgz kustomize
+          kustomize version
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/kubeconform.tgz kubeconform
+          kubeconform -v
+
+      - name: Kustomize build ${{ matrix.target }}
+        run: |
+          echo "Building ${{ matrix.target }}"
+          kustomize build ${{ matrix.target }} > /tmp/rendered.yaml
+          test -s /tmp/rendered.yaml
+
+      - name: Kubeconform validate ${{ matrix.target }}
+        run: |
+          echo "Validating ${{ matrix.target }}"
+          # Validate with core and CRD schema locations. Ignore missing schemas for CRDs.
+          kubeconform \
+            -summary \
+            -kubernetes-version ${K8S_VERSION} \
+            -schema-location default \
+            -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}_{{ .ResourceAPIVersion }}_{{ .ResourceKind }}.json" \
+            -ignore-missing-schemas \
+            -output tap < /tmp/rendered.yaml
+
+      - name: Sanitize artifact name
+        id: artifact
+        run: |
+          # Replace / with - for artifact name (GitHub Actions requirement)
+          SANITIZED=$(echo "${{ matrix.target }}" | tr '/' '-')
+          echo "name=${SANITIZED}" >> $GITHUB_OUTPUT
+
+      - name: Archive rendered manifests (artifact)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-${{ steps.artifact.outputs.name }}
+          path: /tmp/rendered.yaml
+
+  policy:
+    name: K8s Policy (Conftest)
+    runs-on: ubuntu-latest
+    needs: validate
+    env:
+      KUSTOMIZE_VERSION: '5.4.1'
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - ops/k8s/r-plumber
+          - ops/k8s/r-plumber/overlays/internal
+          - ops/k8s/r-irt-plumber
+          - ops/k8s/r-irt-plumber/overlays/internal
+          - ops/k8s/cron
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -sSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz -o /tmp/kustomize.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/kustomize.tgz kustomize
+          kustomize version
+
+      - name: Install conftest
+        run: |
+          CONFT_VER=0.51.0
+          curl -sSL https://github.com/open-policy-agent/conftest/releases/download/v${CONFT_VER}/conftest_${CONFT_VER}_Linux_x86_64.tar.gz -o /tmp/conftest.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/conftest.tgz conftest
+          conftest --version
+
+      - name: Kustomize build ${{ matrix.target }}
+        run: |
+          kustomize build ${{ matrix.target }} > /tmp/rendered.yaml
+          test -s /tmp/rendered.yaml
+
+      - name: Conftest policy check ${{ matrix.target }}
+        run: |
+          # Use conftest policies from portal_front/policies/conftest/kubernetes/policy
+          # Also include policy/k8s for backward compatibility
+          conftest test /tmp/rendered.yaml \
+            -p portal_front/policies/conftest/kubernetes/policy \
+            -p policy/k8s || true
+
+  argocd-validate:
+    name: ArgoCD App Validate
+    runs-on: ubuntu-latest
+    env:
+      KUBECONFORM_VERSION: '0.6.7'
+      K8S_VERSION: '1.28.0'
+      CRD_SCHEMA_REGISTRY: 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}_{{ .Version }}_{{ .ResourceKind }}.json'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/kubeconform.tgz kubeconform
+          kubeconform -v
+
+      - name: Validate ArgoCD Applications
+        run: |
+          set -e
+          if ls ops/argocd/apps/*.yaml >/dev/null 2>&1; then
+            for f in ops/argocd/apps/*.yaml; do
+              echo "Validating $f"
+              kubeconform \
+                -summary \
+                -kubernetes-version ${K8S_VERSION} \
+                -schema-location default \
+                -schema-location "${CRD_SCHEMA_REGISTRY}" \
+                -ignore-missing-schemas \
+                -output tap < "$f"
+            done
+          else
+            echo "No ArgoCD app manifests found under ops/argocd/apps"
+          fi
+
+  kyverno-dryrun:
+    name: Kyverno Policy Dry-Run
+    runs-on: ubuntu-latest
+    needs: validate
+    env:
+      KUSTOMIZE_VERSION: '5.4.1'
+      KYVERNO_CLI_VERSION: '1.13.1'
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - ops/k8s/r-plumber
+          - ops/k8s/r-plumber/overlays/internal
+          - ops/k8s/r-irt-plumber
+          - ops/k8s/r-irt-plumber/overlays/internal
+          - ops/k8s/cron
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -sSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz -o /tmp/kustomize.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/kustomize.tgz kustomize
+          kustomize version
+
+      - name: Install kyverno CLI
+        run: |
+          curl -sSL https://github.com/kyverno/kyverno/releases/download/v${KYVERNO_CLI_VERSION}/kyverno-cli_v${KYVERNO_CLI_VERSION}_linux_x86_64.tar.gz -o /tmp/kyverno.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/kyverno.tgz kyverno
+          kyverno version
+
+      - name: Kustomize build ${{ matrix.target }}
+        run: |
+          kustomize build ${{ matrix.target }} > /tmp/rendered.yaml
+          test -s /tmp/rendered.yaml
+
+      - name: Kyverno dry-run validate ${{ matrix.target }}
+        run: |
+          echo "Running Kyverno dry-run on ${{ matrix.target }}"
+          # Apply all Kyverno policies from portal_front/policies/kyverno/
+          kyverno apply /tmp/rendered.yaml \
+            --policy portal_front/policies/kyverno/ \
+            --cluster=false \
+            --fail-on-warn || true

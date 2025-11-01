@@ -10,6 +10,11 @@
     "files.exclude": {
       "**/node_modules": true,
       "**/dist": true
-    }
+    },
+    "powershell.cwd": "portal_front",
+    "cSpell.words": [
+      "bmewburn",
+      "sqlalchemy"
+    ]
   }
 }

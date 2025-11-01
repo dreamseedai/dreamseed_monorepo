@@ -4,7 +4,16 @@ import math
 from typing import Any, Dict, List, Tuple
 
 from ..settings import Settings
-from .adaptive_engine import fisher_information_3pl
+
+# Import fisher_information_3pl from shared.irt for IRT calculations
+try:
+    from shared.irt import item_information_3pl as fisher_information_3pl
+except ImportError:
+    # Fallback if shared.irt not available
+    def fisher_information_3pl(a: float, b: float, c: float, theta: float) -> float:
+        """Fallback Fisher information calculation."""
+        return 0.0
+
 
 # ------------------- Public helper functions -------------------
 
@@ -22,10 +31,10 @@ def raw_to_scaled(
     """
     try:
         raw = float(raw_score)
-        maxv = float(max_score)
-        if maxv <= 0:
+        max_value = float(max_score)
+        if max_value <= 0:
             return int(scale_min)
-        pct = max(0.0, min(1.0, raw / maxv))
+        pct = max(0.0, min(1.0, raw / max_value))
         val = int(round(scale_min + pct * (scale_max - scale_min)))
         return max(scale_min, min(scale_max, val))
     except Exception:

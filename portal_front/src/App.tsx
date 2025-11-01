@@ -12,6 +12,7 @@ import ContentEditorPage from './pages/ContentEditor';
 import ContentTrashPage from './pages/ContentTrash';
 import LoginForm from './components/LoginForm';
 import HomePage from './pages/Home';
+import TutorWizard from './pages/TutorWizard';
 import USGuides from './pages/guides/USGuides';
 import CAGuides from './pages/guides/CAGuides';
 import USGuideDetail from './pages/guides/USGuideDetail';
@@ -20,6 +21,7 @@ import USExamsSAT from './pages/guides/USExamsSAT';
 import USExamsAP from './pages/guides/USExamsAP';
 import USExamsACT from './pages/guides/USExamsACT';
 import USExamsOUAC from './pages/guides/USExamsOUAC';
+import TutorDashboard from './pages/TutorDashboard';
 
 export const App: React.FC = () => {
   const location = useLocation();
@@ -38,6 +40,9 @@ export const App: React.FC = () => {
   if (location.pathname === '/guides/us') {
     return <USGuides />;
   }
+  if (location.pathname === '/wizard') {
+    return <TutorWizard />;
+  }
   if (location.pathname === '/guides/us/exams-admissions') {
     return <USExamsAdmissions />;
   }
@@ -55,6 +60,9 @@ export const App: React.FC = () => {
   }
   if (location.pathname === '/guides/ca') {
     return <CAGuides />;
+  }
+  if (location.pathname === '/tutor/dashboard') {
+    return <TutorDashboard />;
   }
   if (location.pathname.startsWith('/guides/us/')) {
     return <USGuideDetail />;
