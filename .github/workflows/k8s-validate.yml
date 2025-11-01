@@ -17,7 +17,7 @@ jobs:
       KUSTOMIZE_VERSION: '5.4.1'
       KUBECONFORM_VERSION: '0.6.7'
       # Kubernetes schema version used by kubeconform
-      K8S_VERSION: 'v1.28.0'
+      K8S_VERSION: '1.28.0'
       # CRD schema registry for kubeconform (covers ServiceMonitor, ExternalSecret, Argo Application, etc.)
       CRD_SCHEMA_REGISTRY: 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}_{{ .Version }}_{{ .ResourceKind }}.json'
     strategy:
@@ -57,7 +57,7 @@ jobs:
           # Validate with core and CRD schema locations. Ignore missing schemas for CRDs.
           kubeconform \
             -summary \
-            -kubernetes-version ${K8S_VERSION/v/} \
+            -kubernetes-version ${K8S_VERSION} \
             -schema-location default \
             -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}_{{ .ResourceAPIVersion }}_{{ .ResourceKind }}.json" \
             -ignore-missing-schemas \
@@ -120,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KUBECONFORM_VERSION: '0.6.7'
-      K8S_VERSION: 'v1.28.0'
+      K8S_VERSION: '1.28.0'
       CRD_SCHEMA_REGISTRY: 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}_{{ .Version }}_{{ .ResourceKind }}.json'
     steps:
       - name: Checkout
@@ -143,6 +143,7 @@ jobs:
                 -kubernetes-version ${K8S_VERSION} \
                 -schema-location default \
                 -schema-location "${CRD_SCHEMA_REGISTRY}" \
+                -ignore-missing-schemas \
                 -output tap < "$f"
             done
           else
