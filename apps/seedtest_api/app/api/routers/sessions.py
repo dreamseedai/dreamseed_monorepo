@@ -3,11 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as OrmSession
 
-from ....services.db import get_session as session_cm
-from ....settings import settings
 from ....models.session import Session as SessionModel
 from ....schemas.sessions import SessionCreate, SessionOut
 from ....security.jwt import require_scopes, same_org_guard
+from ....services.db import get_session as session_cm
+from ....settings import settings
 
 router = APIRouter(prefix=f"{settings.API_PREFIX}/sessions", tags=["sessions"])
 

@@ -3,11 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as OrmSession
 
-from ....services.db import get_session as session_cm
-from ....settings import settings
 from ....models.interest_goal import InterestGoal
 from ....schemas.interest_goal import InterestGoalCreate, InterestGoalOut
 from ....security.jwt import require_scopes
+from ....services.db import get_session as session_cm
+from ....settings import settings
 
 router = APIRouter(
     prefix=f"{settings.API_PREFIX}/interest-goals", tags=["interest-goals"]

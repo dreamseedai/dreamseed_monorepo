@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from datetime import date
-from fastapi import APIRouter, Depends, Query, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session as OrmSession
 
-from ....services.db import get_session as session_cm
-from ....settings import settings
 from ....models.features_topic_daily import FeaturesTopicDaily
 from ....schemas.features import FeaturesTopicDailyCreate, FeaturesTopicDailyOut
 from ....security.jwt import require_scopes
+from ....services.db import get_session as session_cm
+from ....settings import settings
 
 router = APIRouter(prefix=f"{settings.API_PREFIX}/features", tags=["features"])
 
