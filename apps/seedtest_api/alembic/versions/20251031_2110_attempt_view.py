@@ -21,9 +21,10 @@ Standard attempt schema:
 
 from __future__ import annotations
 
-from alembic import op
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "20251031_2110_attempt_view"
