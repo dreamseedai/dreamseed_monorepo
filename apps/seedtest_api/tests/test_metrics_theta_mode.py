@@ -4,7 +4,6 @@ from datetime import date, datetime, timezone
 from typing import List
 
 import pytest
-
 from seedtest_api.services import metrics as metrics_svc
 from seedtest_api.services.metrics import Attempt, compute_improvement_index
 

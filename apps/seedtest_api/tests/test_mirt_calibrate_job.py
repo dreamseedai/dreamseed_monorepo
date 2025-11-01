@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 import pytest
-
 from seedtest_api.jobs.mirt_calibrate import run_calibration
 
 

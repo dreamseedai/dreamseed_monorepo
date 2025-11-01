@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ..schemas.analysis import (
@@ -14,11 +14,10 @@ from ..schemas.analysis import (
     TopicInsight,
 )
 from ..services import result_service
+from ..services.db import get_session
 from ..services.recommendation import get_recommender
 from ..services.score_analysis import get_engine
 from ..settings import Settings
-from ..services.db import get_session
-from datetime import date
 from . import metrics as metrics_svc
 
 

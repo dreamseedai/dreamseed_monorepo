@@ -9,9 +9,10 @@ from typing import Any, Dict, List
 
 import sqlalchemy as sa
 
+from ..app.clients.r_irt import RIrtClient
+
 # Reuse app DB utilities
 from ..services.db import get_session
-from ..app.clients.r_irt import RIrtClient
 
 
 async def run_calibration(

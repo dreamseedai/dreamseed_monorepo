@@ -18,6 +18,7 @@ repo_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(repo_root))
 
 from fastapi.testclient import TestClient
+
 from apps.seedtest_api.app.main import app
 
 client = TestClient(app)

@@ -21,10 +21,8 @@ from typing import Any, Dict, List, Set
 import sqlalchemy as sa
 
 from ..services.db import get_session
-from ..services.metrics import (
-    calculate_and_store_weekly_kpi,
-    week_start as iso_week_start,
-)
+from ..services.metrics import calculate_and_store_weekly_kpi
+from ..services.metrics import week_start as iso_week_start
 
 
 def _distinct_users() -> Set[str]:

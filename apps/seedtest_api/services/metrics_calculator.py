@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta, timezone, date
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import sqlalchemy as sa

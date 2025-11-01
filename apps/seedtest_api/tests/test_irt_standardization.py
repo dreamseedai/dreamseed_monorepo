@@ -16,9 +16,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..models import Question, FeaturesTopicDaily
+from ..models import FeaturesTopicDaily, Question
 from ..services.db import get_session
-
 
 # Use real PostgreSQL database
 DATABASE_URL = os.getenv(

@@ -16,8 +16,9 @@ Locks the schema for V1 analytics stability.
 
 from __future__ import annotations
 
-from alembic import op
 from sqlalchemy import text
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "20251101_0900_attempt_view_lock"

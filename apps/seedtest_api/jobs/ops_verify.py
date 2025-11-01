@@ -17,10 +17,10 @@ from typing import Optional
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
-from ..services.db import get_session
 from ..jobs.verify_counts import main as counts_main
-from ..settings import settings as app_settings
 from ..main import app
+from ..services.db import get_session
+from ..settings import settings as app_settings
 
 
 def _find_sample_user() -> Optional[str]:

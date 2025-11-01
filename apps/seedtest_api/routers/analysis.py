@@ -1,23 +1,20 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional, Dict
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from datetime import date, datetime, timezone
-
-from ..deps import User, get_current_user, require_session_access
-from ..schemas.analysis import AnalysisReport, WeeklyKPI, KPIValues
-from ..services.analysis_service import compute_analysis
-from ..settings import Settings, settings
-from ..db.session import get_db
-from ..services.metrics import (
-    list_weekly_kpi,
-    calculate_and_store_weekly_kpi,
-    week_start as iso_week_start,
-)
-from ..security.jwt import bearer, decode_token
-import sqlalchemy as sa
 import os
+from datetime import date, datetime, timezone
+from typing import Any, Dict, List, Optional
+
+import sqlalchemy as sa
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+
+from ..db.session import get_db
+from ..deps import User, get_current_user, require_session_access
+from ..schemas.analysis import AnalysisReport, KPIValues, WeeklyKPI
+from ..security.jwt import bearer, decode_token
+from ..services.analysis_service import compute_analysis
+from ..services.metrics import calculate_and_store_weekly_kpi, list_weekly_kpi
+from ..services.metrics import week_start as iso_week_start
+from ..settings import Settings, settings
 
 router = APIRouter(prefix=f"{settings.API_PREFIX}", tags=["analysis"])
 

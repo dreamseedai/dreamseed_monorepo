@@ -7,9 +7,10 @@ Create Date: 2025-10-31 16:00:00
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as psql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "20251031_1600_minimal_schema_tables"

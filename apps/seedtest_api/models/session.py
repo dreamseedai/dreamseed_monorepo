@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, Text
-from sqlalchemy import Integer
+from sqlalchemy import Column, DateTime, Integer, Text
 from sqlalchemy.sql import func
 
 from ..db.base import Base

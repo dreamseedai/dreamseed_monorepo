@@ -4,7 +4,6 @@ from datetime import date
 from typing import Any, Dict
 
 from fastapi.testclient import TestClient
-
 from seedtest_api.main import app
 
 

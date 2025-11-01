@@ -13,10 +13,11 @@ Adds KPI pipeline columns to features_topic_daily:
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.engine import Connection
 from sqlalchemy import inspect
+from sqlalchemy.engine import Connection
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "20251031_2120_features_kpi_cols"

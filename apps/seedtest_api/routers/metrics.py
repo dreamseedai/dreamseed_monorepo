@@ -11,14 +11,14 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from ..core.config import config
+from ..deps import get_current_user
 from ..services.metrics_calculator import MetricsCalculator, get_metrics_calculator
-from ..services.weekly_kpi_job import recompute_weekly_kpi_for_recent_users
 from ..services.topic_ability_service import (
     TopicAbilityService,
     get_topic_ability_service,
 )
-from ..core.config import config
-from ..deps import get_current_user
+from ..services.weekly_kpi_job import recompute_weekly_kpi_for_recent_users
 
 router = APIRouter(prefix=f"{config.API_PREFIX}/metrics", tags=["metrics"])
 

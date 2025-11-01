@@ -19,13 +19,13 @@ sys.path.insert(0, str(PACKAGE_PARENT))
 from seedtest_api.services import metrics as metrics_svc  # noqa: E402
 from seedtest_api.services.metrics import (  # noqa: E402
     Attempt,
+    calculate_and_store_weekly_kpi,
     compute_engagement,
     compute_improvement_index,
     compute_recovery_rate,
     compute_time_efficiency,
     load_attempts,
     upsert_weekly_kpi,
-    calculate_and_store_weekly_kpi,
 )
 
 os.environ.setdefault("LOCAL_DEV", "true")

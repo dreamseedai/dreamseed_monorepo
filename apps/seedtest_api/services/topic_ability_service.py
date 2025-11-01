@@ -12,9 +12,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
+from shared.irt import irf_3pl, item_information_3pl, map_theta_fisher
+
 from ..db.session import get_db
 from ..models.metrics import StudentTopicTheta
-from shared.irt import irf_3pl, item_information_3pl, map_theta_fisher
 
 
 class TopicAbilityService:
