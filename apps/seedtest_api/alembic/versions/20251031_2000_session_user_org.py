@@ -7,8 +7,8 @@ Create Date: 2025-10-31 20:00:00
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy import inspect
 from sqlalchemy.engine import Connection
 

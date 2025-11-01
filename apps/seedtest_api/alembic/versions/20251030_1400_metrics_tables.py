@@ -5,8 +5,8 @@ Revises: 20251030_1305_metrics_tables
 Create Date: 2025-10-30 14:00:00
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql as psql
 
 # revision identifiers, used by Alembic.
