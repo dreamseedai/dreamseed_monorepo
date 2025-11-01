@@ -43,53 +43,42 @@ def test_attempt_view_select_minimal(db_session: Session):
 
 
 def test_attempt_view_types(db_session: Session):
-    """Verify column types are correct (if data exists)"""
-    result = db_session.execute(text("""
-        SELECT
-            pg_typeof(id)::text as id_type,
-            pg_typeof(student_id)::text as student_id_type,
-            pg_typeof(item_id)::text as item_id_type,
-            pg_typeof(correct)::text as correct_type,
-            pg_typeof(response_time_ms)::text as response_time_ms_type,
-            pg_typeof(hint_used)::text as hint_used_type,
-            pg_typeof(completed_at)::text as completed_at_type,
-            pg_typeof(started_at)::text as started_at_type,
-            pg_typeof(attempt_no)::text as attempt_no_type,
-            pg_typeof(session_id)::text as session_id_type,
-            pg_typeof(topic_id)::text as topic_id_type
-        FROM attempt
-        LIMIT 1
-    """)).fetchone()
-    
-    if result is None:
-        pytest.skip("No data in attempt VIEW, cannot verify types")
-    
-    expected_types = {
-        'id_type': 'bigint',
-        'student_id_type': 'uuid',
-        'item_id_type': 'bigint',
-        'correct_type': 'boolean',
-        'response_time_ms_type': 'integer',
-        'hint_used_type': 'boolean',
-        'completed_at_type': 'timestamp with time zone',
-        'started_at_type': 'timestamp with time zone',
-        'attempt_no_type': 'integer',
-        'session_id_type': 'text',
-        'topic_id_type': 'text',
+    """Verify column types are correct using information_schema (no data required)."""
+    rows = db_session.execute(text("""
+        SELECT column_name, data_type
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'attempt'
+    """)).fetchall()
+
+    actual = {r.column_name: r.data_type for r in rows}
+
+    expected = {
+        'id': 'bigint',
+        'student_id': 'uuid',
+        'item_id': 'bigint',
+        'correct': 'boolean',
+        'response_time_ms': 'integer',
+        'hint_used': 'boolean',
+        'completed_at': 'timestamp with time zone',
+        'started_at': 'timestamp with time zone',
+        'attempt_no': 'integer',
+        'session_id': 'text',
+        'topic_id': 'text',
     }
-    
-    for col, expected_type in expected_types.items():
-        actual_type = getattr(result, col)
-        assert actual_type == expected_type, (
-            f"Type mismatch for {col}: expected {expected_type}, got {actual_type}"
-        )
+
+    # Ensure no missing or extra columns
+    assert set(actual.keys()) == set(expected.keys()), (
+        f"Column mismatch. Missing: {set(expected)-set(actual)}; Extra: {set(actual)-set(expected)}"
+    )
+
+    # Validate data types
+    for col, dtype in expected.items():
+        assert actual[col] == dtype, f"Type mismatch for {col}: expected {dtype}, got {actual[col]}"
 
 
 def test_attempt_view_student_id_determinism(db_session: Session):
     """Verify student_id generation is deterministic for same user_id"""
-    # Insert test data if needed (requires exam_results table)
-    # For now, just verify the VIEW can handle different user_id formats
-    
+    # Uses exam_results directly; passes vacuously when there is no data.
     result = db_session.execute(text("""
         SELECT
             user_id_text,
@@ -115,21 +104,15 @@ def test_attempt_view_student_id_determinism(db_session: Session):
         GROUP BY user_id_text, student_id
     """)).fetchall()
     
-    if not result:
-        pytest.skip("No exam_results data to test determinism")
-    
-    # Each user_id should map to exactly one student_id
+    # Build mapping counts and ensure no duplicates per user_id
     user_id_counts = {}
     for row in result:
         user_id = row.user_id_text
-        if user_id not in user_id_counts:
-            user_id_counts[user_id] = 0
-        user_id_counts[user_id] += 1
-    
+        user_id_counts[user_id] = user_id_counts.get(user_id, 0) + 1
+
+    # If there is no data, this loop is empty and test passes.
     for user_id, count in user_id_counts.items():
-        assert count == 1, (
-            f"user_id '{user_id}' maps to multiple student_ids: {count}"
-        )
+        assert count == 1, f"user_id '{user_id}' maps to multiple student_ids: {count}"
 
 
 def test_attempt_view_no_nulls_in_required_fields(db_session: Session):
@@ -148,15 +131,16 @@ def test_attempt_view_no_nulls_in_required_fields(db_session: Session):
         FROM attempt
     """)).fetchone()
     
-    if result.total == 0:
-        pytest.skip("No data in attempt VIEW")
-    
-    # All required fields should have same count as total rows
-    assert result.id_count == result.total
-    assert result.student_id_count == result.total
-    assert result.item_id_count == result.total
-    assert result.correct_count == result.total
-    assert result.response_time_ms_count == result.total
-    assert result.hint_used_count == result.total
-    assert result.completed_at_count == result.total
-    assert result.attempt_no_count == result.total
+    # Ensure we received a row; COUNT(*) queries always return a row
+    assert result is not None
+    m = result._mapping
+
+    # All required fields should have same count as total rows (also holds when total = 0)
+    assert m["id_count"] == m["total"]
+    assert m["student_id_count"] == m["total"]
+    assert m["item_id_count"] == m["total"]
+    assert m["correct_count"] == m["total"]
+    assert m["response_time_ms_count"] == m["total"]
+    assert m["hint_used_count"] == m["total"]
+    assert m["completed_at_count"] == m["total"]
+    assert m["attempt_no_count"] == m["total"]
