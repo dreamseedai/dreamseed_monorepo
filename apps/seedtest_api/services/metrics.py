@@ -27,6 +27,7 @@ class Attempt:
 
 # --------- Time helpers ---------
 
+
 def week_start(d: date) -> date:
     """Return ISO week Monday for given date."""
     # Monday is 0 in Python weekday()
@@ -37,12 +38,15 @@ def week_start(d: date) -> date:
 
 def time_window(as_of: date, days: int) -> Tuple[datetime, datetime]:
     """Return (start,end) UTC datetimes inclusive for days ending at as_of."""
-    end_dt = datetime(as_of.year, as_of.month, as_of.day, 23, 59, 59, tzinfo=timezone.utc)
+    end_dt = datetime(
+        as_of.year, as_of.month, as_of.day, 23, 59, 59, tzinfo=timezone.utc
+    )
     start_dt = end_dt - timedelta(days=days - 1)
     return start_dt, end_dt
 
 
 # --------- Fetchers ---------
+
 
 def _fetch_exam_results_rows(
     session: Session, user_id: str, start: datetime, end: datetime
@@ -59,11 +63,15 @@ def _fetch_exam_results_rows(
         LIMIT 500
         """
     )
-    rows = session.execute(sql, {"uid": user_id, "st": start, "en": end}).mappings().all()
+    rows = (
+        session.execute(sql, {"uid": user_id, "st": start, "en": end}).mappings().all()
+    )
     return list(rows)
 
 
-def load_attempts(session: Session, user_id: str, start: datetime, end: datetime) -> List[Attempt]:
+def load_attempts(
+    session: Session, user_id: str, start: datetime, end: datetime
+) -> List[Attempt]:
     rows = _fetch_exam_results_rows(session, user_id, start, end)
     attempts: List[Attempt] = []
     for r in rows:
@@ -80,12 +88,33 @@ def load_attempts(session: Session, user_id: str, start: datetime, end: datetime
         for q in qs:
             attempts.append(
                 Attempt(
-                    question_id=str(q.get("question_id")) if q.get("question_id") is not None else None,
-                    topic_id=str(q.get("topic")) if q.get("topic") is not None else None,
-                    is_correct=bool(q.get("is_correct") or q.get("correct")) if (q.get("is_correct") is not None or q.get("correct") is not None) else None,
+                    question_id=(
+                        str(q.get("question_id"))
+                        if q.get("question_id") is not None
+                        else None
+                    ),
+                    topic_id=(
+                        str(q.get("topic")) if q.get("topic") is not None else None
+                    ),
+                    is_correct=(
+                        bool(q.get("is_correct") or q.get("correct"))
+                        if (
+                            q.get("is_correct") is not None
+                            or q.get("correct") is not None
+                        )
+                        else None
+                    ),
                     responded_at=ts,
-                    response_time_ms=(int(float(q.get("time_spent_sec")) * 1000) if isinstance(q.get("time_spent_sec"), (int, float)) else None),
-                    used_hints=(int(q.get("used_hints")) if isinstance(q.get("used_hints"), (int, float)) else None),
+                    response_time_ms=(
+                        int(float(q.get("time_spent_sec")) * 1000)
+                        if isinstance(q.get("time_spent_sec"), (int, float))
+                        else None
+                    ),
+                    used_hints=(
+                        int(q.get("used_hints"))
+                        if isinstance(q.get("used_hints"), (int, float))
+                        else None
+                    ),
                     session_id=r.get("session_id"),
                     session_duration_s=dwell,
                 )
@@ -94,6 +123,7 @@ def load_attempts(session: Session, user_id: str, start: datetime, end: datetime
 
 
 # --------- Compute functions (MVP) ---------
+
 
 def _clamp(x: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, x))
@@ -109,7 +139,7 @@ def compute_improvement_index(
 
     Prefer theta-based delta over two half-windows within the last 28 days, with exposure and SE-based penalty.
     Fallback: accuracy delta if theta unavailable.
-    
+
     When METRICS_USE_IRT_THETA=true and sufficient exposure:
     - Uses theta delta: I_t = clamp((θ_recent - θ_prev) * exposure_adj * penalty_from_se, -1, 1)
     - Windows: prev=[as_of-27..as_of-14], recent=[as_of-13..as_of] (14-day windows)
@@ -132,7 +162,9 @@ def compute_improvement_index(
     use_theta = os.getenv("METRICS_USE_IRT_THETA", "false").lower() == "true"
     if use_theta and n_recent >= 5:
         theta_prev = _latest_theta_in_window(session, user_id, prev_start, prev_end)
-        theta_recent = _latest_theta_in_window(session, user_id, recent_start, recent_end)
+        theta_recent = _latest_theta_in_window(
+            session, user_id, recent_start, recent_end
+        )
         if theta_prev is not None and theta_recent is not None:
             t_prev, _ = theta_prev
             t_recent, se_recent = theta_recent
@@ -257,7 +289,9 @@ def compute_engagement(
     session_count_norm = max(0.0, min(1.0, len(sessions) / float(window_days)))
 
     # gap consistency: use session timestamps (responded_at)
-    ts = sorted({a.responded_at for a in attempts if isinstance(a.responded_at, datetime)})
+    ts = sorted(
+        {a.responded_at for a in attempts if isinstance(a.responded_at, datetime)}
+    )
     if len(ts) >= 2:
         gaps = []
         for i in range(1, len(ts)):
@@ -277,18 +311,26 @@ def compute_engagement(
         hints_norm = 0.5
 
     # dwell_norm: average session duration (s), 15+ minutes maps to 1.0
-    sess_durations = [a.session_duration_s for a in attempts if isinstance(a.session_duration_s, int)]
+    sess_durations = [
+        a.session_duration_s for a in attempts if isinstance(a.session_duration_s, int)
+    ]
     if sess_durations:
         avg_dwell = sum(sess_durations) / max(1, len(sessions))
         dwell_norm = max(0.0, min(1.0, avg_dwell / 900.0))
     else:
         dwell_norm = 0.5
 
-    engagement = 0.35 * session_count_norm + 0.25 * gap_norm + 0.2 * hints_norm + 0.2 * dwell_norm
+    engagement = (
+        0.35 * session_count_norm
+        + 0.25 * gap_norm
+        + 0.2 * hints_norm
+        + 0.2 * dwell_norm
+    )
     return max(0.0, min(1.0, engagement))
 
 
 # --------- Upsert and orchestrator ---------
+
 
 def upsert_weekly_kpi(
     session: Session,
@@ -345,7 +387,11 @@ def list_weekly_kpi(session: Session, user_id: str, weeks: int) -> list[dict]:
         LIMIT :lim
         """
     )
-    rows = session.execute(stmt, {"uid": user_id, "lim": int(max(0, weeks))}).mappings().all()
+    rows = (
+        session.execute(stmt, {"uid": user_id, "lim": int(max(0, weeks))})
+        .mappings()
+        .all()
+    )
     out: list[dict] = []
     for r in rows:
         ws = r.get("week_start")
@@ -354,11 +400,21 @@ def list_weekly_kpi(session: Session, user_id: str, weeks: int) -> list[dict]:
             ws_date = ws.date()
         else:
             ws_date = ws
-        out.append({
-            "user_id": r.get("user_id"),
-            "week_start": ws_date,
-            "kpis": r.get("kpis") or {"I_t": None, "E_t": None, "R_t": None, "A_t": None, "P": None, "S": None},
-        })
+        out.append(
+            {
+                "user_id": r.get("user_id"),
+                "week_start": ws_date,
+                "kpis": r.get("kpis")
+                or {
+                    "I_t": None,
+                    "E_t": None,
+                    "R_t": None,
+                    "A_t": None,
+                    "P": None,
+                    "S": None,
+                },
+            }
+        )
     return out
 
 
@@ -381,8 +437,12 @@ def _latest_theta_in_window(
             LIMIT 1
             """
         )
-        st_dt = datetime(start_d.year, start_d.month, start_d.day, 0, 0, 0, tzinfo=timezone.utc)
-        en_dt = datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc)
+        st_dt = datetime(
+            start_d.year, start_d.month, start_d.day, 0, 0, 0, tzinfo=timezone.utc
+        )
+        en_dt = datetime(
+            end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc
+        )
         row = session.execute(stmt, {"uid": user_id, "st": st_dt, "en": en_dt}).first()
         if row is not None:
             th = row[0]
@@ -402,9 +462,15 @@ def _latest_theta_in_window(
             LIMIT 200
             """
         )
-        st_dt = datetime(start_d.year, start_d.month, start_d.day, 0, 0, 0, tzinfo=timezone.utc)
-        en_dt = datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc)
-        rows = session.execute(stmt2, {"uid": user_id, "st": st_dt, "en": en_dt}).fetchall()
+        st_dt = datetime(
+            start_d.year, start_d.month, start_d.day, 0, 0, 0, tzinfo=timezone.utc
+        )
+        en_dt = datetime(
+            end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc
+        )
+        rows = session.execute(
+            stmt2, {"uid": user_id, "st": st_dt, "en": en_dt}
+        ).fetchall()
         if not rows:
             return None
         # inverse-variance weighting if SE provided
@@ -433,6 +499,7 @@ def _latest_theta_in_window(
 
 # --------- Goal attainment probability (P) ---------
 
+
 def _get_default_target() -> float:
     try:
         return float(os.getenv("METRICS_DEFAULT_TARGET", "0.0"))
@@ -440,7 +507,9 @@ def _get_default_target() -> float:
         return 0.0
 
 
-def load_user_ability_summary(session: Session, user_id: str) -> Optional[Tuple[float, float]]:
+def load_user_ability_summary(
+    session: Session, user_id: str
+) -> Optional[Tuple[float, float]]:
     """Load (mu, sd) ability summary for user if available.
 
     Tries ability_estimates table with columns (user_id, mean, sd, fitted_at?)
@@ -527,6 +596,7 @@ def compute_goal_attainment_probability(
 
 # --------- Topic theta loader (IRT integration) ---------
 
+
 def load_topic_thetas(
     session: Session, user_id: str, as_of: date, window_days: int = 28
 ) -> List[Dict[str, Any]]:
@@ -544,7 +614,9 @@ def load_topic_thetas(
         0,
         tzinfo=timezone.utc,
     )
-    end_dt = datetime(as_of.year, as_of.month, as_of.day, 23, 59, 59, tzinfo=timezone.utc)
+    end_dt = datetime(
+        as_of.year, as_of.month, as_of.day, 23, 59, 59, tzinfo=timezone.utc
+    )
 
     # Try topic-level first
     try:
@@ -557,14 +629,22 @@ def load_topic_thetas(
             LIMIT 200
             """
         )
-        rows = session.execute(stmt, {"uid": user_id, "st": start_dt, "en": end_dt}).mappings().all()
+        rows = (
+            session.execute(stmt, {"uid": user_id, "st": start_dt, "en": end_dt})
+            .mappings()
+            .all()
+        )
         if rows:
             out: List[Dict[str, Any]] = []
             for r in rows:
                 out.append(
                     {
                         "topic_id": r.get("topic_id"),
-                        "theta": float(r.get("theta")) if r.get("theta") is not None else None,
+                        "theta": (
+                            float(r.get("theta"))
+                            if r.get("theta") is not None
+                            else None
+                        ),
                         "se": float(r.get("se")) if r.get("se") is not None else None,
                         "model": str(r.get("model") or "mirt"),
                         "fitted_at": r.get("fitted_at"),
@@ -585,12 +665,20 @@ def load_topic_thetas(
             LIMIT 1
             """
         )
-        row = session.execute(stmt2, {"uid": user_id, "st": start_dt, "en": end_dt}).mappings().first()
+        row = (
+            session.execute(stmt2, {"uid": user_id, "st": start_dt, "en": end_dt})
+            .mappings()
+            .first()
+        )
         if row:
             return [
                 {
                     "topic_id": None,  # General ability, not topic-specific
-                    "theta": float(row.get("theta")) if row.get("theta") is not None else None,
+                    "theta": (
+                        float(row.get("theta"))
+                        if row.get("theta") is not None
+                        else None
+                    ),
                     "se": float(row.get("se")) if row.get("se") is not None else None,
                     "model": str(row.get("model") or "mirt"),
                     "fitted_at": row.get("fitted_at"),
@@ -603,6 +691,7 @@ def load_topic_thetas(
 
 
 # --------- Churn risk S(t) (heuristic MVP) ---------
+
 
 def _get_churn_horizon_days() -> int:
     try:
@@ -622,8 +711,12 @@ def load_user_session_stats(
     """
     # Compute window bounds
     today = date.today()
-    start_dt = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=timezone.utc) - timedelta(days=lookback_days - 1)
-    end_dt = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=timezone.utc)
+    start_dt = datetime(
+        today.year, today.month, today.day, 0, 0, 0, tzinfo=timezone.utc
+    ) - timedelta(days=lookback_days - 1)
+    end_dt = datetime(
+        today.year, today.month, today.day, 23, 59, 59, tzinfo=timezone.utc
+    )
 
     try:
         # Try to derive from exam_results if dedicated tables not available
@@ -637,7 +730,11 @@ def load_user_session_stats(
             LIMIT 1000
             """
         )
-        rows = session.execute(sql, {"uid": user_id, "st": start_dt, "en": end_dt}).mappings().all()
+        rows = (
+            session.execute(sql, {"uid": user_id, "st": start_dt, "en": end_dt})
+            .mappings()
+            .all()
+        )
         if not rows:
             return None
         # Build sorted unique timestamps per session (basic surrogate)
@@ -650,7 +747,9 @@ def load_user_session_stats(
         last_seen_dt: datetime = ts_list[-1]
         first_seen_dt: datetime = ts_list[0]
         # Sessions: count distinct session_id
-        sess_ids = set(str(r.get("session_id")) for r in rows if r.get("session_id") is not None)
+        sess_ids = set(
+            str(r.get("session_id")) for r in rows if r.get("session_id") is not None
+        )
         sessions_cnt = len(sess_ids)
         # Mean gap in days between consecutive timestamps
         gaps: List[float] = []

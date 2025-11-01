@@ -1,4 +1,5 @@
 """Backfill features_topic_daily from attempt VIEW and metrics calculations."""
+
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
@@ -26,7 +27,7 @@ def backfill_features_topic_daily(
     improvement: float | None = None,
 ) -> None:
     """Upsert daily topic features for a user.
-    
+
     Args:
         session: Database session
         user_id: User identifier (TEXT)
@@ -54,9 +55,10 @@ def backfill_features_topic_daily(
             hints = stats.get("hints", 0)
         if rt_median is None:
             rt_median = stats.get("rt_median")
-    
+
     session.execute(
-        text("""
+        text(
+            """
             INSERT INTO features_topic_daily
               (user_id, topic_id, date, attempts, correct, avg_time_ms, hints,
                theta_estimate, theta_sd, rt_median, improvement)
@@ -75,7 +77,8 @@ def backfill_features_topic_daily(
               improvement = EXCLUDED.improvement,
               last_seen_at = NOW(),
               computed_at = NOW()
-        """),
+        """
+        ),
         {
             "user_id": user_id,
             "topic_id": topic_id,
@@ -88,7 +91,7 @@ def backfill_features_topic_daily(
             "theta_sd": theta_sd,
             "rt_median": rt_median,
             "improvement": improvement,
-        }
+        },
     )
     session.commit()
 
@@ -102,9 +105,10 @@ def _calculate_stats_from_attempt(
     """Calculate statistics from attempt VIEW for a given user/topic/date."""
     date_start = datetime.combine(target_date, datetime.min.time())
     date_end = date_start + timedelta(days=1)
-    
+
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT
               COUNT(*) AS attempts,
               SUM(CASE WHEN correct THEN 1 ELSE 0 END)::int AS correct,
@@ -116,19 +120,26 @@ def _calculate_stats_from_attempt(
               AND topic_id = :topic_id
               AND completed_at >= :date_start
               AND completed_at < :date_end
-        """),
+        """
+        ),
         {
             "user_id": user_id,
             "topic_id": topic_id,
             "date_start": date_start,
             "date_end": date_end,
-        }
+        },
     )
     row = result.fetchone()
-    
+
     if row is None:
-        return {"attempts": 0, "correct": 0, "avg_time_ms": None, "rt_median": None, "hints": 0}
-    
+        return {
+            "attempts": 0,
+            "correct": 0,
+            "avg_time_ms": None,
+            "rt_median": None,
+            "hints": 0,
+        }
+
     return {
         "attempts": row[0] or 0,
         "correct": row[1] or 0,
@@ -148,7 +159,7 @@ def backfill_user_topic_range(
     include_theta: bool = False,
 ) -> int:
     """Backfill features_topic_daily for a date range.
-    
+
     Args:
         session: Database session
         user_id: User identifier
@@ -156,23 +167,25 @@ def backfill_user_topic_range(
         start_date: Start date (inclusive)
         end_date: End date (inclusive)
         include_theta: Whether to include IRT theta estimates (requires mirt_ability lookup)
-    
+
     Returns:
         Number of days backfilled
     """
     current_date = start_date
     count = 0
-    
+
     while current_date <= end_date:
         # Load theta if requested
         theta_estimate = None
         theta_sd = None
         if include_theta:
-            theta_data = _load_user_topic_theta(session, user_id, topic_id, current_date)
+            theta_data = _load_user_topic_theta(
+                session, user_id, topic_id, current_date
+            )
             if theta_data:
                 theta_estimate = theta_data.get("theta")
                 theta_sd = theta_data.get("se")
-        
+
         backfill_features_topic_daily(
             session,
             user_id,
@@ -183,7 +196,7 @@ def backfill_user_topic_range(
         )
         count += 1
         current_date += timedelta(days=1)
-    
+
     return count
 
 
@@ -194,12 +207,13 @@ def _load_user_topic_theta(
     target_date: date,
 ) -> dict[str, float] | None:
     """Load IRT theta estimate for a user/topic as of a given date.
-    
+
     This looks up from student_topic_theta or mirt_ability tables.
     """
     # Try student_topic_theta first
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT theta, se
             FROM student_topic_theta
             WHERE user_id = :user_id
@@ -207,20 +221,20 @@ def _load_user_topic_theta(
               AND fitted_at <= :target_date
             ORDER BY fitted_at DESC
             LIMIT 1
-        """),
+        """
+        ),
         {
             "user_id": user_id,
             "topic_id": topic_id,
             "target_date": datetime.combine(target_date, datetime.max.time()),
-        }
+        },
     )
     row = result.fetchone()
-    
+
     if row and row[0] is not None:
         return {
             "theta": float(row[0]),
-            "se": float(row[1]) if row[1] is not None and row[1] != "None" else None
+            "se": float(row[1]) if row[1] is not None and row[1] != "None" else None,
         }
-    
-    return None
 
+    return None

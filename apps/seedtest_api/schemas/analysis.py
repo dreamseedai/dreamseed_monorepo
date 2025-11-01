@@ -75,6 +75,7 @@ class AnalysisReport(BaseModel):
 
 # --- Metrics API Schemas ---
 
+
 class KPIValues(BaseModel):
     I_t: Optional[float] = None
     E_t: Optional[float] = None

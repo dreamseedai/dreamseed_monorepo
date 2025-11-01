@@ -1,4 +1,5 @@
 """Tests for core domain models: classroom, session, interest_goal, features_topic_daily."""
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -35,11 +36,9 @@ def db_session():
 def test_classroom_creation(db_session):
     """Test creating and querying a classroom."""
     # Cleanup to make test idempotent
-    db_session.execute(
-        text("DELETE FROM classroom WHERE id = 'cls_001'")
-    )
+    db_session.execute(text("DELETE FROM classroom WHERE id = 'cls_001'"))
     db_session.commit()
-    
+
     classroom = Classroom(
         id="cls_001",
         org_id="org_123",
@@ -59,9 +58,7 @@ def test_classroom_creation(db_session):
 def test_classroom_unique_constraint(db_session):
     """Test that org_id + name must be unique."""
     # Cleanup to make test idempotent
-    db_session.execute(
-        text("DELETE FROM classroom WHERE id IN ('cls_001','cls_002')")
-    )
+    db_session.execute(text("DELETE FROM classroom WHERE id IN ('cls_001','cls_002')"))
     db_session.commit()
     classroom1 = Classroom(
         id="cls_001",
@@ -86,11 +83,9 @@ def test_classroom_unique_constraint(db_session):
 def test_session_creation(db_session):
     """Test creating a learning session."""
     # Cleanup to make test idempotent
-    db_session.execute(
-        text("DELETE FROM session WHERE id = 'sess_001'")
-    )
+    db_session.execute(text("DELETE FROM session WHERE id = 'sess_001'"))
     db_session.commit()
-    
+
     session = LearningSession(
         id="sess_001",
         classroom_id="cls_001",
@@ -112,7 +107,9 @@ def test_interest_goal_creation(db_session):
     """Test creating user interest goals."""
     # Cleanup
     db_session.execute(
-        text("DELETE FROM interest_goal WHERE user_id='user_001' AND topic_id='topic_algebra'")
+        text(
+            "DELETE FROM interest_goal WHERE user_id='user_001' AND topic_id='topic_algebra'"
+        )
     )
     db_session.commit()
     goal = InterestGoal(
@@ -138,7 +135,9 @@ def test_features_topic_daily_creation(db_session):
     """Test creating daily topic features."""
     # Cleanup
     db_session.execute(
-        text("DELETE FROM features_topic_daily WHERE user_id='user_001' AND topic_id='topic_algebra' AND date='2025-10-31'")
+        text(
+            "DELETE FROM features_topic_daily WHERE user_id='user_001' AND topic_id='topic_algebra' AND date='2025-10-31'"
+        )
     )
     db_session.commit()
     feature = FeaturesTopicDaily(

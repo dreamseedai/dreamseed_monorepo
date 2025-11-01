@@ -26,7 +26,9 @@ def test_weekly_recompute_endpoint_happy_path(monkeypatch):
     )
     # If the router imports shared.auth, this override is safe; if LOCAL_DEV=true it's unused
     if hasattr(metrics_router, "get_current_user"):
-        monkeypatch.setattr(metrics_router, "get_current_user", lambda: fake_get_current_user())
+        monkeypatch.setattr(
+            metrics_router, "get_current_user", lambda: fake_get_current_user()
+        )
 
     client = TestClient(app)
 

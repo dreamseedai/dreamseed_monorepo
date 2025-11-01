@@ -27,9 +27,17 @@ from ..services.db import get_session
 def _distinct_users_with_ability() -> List[str]:
     with get_session() as s:
         try:
-            rows = s.execute(sa.text("""
+            rows = (
+                s.execute(
+                    sa.text(
+                        """
                 SELECT DISTINCT user_id FROM mirt_ability
-            """)).mappings().all()
+            """
+                    )
+                )
+                .mappings()
+                .all()
+            )
             return [r["user_id"] for r in rows]
         except Exception:
             return []
@@ -39,16 +47,25 @@ def _topics_for_user(user_id: str, since_dt: datetime) -> Set[str]:
     topics: Set[str] = set()
     with get_session() as s:
         try:
-            rows = s.execute(sa.text("""
+            rows = (
+                s.execute(
+                    sa.text(
+                        """
                 SELECT result_json
                 FROM exam_results
                 WHERE user_id = :uid AND COALESCE(updated_at, created_at) >= :since
                 ORDER BY COALESCE(updated_at, created_at)
                 LIMIT 2000
-            """), {"uid": user_id, "since": since_dt}).mappings().all()
+            """
+                    ),
+                    {"uid": user_id, "since": since_dt},
+                )
+                .mappings()
+                .all()
+            )
             for r in rows:
                 doc = r.get("result_json") or {}
-                for q in (doc.get("questions") or []):
+                for q in doc.get("questions") or []:
                     t = q.get("topic")
                     if t is not None and str(t).strip():
                         topics.add(str(t))
@@ -60,13 +77,22 @@ def _topics_for_user(user_id: str, since_dt: datetime) -> Set[str]:
 def _latest_ability(user_id: str) -> Dict[str, Any] | None:
     with get_session() as s:
         try:
-            row = s.execute(sa.text("""
+            row = (
+                s.execute(
+                    sa.text(
+                        """
                 SELECT theta, se, model, version, fitted_at
                 FROM mirt_ability
                 WHERE user_id = :uid
                 ORDER BY fitted_at DESC
                 LIMIT 1
-            """), {"uid": user_id}).mappings().first()
+            """
+                    ),
+                    {"uid": user_id},
+                )
+                .mappings()
+                .first()
+            )
             return dict(row) if row else None
         except Exception:
             return None
@@ -88,7 +114,11 @@ def _upsert_topic_theta(user_id: str, topic_id: str, ability: Dict[str, Any]) ->
                 "uid": user_id,
                 "tid": topic_id,
                 "theta": float(ability.get("theta") or 0.0),
-                "se": float(ability.get("se") or 0.0) if ability.get("se") is not None else None,
+                "se": (
+                    float(ability.get("se") or 0.0)
+                    if ability.get("se") is not None
+                    else None
+                ),
                 "model": str(ability.get("model") or "mirt"),
                 "version": str(ability.get("version") or "v1"),
                 "fitted_at": ability.get("fitted_at") or datetime.now(tz=timezone.utc),

@@ -13,9 +13,14 @@ class WeeklyKPI(Base):
     user_id = Column(Text, primary_key=True)
     week_start = Column(Date, primary_key=True)
     kpis = Column(JSONB, nullable=False, default=dict)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
 
 
@@ -27,5 +32,8 @@ class StudentTopicTheta(Base):
     theta = Column(Numeric, nullable=True)
     standard_error = Column(Numeric, nullable=True)
     updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )

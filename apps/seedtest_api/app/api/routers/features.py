@@ -10,7 +10,7 @@ from ....models.features_topic_daily import FeaturesTopicDaily
 from ....schemas.features import FeaturesTopicDailyCreate, FeaturesTopicDailyOut
 from ....security.jwt import require_scopes
 
-router = APIRouter(prefix=f"{settings.API_PREFIX}/features", tags=["features"]) 
+router = APIRouter(prefix=f"{settings.API_PREFIX}/features", tags=["features"])
 
 
 def db_dep():

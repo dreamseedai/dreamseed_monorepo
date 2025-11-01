@@ -1,4 +1,5 @@
 """Smoke tests for attempt VIEW - validate schema and basic queries"""
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -16,15 +17,23 @@ def db_session():
 def test_attempt_view_columns_exist(db_session: Session):
     """Verify all expected columns exist in attempt VIEW"""
     result = db_session.execute(text("SELECT * FROM attempt LIMIT 0"))
-    
+
     expected_columns = {
-        'id', 'student_id', 'item_id', 'correct', 'response_time_ms',
-        'hint_used', 'completed_at', 'started_at', 'attempt_no',
-        'session_id', 'topic_id'
+        "id",
+        "student_id",
+        "item_id",
+        "correct",
+        "response_time_ms",
+        "hint_used",
+        "completed_at",
+        "started_at",
+        "attempt_no",
+        "session_id",
+        "topic_id",
     }
-    
+
     actual_columns = set(result.keys())
-    
+
     assert expected_columns == actual_columns, (
         f"Column mismatch.\n"
         f"Missing: {expected_columns - actual_columns}\n"
@@ -36,7 +45,7 @@ def test_attempt_view_select_minimal(db_session: Session):
     """Verify attempt VIEW can be queried without errors"""
     result = db_session.execute(text("SELECT count(*) FROM attempt"))
     count = result.scalar()
-    
+
     # Should succeed even if count is 0
     assert count is not None
     assert count >= 0
@@ -44,42 +53,50 @@ def test_attempt_view_select_minimal(db_session: Session):
 
 def test_attempt_view_types(db_session: Session):
     """Verify column types are correct using information_schema (no data required)."""
-    rows = db_session.execute(text("""
+    rows = db_session.execute(
+        text(
+            """
         SELECT column_name, data_type
         FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'attempt'
-    """)).fetchall()
+    """
+        )
+    ).fetchall()
 
     actual = {r.column_name: r.data_type for r in rows}
 
     expected = {
-        'id': 'bigint',
-        'student_id': 'uuid',
-        'item_id': 'bigint',
-        'correct': 'boolean',
-        'response_time_ms': 'integer',
-        'hint_used': 'boolean',
-        'completed_at': 'timestamp with time zone',
-        'started_at': 'timestamp with time zone',
-        'attempt_no': 'integer',
-        'session_id': 'text',
-        'topic_id': 'text',
+        "id": "bigint",
+        "student_id": "uuid",
+        "item_id": "bigint",
+        "correct": "boolean",
+        "response_time_ms": "integer",
+        "hint_used": "boolean",
+        "completed_at": "timestamp with time zone",
+        "started_at": "timestamp with time zone",
+        "attempt_no": "integer",
+        "session_id": "text",
+        "topic_id": "text",
     }
 
     # Ensure no missing or extra columns
-    assert set(actual.keys()) == set(expected.keys()), (
-        f"Column mismatch. Missing: {set(expected)-set(actual)}; Extra: {set(actual)-set(expected)}"
-    )
+    assert set(actual.keys()) == set(
+        expected.keys()
+    ), f"Column mismatch. Missing: {set(expected)-set(actual)}; Extra: {set(actual)-set(expected)}"
 
     # Validate data types
     for col, dtype in expected.items():
-        assert actual[col] == dtype, f"Type mismatch for {col}: expected {dtype}, got {actual[col]}"
+        assert (
+            actual[col] == dtype
+        ), f"Type mismatch for {col}: expected {dtype}, got {actual[col]}"
 
 
 def test_attempt_view_student_id_determinism(db_session: Session):
     """Verify student_id generation is deterministic for same user_id"""
     # Uses exam_results directly; passes vacuously when there is no data.
-    result = db_session.execute(text("""
+    result = db_session.execute(
+        text(
+            """
         SELECT
             user_id_text,
             student_id,
@@ -102,8 +119,10 @@ def test_attempt_view_student_id_determinism(db_session: Session):
             FROM exam_results er
         ) sub
         GROUP BY user_id_text, student_id
-    """)).fetchall()
-    
+    """
+        )
+    ).fetchall()
+
     # Build mapping counts and ensure no duplicates per user_id
     user_id_counts = {}
     for row in result:
@@ -117,7 +136,9 @@ def test_attempt_view_student_id_determinism(db_session: Session):
 
 def test_attempt_view_no_nulls_in_required_fields(db_session: Session):
     """Verify required fields never NULL"""
-    result = db_session.execute(text("""
+    result = db_session.execute(
+        text(
+            """
         SELECT
             COUNT(*) as total,
             COUNT(id) as id_count,
@@ -129,8 +150,10 @@ def test_attempt_view_no_nulls_in_required_fields(db_session: Session):
             COUNT(completed_at) as completed_at_count,
             COUNT(attempt_no) as attempt_no_count
         FROM attempt
-    """)).fetchone()
-    
+    """
+        )
+    ).fetchone()
+
     # Ensure we received a row; COUNT(*) queries always return a row
     assert result is not None
     m = result._mapping

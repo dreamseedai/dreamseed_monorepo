@@ -43,12 +43,17 @@ async def test_r_irt_client_calibrate(monkeypatch):
             captured["url"] = url
             captured["json"] = json
             captured["headers"] = headers
-            return _Resp({"ok": True, "item_params": [], "abilities": [], "fit_meta": {}})
+            return _Resp(
+                {"ok": True, "item_params": [], "abilities": [], "fit_meta": {}}
+            )
 
     monkeypatch.setattr("httpx.AsyncClient", _AC)
 
     client = RIrtClient()
-    out = await client.calibrate([{"user_id": "U1", "item_id": "Q1", "is_correct": True, "responded_at": "..."}], model="2PL")
+    out = await client.calibrate(
+        [{"user_id": "U1", "item_id": "Q1", "is_correct": True, "responded_at": "..."}],
+        model="2PL",
+    )
     assert out.get("ok") is True
     assert captured["url"].endswith("/irt/calibrate")
     assert captured["json"]["model"] == "2PL"
@@ -79,7 +84,9 @@ async def test_r_irt_client_score(monkeypatch):
     monkeypatch.setattr("httpx.AsyncClient", _AC)
 
     client = RIrtClient()
-    out = await client.score({"items": []}, [{"user_id": "U1", "item_id": "Q1", "is_correct": True}])
+    out = await client.score(
+        {"items": []}, [{"user_id": "U1", "item_id": "Q1", "is_correct": True}]
+    )
     assert out.get("ok") is True
     assert captured["url"].endswith("/irt/score")
     assert "item_params" in captured["json"] and "responses" in captured["json"]

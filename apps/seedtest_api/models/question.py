@@ -1,4 +1,5 @@
 """Question model for storing items with IRT parameters."""
+
 from __future__ import annotations
 
 from sqlalchemy import BigInteger, Column, DateTime, Numeric, Text, text
@@ -10,9 +11,9 @@ from ..db.base import Base
 
 class Question(Base):
     """Question/item model with metadata for IRT parameters.
-    
+
     The `meta` JSONB column stores IRT parameters and tags:
-    
+
     Example meta structure:
     {
         "irt": {
@@ -24,7 +25,7 @@ class Question(Base):
         },
         "tags": ["algebra", "one-step", "linear-eq"]
     }
-    
+
     Access IRT params via JSON operators:
         SELECT (meta->'irt'->>'a')::float AS discrimination FROM question WHERE id=...;
     """

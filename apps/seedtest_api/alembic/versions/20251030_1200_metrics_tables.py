@@ -22,7 +22,7 @@ depends_on = None
 def upgrade() -> None:
     # Check if tables already exist
     conn = op.get_bind()
-    
+
     # weekly_kpi: stores weekly rollups per user
     result = conn.execute(
         sa.text(
@@ -68,7 +68,7 @@ def upgrade() -> None:
             ["week_start"],
             unique=False,
         )
-    
+
     # student_topic_theta: per-user per-topic latent trait estimates
     result = conn.execute(
         sa.text(

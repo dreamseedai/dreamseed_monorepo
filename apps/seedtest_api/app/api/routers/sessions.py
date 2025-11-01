@@ -9,7 +9,7 @@ from ....models.session import Session as SessionModel
 from ....schemas.sessions import SessionCreate, SessionOut
 from ....security.jwt import require_scopes, same_org_guard
 
-router = APIRouter(prefix=f"{settings.API_PREFIX}/sessions", tags=["sessions"]) 
+router = APIRouter(prefix=f"{settings.API_PREFIX}/sessions", tags=["sessions"])
 
 
 def db_dep():

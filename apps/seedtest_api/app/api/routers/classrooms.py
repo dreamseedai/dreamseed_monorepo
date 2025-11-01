@@ -9,7 +9,7 @@ from ....security.jwt import require_scopes, same_org_guard
 from ....models.classroom import Classroom
 from ....schemas.classroom import ClassroomCreate, ClassroomOut
 
-router = APIRouter(prefix=f"{settings.API_PREFIX}/classrooms", tags=["classrooms"]) 
+router = APIRouter(prefix=f"{settings.API_PREFIX}/classrooms", tags=["classrooms"])
 
 
 def db_dep():

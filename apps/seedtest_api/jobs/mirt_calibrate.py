@@ -14,8 +14,14 @@ from ..services.db import get_session
 from ..app.clients.r_irt import RIrtClient
 
 
-async def run_calibration(lookback_days: int | None = None, model: str | None = None) -> None:
-    lookback_days = int(lookback_days if lookback_days is not None else os.getenv("IRT_CALIB_LOOKBACK_DAYS", "30"))
+async def run_calibration(
+    lookback_days: int | None = None, model: str | None = None
+) -> None:
+    lookback_days = int(
+        lookback_days
+        if lookback_days is not None
+        else os.getenv("IRT_CALIB_LOOKBACK_DAYS", "30")
+    )
     model = (model or os.getenv("IRT_MODEL") or "2PL").strip()
 
     observations: List[Dict[str, Any]] = []
@@ -65,7 +71,7 @@ async def run_calibration(lookback_days: int | None = None, model: str | None = 
                 rows = []
             for r in rows:
                 doc = r.get("result_json") or {}
-                for q in (doc.get("questions") or []):
+                for q in doc.get("questions") or []:
                     iid = q.get("question_id")
                     if iid is None:
                         continue
@@ -76,7 +82,9 @@ async def run_calibration(lookback_days: int | None = None, model: str | None = 
                         {
                             "user_id": r.get("user_id"),
                             "item_id": str(iid),
-                            "is_correct": bool(is_corr) if is_corr is not None else None,
+                            "is_correct": (
+                                bool(is_corr) if is_corr is not None else None
+                            ),
                             "responded_at": str(r.get("ts")),
                         }
                     )
@@ -137,7 +145,9 @@ async def run_calibration(lookback_days: int | None = None, model: str | None = 
                     "version": str(ab.get("version") or "v1"),
                 },
             )
-        run_id = meta.get("run_id") or f"fit-{datetime.now(tz=timezone.utc).isoformat()}"
+        run_id = (
+            meta.get("run_id") or f"fit-{datetime.now(tz=timezone.utc).isoformat()}"
+        )
         s.execute(
             up_meta,
             {

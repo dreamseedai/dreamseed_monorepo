@@ -5,6 +5,7 @@ Tests cover:
 2. Attempt VIEW mapping from exam_results
 3. Features_topic_daily with extended KPI columns
 """
+
 from __future__ import annotations
 
 import os
@@ -37,7 +38,7 @@ def test_question_meta_irt_params(db_session: Session):
     # Clean up test data
     db_session.execute(text("DELETE FROM question WHERE id = 9001"))
     db_session.commit()
-    
+
     # Create question with IRT params
     question = Question(
         id=9001,
@@ -50,17 +51,19 @@ def test_question_meta_irt_params(db_session: Session):
                 "b": -0.8,
                 "c": 0.15,
                 "model": "3PL",
-                "version": "2025-01"
+                "version": "2025-01",
             },
-            "tags": ["arithmetic", "addition", "basic"]
-        }
+            "tags": ["arithmetic", "addition", "basic"],
+        },
     )
     db_session.add(question)
     db_session.commit()
-    
+
     # Query back and verify IRT params
-    result = db_session.execute(
-        text("""
+    result = (
+        db_session.execute(
+            text(
+                """
             SELECT 
                 (meta->'irt'->>'a')::float AS irt_a,
                 (meta->'irt'->>'b')::float AS irt_b,
@@ -69,16 +72,20 @@ def test_question_meta_irt_params(db_session: Session):
                 jsonb_array_length(meta->'tags') AS tag_count
             FROM question
             WHERE id = 9001
-        """)
-    ).mappings().first()
-    
+        """
+            )
+        )
+        .mappings()
+        .first()
+    )
+
     assert result is not None
     assert result["irt_a"] == 1.5
     assert result["irt_b"] == -0.8
     assert result["irt_c"] == 0.15
     assert result["irt_model"] == "3PL"
     assert result["tag_count"] == 3
-    
+
     # Clean up
     db_session.execute(text("DELETE FROM question WHERE id = 9001"))
     db_session.commit()
@@ -87,8 +94,10 @@ def test_question_meta_irt_params(db_session: Session):
 def test_attempt_view_mapping(db_session: Session):
     """Test that attempt VIEW correctly maps exam_results."""
     # Query attempt view
-    result = db_session.execute(
-        text("""
+    result = (
+        db_session.execute(
+            text(
+                """
             SELECT 
                 id,
                 student_id,
@@ -100,9 +109,13 @@ def test_attempt_view_mapping(db_session: Session):
                 topic_id
             FROM attempt
             LIMIT 1
-        """)
-    ).mappings().first()
-    
+        """
+            )
+        )
+        .mappings()
+        .first()
+    )
+
     # Verify view returns data with expected schema
     if result:
         assert "id" in result
@@ -120,8 +133,10 @@ def test_attempt_view_mapping(db_session: Session):
 
 def test_attempt_view_aggregation(db_session: Session):
     """Test aggregating attempt VIEW data (typical analytics query)."""
-    result = db_session.execute(
-        text("""
+    result = (
+        db_session.execute(
+            text(
+                """
             SELECT 
                 topic_id,
                 COUNT(*) AS total_attempts,
@@ -132,9 +147,13 @@ def test_attempt_view_aggregation(db_session: Session):
             GROUP BY topic_id
             ORDER BY total_attempts DESC
             LIMIT 3
-        """)
-    ).mappings().all()
-    
+        """
+            )
+        )
+        .mappings()
+        .all()
+    )
+
     # Should return aggregated data if any attempts exist
     assert isinstance(result, list)
     for row in result:
@@ -150,7 +169,7 @@ def test_features_topic_daily_kpi_columns(db_session: Session):
         text("DELETE FROM features_topic_daily WHERE user_id = 'test_kpi_user'")
     )
     db_session.commit()
-    
+
     # Insert daily feature record with all KPI columns
     feature = FeaturesTopicDaily(
         user_id="test_kpi_user",
@@ -167,10 +186,12 @@ def test_features_topic_daily_kpi_columns(db_session: Session):
     )
     db_session.add(feature)
     db_session.commit()
-    
+
     # Query back and verify all columns
-    result = db_session.execute(
-        text("""
+    result = (
+        db_session.execute(
+            text(
+                """
             SELECT 
                 user_id,
                 topic_id,
@@ -185,9 +206,13 @@ def test_features_topic_daily_kpi_columns(db_session: Session):
                 improvement
             FROM features_topic_daily
             WHERE user_id = 'test_kpi_user'
-        """)
-    ).mappings().first()
-    
+        """
+            )
+        )
+        .mappings()
+        .first()
+    )
+
     assert result is not None
     assert result["user_id"] == "test_kpi_user"
     assert result["topic_id"] == "geometry"
@@ -199,7 +224,7 @@ def test_features_topic_daily_kpi_columns(db_session: Session):
     assert float(result["theta_sd"]) == 0.30
     assert result["rt_median"] == 5000
     assert float(result["improvement"]) == 0.12
-    
+
     # Clean up
     db_session.execute(
         text("DELETE FROM features_topic_daily WHERE user_id = 'test_kpi_user'")
@@ -214,20 +239,23 @@ def test_features_topic_daily_upsert_idempotency(db_session: Session):
         text("DELETE FROM features_topic_daily WHERE user_id = 'idempotent_test'")
     )
     db_session.commit()
-    
+
     # First insert
     db_session.execute(
-        text("""
+        text(
+            """
             INSERT INTO features_topic_daily 
             (user_id, topic_id, date, attempts, correct, hints)
             VALUES ('idempotent_test', 'physics', '2025-10-31', 5, 4, 1)
-        """)
+        """
+        )
     )
     db_session.commit()
-    
+
     # Upsert (should update)
     db_session.execute(
-        text("""
+        text(
+            """
             INSERT INTO features_topic_daily 
             (user_id, topic_id, date, attempts, correct, hints, improvement)
             VALUES ('idempotent_test', 'physics', '2025-10-31', 10, 8, 2, 0.25)
@@ -237,24 +265,31 @@ def test_features_topic_daily_upsert_idempotency(db_session: Session):
                 correct = EXCLUDED.correct,
                 hints = EXCLUDED.hints,
                 improvement = EXCLUDED.improvement
-        """)
+        """
+        )
     )
     db_session.commit()
-    
+
     # Verify updated values
-    result = db_session.execute(
-        text("""
+    result = (
+        db_session.execute(
+            text(
+                """
             SELECT attempts, correct, hints, improvement
             FROM features_topic_daily
             WHERE user_id = 'idempotent_test'
-        """)
-    ).mappings().first()
-    
+        """
+            )
+        )
+        .mappings()
+        .first()
+    )
+
     assert result["attempts"] == 10
     assert result["correct"] == 8
     assert result["hints"] == 2
     assert float(result["improvement"]) == 0.25
-    
+
     # Clean up
     db_session.execute(
         text("DELETE FROM features_topic_daily WHERE user_id = 'idempotent_test'")
@@ -267,34 +302,42 @@ def test_question_meta_gin_index_query(db_session: Session):
     # Clean up
     db_session.execute(text("DELETE FROM question WHERE id BETWEEN 9100 AND 9102"))
     db_session.commit()
-    
+
     # Insert questions with different tags
     db_session.execute(
-        text("""
+        text(
+            """
             INSERT INTO question (id, content, topic_id, meta)
             VALUES 
                 (9100, 'Q1', 'algebra', '{"tags": ["algebra", "quadratic"]}'::jsonb),
                 (9101, 'Q2', 'algebra', '{"tags": ["algebra", "linear"]}'::jsonb),
                 (9102, 'Q3', 'geometry', '{"tags": ["geometry", "circles"]}'::jsonb)
-        """)
+        """
+        )
     )
     db_session.commit()
-    
+
     # Query using JSON containment (uses GIN index)
-    result = db_session.execute(
-        text("""
+    result = (
+        db_session.execute(
+            text(
+                """
             SELECT id, topic_id
             FROM question
             WHERE meta @> '{"tags": ["algebra"]}'::jsonb
             AND id BETWEEN 9100 AND 9102
             ORDER BY id
-        """)
-    ).mappings().all()
-    
+        """
+            )
+        )
+        .mappings()
+        .all()
+    )
+
     assert len(result) == 2
     assert result[0]["id"] == 9100
     assert result[1]["id"] == 9101
-    
+
     # Clean up
     db_session.execute(text("DELETE FROM question WHERE id BETWEEN 9100 AND 9102"))
     db_session.commit()

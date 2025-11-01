@@ -15,4 +15,3 @@ Settings = Config
 settings = Config()
 
 __all__ = ["Settings", "settings"]
-

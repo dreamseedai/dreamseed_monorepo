@@ -13,7 +13,7 @@ _SESSION_STATES: Dict[str, Dict[str, Any]] = {}
 
 def get_session_state(session_id: str) -> Optional[Dict[str, Any]]:
     """Get session state for a given session_id.
-    
+
     Returns None if session not found in memory.
     In production, this may also check DB or Redis.
     """
@@ -31,6 +31,7 @@ def clear_session_state(session_id: str) -> None:
 
 
 # Legacy compatibility functions for exams router
+
 
 def next_difficulty(current_diff: int, correct: bool) -> int:
     """Calculate next difficulty based on correctness."""
@@ -66,14 +67,16 @@ def select_next(session_id: str) -> Optional[Dict[str, Any]]:
     return next_question_stub(3)
 
 
-def start_session(exam_id: str, user_id: str, org_id: Optional[int] = None) -> Dict[str, Any]:
+def start_session(
+    exam_id: str, user_id: str, org_id: Optional[int] = None
+) -> Dict[str, Any]:
     """Start a new adaptive session."""
     import uuid
     from datetime import datetime, timezone
-    
+
     session_id = str(uuid.uuid4())
     start_time = datetime.now(timezone.utc).isoformat()
-    
+
     state = {
         "session_id": session_id,
         "exam_id": exam_id,
@@ -91,12 +94,14 @@ def start_session(exam_id: str, user_id: str, org_id: Optional[int] = None) -> D
     }
 
 
-def submit_answer(session_id: str, question_id: str, answer: str, elapsed_time: Optional[float] = None) -> Dict[str, Any]:
+def submit_answer(
+    session_id: str, question_id: str, answer: str, elapsed_time: Optional[float] = None
+) -> Dict[str, Any]:
     """Submit an answer and update session state."""
     state = get_session_state(session_id)
     if not state:
         return {"error": "session_not_found"}
-    
+
     # Stub: assume correct for now
     response = {
         "question_id": question_id,
@@ -104,30 +109,34 @@ def submit_answer(session_id: str, question_id: str, answer: str, elapsed_time: 
         "correct": True,  # Stub
         "elapsed_time": elapsed_time,
     }
-    
+
     responses = state.get("responses", [])
     responses.append(response)
     state["responses"] = responses
-    
+
     # Check if finished (stub: finish after 10 questions)
     finished = len(responses) >= 10
     if finished:
         state["completed"] = True
-    
+
     set_session_state(session_id, state)
-    
+
     return {
         "finished": finished,
-        "result": {
-            "score": len([r for r in responses if r.get("correct")]),
-            "total": len(responses),
-        } if finished else None,
+        "result": (
+            {
+                "score": len([r for r in responses if r.get("correct")]),
+                "total": len(responses),
+            }
+            if finished
+            else None
+        ),
     }
 
 
 __all__ = [
-    "get_session_state", 
-    "set_session_state", 
+    "get_session_state",
+    "set_session_state",
     "clear_session_state",
     "next_difficulty",
     "score_answer",
@@ -136,4 +145,3 @@ __all__ = [
     "start_session",
     "submit_answer",
 ]
-

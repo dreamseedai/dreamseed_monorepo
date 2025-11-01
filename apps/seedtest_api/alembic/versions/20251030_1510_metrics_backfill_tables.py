@@ -4,6 +4,7 @@ Revision ID: 20251030_1510_bf_metrics
 Revises: 20251030_1500_irt_tables
 Create Date: 2025-10-30 15:10:00
 """
+
 from __future__ import annotations
 
 from alembic import op
@@ -30,8 +31,18 @@ def upgrade() -> None:
             sa.Column("user_id", sa.Text(), nullable=False),
             sa.Column("week_start", sa.Date(), nullable=False),
             sa.Column("kpis", psql.JSONB(astext_type=sa.Text()), nullable=False),
-            sa.Column("created_at", sa.TIMESTAMP(timezone=True), server_default=sa.func.now(), nullable=False),
-            sa.Column("updated_at", sa.TIMESTAMP(timezone=True), server_default=sa.func.now(), nullable=False),
+            sa.Column(
+                "created_at",
+                sa.TIMESTAMP(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.Column(
+                "updated_at",
+                sa.TIMESTAMP(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
             sa.PrimaryKeyConstraint("user_id", "week_start", name="pk_weekly_kpi"),
         )
         op.create_index("ix_weekly_kpi_user_date", "weekly_kpi", ["user_id", "week_start"])  # type: ignore
@@ -45,8 +56,15 @@ def upgrade() -> None:
             sa.Column("se", sa.Float(), nullable=True),
             sa.Column("model", sa.Text(), nullable=False),
             sa.Column("version", sa.Text(), nullable=True),
-            sa.Column("fitted_at", sa.TIMESTAMP(timezone=True), server_default=sa.func.now(), nullable=False),
-            sa.PrimaryKeyConstraint("user_id", "topic_id", name="pk_student_topic_theta"),
+            sa.Column(
+                "fitted_at",
+                sa.TIMESTAMP(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.PrimaryKeyConstraint(
+                "user_id", "topic_id", name="pk_student_topic_theta"
+            ),
         )
         op.create_index("ix_theta_user_topic", "student_topic_theta", ["user_id", "topic_id"])  # type: ignore
 

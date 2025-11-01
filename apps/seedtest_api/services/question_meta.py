@@ -1,4 +1,5 @@
 """Utilities for managing question.meta JSONB IRT parameters and tags."""
+
 from __future__ import annotations
 
 import json
@@ -19,7 +20,7 @@ def update_irt_params(
     version: str | None = None,
 ) -> None:
     """Update IRT parameters in question.meta JSONB.
-    
+
     Args:
         session: Database session
         question_id: Question ID
@@ -32,16 +33,16 @@ def update_irt_params(
     # Load existing meta
     result = session.execute(
         text("SELECT meta FROM question WHERE id = :question_id"),
-        {"question_id": question_id}
+        {"question_id": question_id},
     )
     row = result.fetchone()
-    
+
     if row is None:
         raise ValueError(f"Question {question_id} not found")
-    
+
     current_meta = dict(row[0]) if row[0] else {}
     irt_data = current_meta.get("irt", {})
-    
+
     # Update IRT parameters
     if a is not None:
         irt_data["a"] = a
@@ -53,20 +54,22 @@ def update_irt_params(
         irt_data["model"] = model
     if version:
         irt_data["version"] = version
-    
+
     current_meta["irt"] = irt_data
-    
+
     # Update meta
     session.execute(
-        text("""
+        text(
+            """
             UPDATE question
             SET meta = :meta_json::jsonb
             WHERE id = :question_id
-        """),
+        """
+        ),
         {
             "question_id": question_id,
             "meta_json": json.dumps(current_meta),
-        }
+        },
     )
     session.commit()
 
@@ -79,7 +82,7 @@ def add_tags(
     replace: bool = False,
 ) -> None:
     """Add tags to question.meta JSONB.
-    
+
     Args:
         session: Database session
         question_id: Question ID
@@ -88,32 +91,34 @@ def add_tags(
     """
     result = session.execute(
         text("SELECT meta FROM question WHERE id = :question_id"),
-        {"question_id": question_id}
+        {"question_id": question_id},
     )
     row = result.fetchone()
-    
+
     if row is None:
         raise ValueError(f"Question {question_id} not found")
-    
+
     current_meta = dict(row[0]) if row[0] else {}
-    
+
     if replace:
         current_meta["tags"] = tags
     else:
         existing_tags = set(current_meta.get("tags", []))
         existing_tags.update(tags)
         current_meta["tags"] = sorted(existing_tags)
-    
+
     session.execute(
-        text("""
+        text(
+            """
             UPDATE question
             SET meta = :meta_json::jsonb
             WHERE id = :question_id
-        """),
+        """
+        ),
         {
             "question_id": question_id,
             "meta_json": json.dumps(current_meta),
-        }
+        },
     )
     session.commit()
 
@@ -123,13 +128,14 @@ def get_irt_params(
     question_id: int,
 ) -> dict[str, Any] | None:
     """Get IRT parameters from question.meta JSONB.
-    
+
     Returns:
         Dictionary with keys: a, b, c (optional), model, version (optional)
         Returns None if question not found or no IRT data
     """
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT 
               (meta->'irt'->>'a')::float AS a,
               (meta->'irt'->>'b')::float AS b,
@@ -138,29 +144,30 @@ def get_irt_params(
               meta->'irt'->>'version' AS version
             FROM question
             WHERE id = :question_id
-        """),
-        {"question_id": question_id}
+        """
+        ),
+        {"question_id": question_id},
     )
     row = result.fetchone()
-    
+
     if row is None:
         return None
-    
+
     if row[0] is None:  # No IRT data
         return None
-    
+
     params = {
         "a": float(row[0]),
         "b": float(row[1]),
         "model": row[3] or "2PL",
     }
-    
+
     if row[2] is not None:  # c parameter exists
         params["c"] = float(row[2])
-    
+
     if row[4]:
         params["version"] = row[4]
-    
+
     return params
 
 
@@ -171,12 +178,12 @@ def list_questions_by_tags(
     require_all: bool = False,
 ) -> list[int]:
     """List question IDs that match given tags.
-    
+
     Args:
         session: Database session
         tags: List of tag strings to search for
         require_all: If True, question must have all tags; otherwise any tag
-    
+
     Returns:
         List of question IDs
     """
@@ -194,14 +201,13 @@ def list_questions_by_tags(
             )
         """
         tags_array = tags
-    
+
     result = session.execute(
         text(query),
         {
             "tags_json": tags_json if require_all else None,
             "tags_array": tags_array if not require_all else None,
-        }
+        },
     )
-    
-    return [row[0] for row in result.fetchall()]
 
+    return [row[0] for row in result.fetchall()]

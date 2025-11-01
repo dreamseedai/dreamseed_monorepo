@@ -77,20 +77,27 @@ async def get_analysis(
 
 # ---- Metrics section ----
 
+
 def _require_scopes_any(*scopes):
     """Factory: allow access if token has any of the provided scopes; supports LOCAL_DEV shortcut."""
+
     async def checker(creds=Depends(bearer)):
         # LOCAL_DEV shortcut when no creds
-        is_local = Settings().LOCAL_DEV or (os.getenv("LOCAL_DEV", "false").lower() == "true")
+        is_local = Settings().LOCAL_DEV or (
+            os.getenv("LOCAL_DEV", "false").lower() == "true"
+        )
         if is_local and not creds:
             return {"sub": "dev-user", "scope": "reports:view analysis:run"}
         if not creds:
-            raise HTTPException(401, "Missing Authorization", headers={"WWW-Authenticate": "Bearer"})
+            raise HTTPException(
+                401, "Missing Authorization", headers={"WWW-Authenticate": "Bearer"}
+            )
         payload = await decode_token(creds.credentials)
         token_scopes = set((payload.get("scope") or "").split())
         if not any(s in token_scopes for s in scopes):
             raise HTTPException(403, "insufficient_scope")
         return payload
+
     return checker
 
 
@@ -102,7 +109,9 @@ def _require_scopes_any(*scopes):
 async def get_weekly_metrics(
     user_id: str = Query(..., description="User ID"),
     weeks: int = Query(4, description="Number of weeks (1..12)"),
-    include_empty: bool = Query(False, description="Return [] instead of 404 when empty"),
+    include_empty: bool = Query(
+        False, description="Return [] instead of 404 when empty"
+    ),
     _user: Dict = Depends(_require_scopes_any("reports:view", "analysis:run")),
     db=Depends(get_db),
 ) -> List[WeeklyKPI]:
@@ -188,7 +197,9 @@ async def get_irt_theta(
     if since:
         try:
             sdt = date.fromisoformat(since)
-            since_dt = datetime(sdt.year, sdt.month, sdt.day, 0, 0, 0, tzinfo=timezone.utc)
+            since_dt = datetime(
+                sdt.year, sdt.month, sdt.day, 0, 0, 0, tzinfo=timezone.utc
+            )
         except Exception:
             raise HTTPException(400, "invalid since date format")
 
@@ -220,10 +231,16 @@ async def get_irt_theta(
             out.append(
                 {
                     "topic_id": r.get("topic_id"),
-                    "theta": float(r.get("theta")) if r.get("theta") is not None else None,
+                    "theta": (
+                        float(r.get("theta")) if r.get("theta") is not None else None
+                    ),
                     "se": float(r.get("se")) if r.get("se") is not None else None,
                     "model": "mirt",  # topic-level store assumed mirt-derived
-                    "fitted_at": (r.get("fitted_at").isoformat() if isinstance(r.get("fitted_at"), datetime) else str(r.get("fitted_at"))),
+                    "fitted_at": (
+                        r.get("fitted_at").isoformat()
+                        if isinstance(r.get("fitted_at"), datetime)
+                        else str(r.get("fitted_at"))
+                    ),
                 }
             )
         if out:
@@ -251,10 +268,16 @@ async def get_irt_theta(
             out2.append(
                 {
                     "topic_id": None,
-                    "theta": float(r.get("theta")) if r.get("theta") is not None else None,
+                    "theta": (
+                        float(r.get("theta")) if r.get("theta") is not None else None
+                    ),
                     "se": float(r.get("se")) if r.get("se") is not None else None,
                     "model": "mirt",
-                    "fitted_at": (r.get("fitted_at").isoformat() if isinstance(r.get("fitted_at"), datetime) else str(r.get("fitted_at"))),
+                    "fitted_at": (
+                        r.get("fitted_at").isoformat()
+                        if isinstance(r.get("fitted_at"), datetime)
+                        else str(r.get("fitted_at"))
+                    ),
                 }
             )
         return out2

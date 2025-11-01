@@ -44,48 +44,49 @@ SAMPLE_RESULT = {
 
 def test_pdf_generation():
     print("Testing PDF generation...")
-    
+
     try:
         pdf_bytes = render_exam_pdf(
             result_data=SAMPLE_RESULT,
             tutor_brand="DreamSeed Academy",
             page_format="A4",
         )
-        
+
         print(f"✅ PDF generated successfully: {len(pdf_bytes)} bytes")
-        
+
         # Save to file
         output_path = Path(__file__).parent / "test_exam_result.pdf"
         output_path.write_bytes(pdf_bytes)
         print(f"✅ Saved to: {output_path}")
-        
+
         return True
-    
+
     except Exception as e:
         print(f"❌ PDF generation failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
 
 def test_letter_format():
     print("\nTesting Letter format...")
-    
+
     try:
         pdf_bytes = render_exam_pdf(
             result_data=SAMPLE_RESULT,
             tutor_brand="US Tutoring Center",
             page_format="Letter",
         )
-        
+
         print(f"✅ Letter PDF generated: {len(pdf_bytes)} bytes")
-        
+
         output_path = Path(__file__).parent / "test_exam_result_letter.pdf"
         output_path.write_bytes(pdf_bytes)
         print(f"✅ Saved to: {output_path}")
-        
+
         return True
-    
+
     except Exception as e:
         print(f"❌ Letter PDF generation failed: {e}")
         return False
@@ -94,7 +95,7 @@ def test_letter_format():
 if __name__ == "__main__":
     success_a4 = test_pdf_generation()
     success_letter = test_letter_format()
-    
+
     if success_a4 and success_letter:
         print("\n🎉 All tests passed!")
         sys.exit(0)

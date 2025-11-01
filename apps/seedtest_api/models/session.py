@@ -1,4 +1,5 @@
 """Session model for learning/assessment session metadata."""
+
 from __future__ import annotations
 
 from sqlalchemy import Column, DateTime, Text

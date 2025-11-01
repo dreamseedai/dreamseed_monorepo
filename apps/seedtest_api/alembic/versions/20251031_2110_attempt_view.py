@@ -18,6 +18,7 @@ Standard attempt schema:
 - started_at: TIMESTAMPTZ (calculated from updated_at - response_time)
 - completed_at: TIMESTAMPTZ (from exam_results.updated_at)
 """
+
 from __future__ import annotations
 
 from alembic import op
@@ -34,14 +35,17 @@ depends_on = None
 def _view_exists(conn: Connection, view_name: str) -> bool:
     """Check if a view exists."""
     from sqlalchemy import text
+
     result = conn.execute(
-        text(f"""
+        text(
+            f"""
         SELECT EXISTS (
             SELECT 1 FROM information_schema.views
             WHERE table_schema = 'public'
             AND table_name = '{view_name}'
         )
-        """)
+        """
+        )
     )
     return result.scalar()
 
@@ -49,32 +53,36 @@ def _view_exists(conn: Connection, view_name: str) -> bool:
 def _table_exists(conn: Connection, table_name: str) -> bool:
     """Check if a table exists."""
     from sqlalchemy import text
+
     result = conn.execute(
-        text(f"""
+        text(
+            f"""
         SELECT EXISTS (
             SELECT 1 FROM information_schema.tables
             WHERE table_schema = 'public'
             AND table_name = '{table_name}'
         )
-        """)
+        """
+        )
     )
     return result.scalar()
 
 
 def upgrade() -> None:
     conn = op.get_bind()
-    
+
     # Only create attempt VIEW if exam_results table exists
     if not _table_exists(conn, "exam_results"):
         return  # Skip if exam_results doesn't exist yet
-    
+
     # Drop view if it exists (to allow idempotent re-creation)
     if _view_exists(conn, "attempt"):
         conn.execute(text("DROP VIEW IF EXISTS attempt CASCADE"))
-    
+
     # Create attempt VIEW by unnesting exam_results.result_json.questions
     conn.execute(
-        text("""
+        text(
+            """
         CREATE VIEW attempt AS
         WITH questions_unnested AS (
             SELECT
@@ -151,9 +159,10 @@ def upgrade() -> None:
             
         FROM questions_unnested qu
         WHERE (qu.question_doc->>'question_id') IS NOT NULL
-        """)
+        """
+        )
     )
-    
+
     # Create indexes on the view using materialized view pattern (optional)
     # For now, we rely on underlying table indexes
     # If performance requires, convert to MATERIALIZED VIEW and add:

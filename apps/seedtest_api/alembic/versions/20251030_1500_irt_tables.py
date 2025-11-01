@@ -4,6 +4,7 @@ Revision ID: 20251030_1500_irt_tables
 Revises: 20251030_1305_metrics_tables
 Create Date: 2025-10-30 15:00:00.000000
 """
+
 from __future__ import annotations
 
 from alembic import op
@@ -31,7 +32,9 @@ def upgrade() -> None:
             sa.Column("model", sa.Text, nullable=True),
             sa.Column("params", psql.JSONB(astext_type=sa.Text()), nullable=False),
             sa.Column("version", sa.Text, nullable=True),
-            sa.Column("fitted_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()")),
+            sa.Column(
+                "fitted_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()")
+            ),
         )
 
     if not table_exists(conn, "mirt_ability"):
@@ -42,7 +45,9 @@ def upgrade() -> None:
             sa.Column("se", sa.Float, nullable=True),
             sa.Column("model", sa.Text, nullable=True),
             sa.Column("version", sa.Text, nullable=True),
-            sa.Column("fitted_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()")),
+            sa.Column(
+                "fitted_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()")
+            ),
         )
         op.create_primary_key("pk_mirt_ability_user_version", "mirt_ability", ["user_id", "version"])  # type: ignore
         op.create_index("ix_mirt_ability_user_fitted_at", "mirt_ability", ["user_id", "fitted_at"])  # type: ignore
@@ -53,7 +58,9 @@ def upgrade() -> None:
             sa.Column("run_id", sa.Text, primary_key=True),
             sa.Column("model_spec", psql.JSONB(astext_type=sa.Text()), nullable=True),
             sa.Column("metrics", psql.JSONB(astext_type=sa.Text()), nullable=True),
-            sa.Column("fitted_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()")),
+            sa.Column(
+                "fitted_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()")
+            ),
         )
 
 

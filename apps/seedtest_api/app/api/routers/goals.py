@@ -9,7 +9,9 @@ from ....models.interest_goal import InterestGoal
 from ....schemas.interest_goal import InterestGoalCreate, InterestGoalOut
 from ....security.jwt import require_scopes
 
-router = APIRouter(prefix=f"{settings.API_PREFIX}/interest-goals", tags=["interest-goals"]) 
+router = APIRouter(
+    prefix=f"{settings.API_PREFIX}/interest-goals", tags=["interest-goals"]
+)
 
 
 def db_dep():

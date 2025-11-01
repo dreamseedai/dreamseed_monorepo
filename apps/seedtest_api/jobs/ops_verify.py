@@ -87,7 +87,9 @@ def main() -> None:
 
     uid = _find_sample_user()
     if not uid:
-        print("No sample user found (mirt_ability/weekly_kpi/exam_results empty). Skipping API calls.")
+        print(
+            "No sample user found (mirt_ability/weekly_kpi/exam_results empty). Skipping API calls."
+        )
         return
 
     api_prefix = app_settings.API_PREFIX.rstrip("/")

@@ -4,6 +4,7 @@ Revision ID: 20251031_1600_minimal_schema_tables
 Revises: 20251030_1510_bf_metrics
 Create Date: 2025-10-31 16:00:00
 """
+
 from __future__ import annotations
 
 from alembic import op
@@ -32,7 +33,12 @@ def upgrade() -> None:
             sa.Column("org_id", sa.Text, nullable=False),
             sa.Column("name", sa.Text, nullable=False),
             sa.Column("grade", sa.SmallInteger, nullable=True),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.text("NOW()"),
+                nullable=False,
+            ),
         )
         op.create_unique_constraint("uq_classroom_org_name", "classroom", ["org_id", "name"])  # type: ignore
         op.create_index("ix_classroom_org", "classroom", ["org_id"])  # type: ignore
@@ -42,12 +48,19 @@ def upgrade() -> None:
         op.create_table(
             "session",
             sa.Column("id", sa.Text, primary_key=True),
-            sa.Column("classroom_id", sa.Text, nullable=True),  # no FK by design (app-level integrity)
+            sa.Column(
+                "classroom_id", sa.Text, nullable=True
+            ),  # no FK by design (app-level integrity)
             sa.Column("exam_id", sa.Text, nullable=True),
             sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
             sa.Column("ended_at", sa.DateTime(timezone=True), nullable=True),
             sa.Column("status", sa.Text, nullable=True),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.text("NOW()"),
+                nullable=False,
+            ),
         )
         op.create_index("ix_session_classroom", "session", ["classroom_id"])  # type: ignore
         op.create_index("ix_session_status_started", "session", ["status", "started_at"])  # type: ignore
@@ -59,8 +72,15 @@ def upgrade() -> None:
             sa.Column("user_id", sa.Text, nullable=False),
             sa.Column("topic_id", sa.Text, nullable=False),
             sa.Column("target_level", sa.Numeric(6, 3), nullable=True),
-            sa.Column("priority", sa.SmallInteger, server_default=sa.text("0"), nullable=False),
-            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
+            sa.Column(
+                "priority", sa.SmallInteger, server_default=sa.text("0"), nullable=False
+            ),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.text("NOW()"),
+                nullable=False,
+            ),
             sa.PrimaryKeyConstraint("user_id", "topic_id", name="pk_interest_goal"),
         )
         op.create_index("ix_interest_goal_user", "interest_goal", ["user_id"])  # type: ignore
@@ -73,13 +93,24 @@ def upgrade() -> None:
             sa.Column("user_id", sa.Text, nullable=False),
             sa.Column("topic_id", sa.Text, nullable=False),
             sa.Column("date", sa.Date, nullable=False),
-            sa.Column("attempts", sa.Integer, server_default=sa.text("0"), nullable=False),
-            sa.Column("correct", sa.Integer, server_default=sa.text("0"), nullable=False),
+            sa.Column(
+                "attempts", sa.Integer, server_default=sa.text("0"), nullable=False
+            ),
+            sa.Column(
+                "correct", sa.Integer, server_default=sa.text("0"), nullable=False
+            ),
             sa.Column("avg_time_ms", sa.Integer, nullable=True),
             sa.Column("theta_estimate", sa.Numeric(6, 3), nullable=True),
             sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=True),
-            sa.Column("computed_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()"), nullable=False),
-            sa.PrimaryKeyConstraint("user_id", "topic_id", "date", name="pk_features_topic_daily"),
+            sa.Column(
+                "computed_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.text("NOW()"),
+                nullable=False,
+            ),
+            sa.PrimaryKeyConstraint(
+                "user_id", "topic_id", "date", name="pk_features_topic_daily"
+            ),
         )
         op.create_index("ix_ftd_topic_date", "features_topic_daily", ["topic_id", "date"])  # type: ignore
         op.create_index("ix_ftd_user_date", "features_topic_daily", ["user_id", "date"])  # type: ignore

@@ -4,6 +4,7 @@ Revision ID: 20251031_2000_session_user_org
 Revises: 20251031_1600_minimal_schema_tables
 Create Date: 2025-10-31 20:00:00
 """
+
 from __future__ import annotations
 
 from alembic import op

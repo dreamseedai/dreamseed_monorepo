@@ -7,8 +7,12 @@ from pydantic import BaseModel, Field
 class SessionBase(BaseModel):
     classroom_id: str | None = Field(None)
     exam_id: str | None = Field(None)
-    user_id: str | None = Field(None, description="Owner user id; defaults to caller when omitted")
-    org_id: int | None = Field(None, description="Organization id; defaults to caller's org when omitted")
+    user_id: str | None = Field(
+        None, description="Owner user id; defaults to caller when omitted"
+    )
+    org_id: int | None = Field(
+        None, description="Organization id; defaults to caller's org when omitted"
+    )
     started_at: datetime | None = None
     ended_at: datetime | None = None
     status: str | None = None

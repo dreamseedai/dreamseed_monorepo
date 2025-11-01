@@ -1,4 +1,5 @@
 """Interest goal model for user-topic targets."""
+
 from __future__ import annotations
 
 from sqlalchemy import Column, DateTime, Numeric, SmallInteger, Text

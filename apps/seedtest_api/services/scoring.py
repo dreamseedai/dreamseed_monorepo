@@ -4,6 +4,7 @@ import math
 from typing import Any, Dict, List, Tuple
 
 from ..settings import Settings
+
 # Import fisher_information_3pl from shared.irt for IRT calculations
 try:
     from shared.irt import item_information_3pl as fisher_information_3pl
@@ -12,6 +13,7 @@ except ImportError:
     def fisher_information_3pl(a: float, b: float, c: float, theta: float) -> float:
         """Fallback Fisher information calculation."""
         return 0.0
+
 
 # ------------------- Public helper functions -------------------
 

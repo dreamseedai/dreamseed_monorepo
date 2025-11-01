@@ -19,7 +19,9 @@ def _week_bounds(now: Optional[datetime] = None) -> tuple[date, datetime, dateti
     # Normalize to UTC and get Monday of current week
     # Python: Monday = 0 ... Sunday = 6
     dow = now.weekday()
-    monday = datetime(year=now.year, month=now.month, day=now.day, tzinfo=timezone.utc) - timedelta(days=dow)
+    monday = datetime(
+        year=now.year, month=now.month, day=now.day, tzinfo=timezone.utc
+    ) - timedelta(days=dow)
     week_start = datetime(monday.year, monday.month, monday.day, tzinfo=timezone.utc)
     start_dt = week_start
     end_dt = start_dt + timedelta(days=7)
@@ -66,10 +68,18 @@ def recompute_weekly_kpi_for_recent_users(
     for uid in user_ids:
         try:
             kpis: Dict[str, Any] = {
-                "improvement_index": calc.calculate_improvement_index(uid, weeks=weeks_window),
-                "efficiency_index": calc.calculate_efficiency_index(uid, weeks=weeks_window),
-                "recovery_index": calc.calculate_recovery_index(uid, weeks=weeks_window),
-                "engagement_index": calc.calculate_engagement_index(uid, weeks=weeks_window),
+                "improvement_index": calc.calculate_improvement_index(
+                    uid, weeks=weeks_window
+                ),
+                "efficiency_index": calc.calculate_efficiency_index(
+                    uid, weeks=weeks_window
+                ),
+                "recovery_index": calc.calculate_recovery_index(
+                    uid, weeks=weeks_window
+                ),
+                "engagement_index": calc.calculate_engagement_index(
+                    uid, weeks=weeks_window
+                ),
                 "dropout_risk": calc.calculate_dropout_risk(uid),
             }
             calc.upsert_weekly_kpi(uid, week_start_date, kpis)
@@ -79,4 +89,8 @@ def recompute_weekly_kpi_for_recent_users(
             db.rollback()
             continue
 
-    return {"week_start": str(week_start_date), "users_considered": len(user_ids), "users_processed": processed}
+    return {
+        "week_start": str(week_start_date),
+        "users_considered": len(user_ids),
+        "users_processed": processed,
+    }

@@ -1,4 +1,5 @@
 """Classroom model for organizing students by org and grade."""
+
 from __future__ import annotations
 
 from sqlalchemy import Column, DateTime, SmallInteger, Text, UniqueConstraint
@@ -20,9 +21,9 @@ class Classroom(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    __table_args__ = (
-        UniqueConstraint("org_id", "name", name="uq_classroom_org_name"),
-    )
+    __table_args__ = (UniqueConstraint("org_id", "name", name="uq_classroom_org_name"),)
 
     def __repr__(self) -> str:
-        return f"<Classroom(id={self.id!r}, org_id={self.org_id!r}, name={self.name!r})>"
+        return (
+            f"<Classroom(id={self.id!r}, org_id={self.org_id!r}, name={self.name!r})>"
+        )

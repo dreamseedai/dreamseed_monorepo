@@ -19,6 +19,7 @@ class _ResultProxy:
 
             def all(self):
                 return self._rows
+
         return _M(self._rows)
 
 
@@ -28,20 +29,22 @@ class _DBTopic:
         sql = str(stmt)
         if "FROM student_topic_theta" in sql:
             # return two topic rows
-            return _ResultProxy([
-                {
-                    "topic_id": "algebra",
-                    "theta": 0.3,
-                    "se": 0.2,
-                    "fitted_at": datetime(2025, 1, 15, tzinfo=timezone.utc),
-                },
-                {
-                    "topic_id": "geometry",
-                    "theta": -0.1,
-                    "se": 0.4,
-                    "fitted_at": datetime(2025, 1, 14, tzinfo=timezone.utc),
-                },
-            ])
+            return _ResultProxy(
+                [
+                    {
+                        "topic_id": "algebra",
+                        "theta": 0.3,
+                        "se": 0.2,
+                        "fitted_at": datetime(2025, 1, 15, tzinfo=timezone.utc),
+                    },
+                    {
+                        "topic_id": "geometry",
+                        "theta": -0.1,
+                        "se": 0.4,
+                        "fitted_at": datetime(2025, 1, 14, tzinfo=timezone.utc),
+                    },
+                ]
+            )
         # Default empty
         return _ResultProxy([])
 
@@ -53,10 +56,20 @@ class _DBAbility:
             # Simulate no topic-level rows
             return _ResultProxy([])
         if "FROM mirt_ability" in sql:
-            return _ResultProxy([
-                {"theta": 0.5, "se": 0.1, "fitted_at": datetime(2025, 1, 10, tzinfo=timezone.utc)},
-                {"theta": 0.4, "se": 0.2, "fitted_at": datetime(2025, 1, 5, tzinfo=timezone.utc)},
-            ])
+            return _ResultProxy(
+                [
+                    {
+                        "theta": 0.5,
+                        "se": 0.1,
+                        "fitted_at": datetime(2025, 1, 10, tzinfo=timezone.utc),
+                    },
+                    {
+                        "theta": 0.4,
+                        "se": 0.2,
+                        "fitted_at": datetime(2025, 1, 5, tzinfo=timezone.utc),
+                    },
+                ]
+            )
         return _ResultProxy([])
 
 
@@ -65,6 +78,7 @@ def test_get_irt_theta_topic_level(monkeypatch):
     # Override DB dependency to our stub
     app.dependency_overrides.clear()
     from seedtest_api.db.session import get_db
+
     app.dependency_overrides[get_db] = lambda: _DBTopic()
 
     client = TestClient(app)
@@ -75,7 +89,13 @@ def test_get_irt_theta_topic_level(monkeypatch):
     assert resp.status_code == 200, resp.text
     data = resp.json()
     assert isinstance(data, list) and len(data) == 2
-    assert set(k for k in data[0].keys()) == {"topic_id", "theta", "se", "model", "fitted_at"}
+    assert set(k for k in data[0].keys()) == {
+        "topic_id",
+        "theta",
+        "se",
+        "model",
+        "fitted_at",
+    }
     assert data[0]["topic_id"] == "algebra"
 
 
@@ -83,6 +103,7 @@ def test_get_irt_theta_fallback_general_ability(monkeypatch):
     monkeypatch.setenv("LOCAL_DEV", "true")
     app.dependency_overrides.clear()
     from seedtest_api.db.session import get_db
+
     app.dependency_overrides[get_db] = lambda: _DBAbility()
 
     client = TestClient(app)

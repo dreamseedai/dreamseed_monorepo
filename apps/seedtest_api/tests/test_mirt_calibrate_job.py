@@ -20,6 +20,7 @@ class _ResultProxy:
 
             def all(self):
                 return self._rows
+
         return _M(self._rows)
 
 
@@ -79,10 +80,21 @@ class _FakeRIrt:
     async def calibrate(self, observations, model=None):
         return {
             "item_params": [
-                {"item_id": "Q1", "model": model or "2PL", "params": {"a": 1.0, "b": 0.0}, "version": "v1"}
+                {
+                    "item_id": "Q1",
+                    "model": model or "2PL",
+                    "params": {"a": 1.0, "b": 0.0},
+                    "version": "v1",
+                }
             ],
             "abilities": [
-                {"user_id": "U1", "theta": 0.3, "se": 0.2, "model": model or "2PL", "version": "v1"}
+                {
+                    "user_id": "U1",
+                    "theta": 0.3,
+                    "se": 0.2,
+                    "model": model or "2PL",
+                    "version": "v1",
+                }
             ],
             "fit_meta": {
                 "run_id": "test-run",
@@ -113,6 +125,7 @@ async def test_run_calibration_upserts(monkeypatch):
 
     # Monkeypatch RIrtClient and get_session used in the job module
     from seedtest_api.jobs import mirt_calibrate as job_mod
+
     monkeypatch.setattr(job_mod, "get_session", _GetSession())
     monkeypatch.setattr(job_mod, "RIrtClient", lambda: _FakeRIrt())
 

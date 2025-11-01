@@ -196,7 +196,7 @@ async def create_or_refresh_result(
         exclude_ts = (
             bool(stable)
             if stable is not None
-            else bool(getattr(Settings(), 'RESULT_EXCLUDE_TIMESTAMPS', False))
+            else bool(getattr(Settings(), "RESULT_EXCLUDE_TIMESTAMPS", False))
         )
         if exclude_ts:
             return JSONResponse(content=resp)
@@ -501,27 +501,27 @@ async def get_result_pdf(
     Falls back to computing result if not cached.
     """
     from fastapi.responses import Response
-    
+
     # Fetch cached result or compute
     user_id = current_user.user_id if current_user else None
     res = compute_result(session_id, force=False, user_id=user_id)
-    
+
     status = str(res.get("status") or "").lower()
     if status == "not_found":
         raise HTTPException(404, "Result not found")
     if status == "not_completed":
         raise HTTPException(400, "Exam not completed yet")
-    
+
     # Generate PDF (inline import to avoid Lambda dependency in main app)
     try:
         from infra.pdf_lambda.exam_renderer import render_exam_pdf
-        
+
         pdf_bytes = render_exam_pdf(
             result_data=res,
             tutor_brand=brand,
             page_format=format.upper(),
         )
-        
+
         filename = f"exam_result_{session_id[:8]}.pdf"
         return Response(
             content=pdf_bytes,

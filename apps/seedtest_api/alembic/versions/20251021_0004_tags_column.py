@@ -26,7 +26,7 @@ def upgrade():
     if result.fetchone():
         # Column already exists, skip creation
         return
-    
+
     # Determine tags kind from -x tags_kind=... or env ALEMBIC_TAGS_KIND
     x = context.get_x_argument(as_dictionary=True)
     raw = x.get("tags_kind", os.getenv("ALEMBIC_TAGS_KIND", "")).lower()

@@ -23,8 +23,18 @@ def upgrade():
         sa.Column("user_id", sa.Text(), nullable=False),
         sa.Column("week_start", sa.Date(), nullable=False),
         sa.Column("kpis", psql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("user_id", "week_start", name="pk_weekly_kpi"),
     )
     op.create_index("ix_weekly_kpi_user_date", "weekly_kpi", ["user_id", "week_start"])
@@ -38,10 +48,17 @@ def upgrade():
         sa.Column("se", sa.Float(), nullable=True),
         sa.Column("model", sa.Text(), nullable=False),
         sa.Column("version", sa.Text(), nullable=True),
-        sa.Column("fitted_at", sa.TIMESTAMP(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "fitted_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("user_id", "topic_id", name="pk_student_topic_theta"),
     )
-    op.create_index("ix_theta_user_topic", "student_topic_theta", ["user_id", "topic_id"])
+    op.create_index(
+        "ix_theta_user_topic", "student_topic_theta", ["user_id", "topic_id"]
+    )
 
 
 def downgrade():
@@ -50,4 +67,3 @@ def downgrade():
 
     op.drop_index("ix_weekly_kpi_user_date", table_name="weekly_kpi")
     op.drop_table("weekly_kpi")
-

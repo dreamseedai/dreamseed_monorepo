@@ -21,7 +21,7 @@ depends_on = None
 def upgrade() -> None:
     # Check if tables already exist (may have been created by previous migration)
     conn = op.get_bind()
-    
+
     # weekly_kpi: 주차 단위 KPI(JSONB) 저장, PK(user_id, week_start)
     result = conn.execute(
         sa.text(
@@ -34,12 +34,27 @@ def upgrade() -> None:
             sa.Column("user_id", sa.Text(), nullable=False),
             sa.Column("week_start", sa.Date(), nullable=False),
             sa.Column("kpis", psql.JSONB(astext_type=sa.Text()), nullable=False),
-            sa.Column("created_at", sa.TIMESTAMP(timezone=True), server_default=sa.func.now(), nullable=False),
-            sa.Column("updated_at", sa.TIMESTAMP(timezone=True), server_default=sa.func.now(), nullable=False),
+            sa.Column(
+                "created_at",
+                sa.TIMESTAMP(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.Column(
+                "updated_at",
+                sa.TIMESTAMP(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
             sa.PrimaryKeyConstraint("user_id", "week_start", name="pk_weekly_kpi"),
         )
-        op.create_index("ix_weekly_kpi_user_date", "weekly_kpi", ["user_id", "week_start"], unique=False)
-    
+        op.create_index(
+            "ix_weekly_kpi_user_date",
+            "weekly_kpi",
+            ["user_id", "week_start"],
+            unique=False,
+        )
+
     # student_topic_theta: 토픽별 θ/SE/모델 메타 저장, PK(user_id, topic_id)
     result = conn.execute(
         sa.text(
@@ -52,13 +67,25 @@ def upgrade() -> None:
             sa.Column("user_id", sa.Text(), nullable=False),
             sa.Column("topic_id", sa.Text(), nullable=False),
             sa.Column("theta", sa.Float(), nullable=False),  # DOUBLE PRECISION
-            sa.Column("se", sa.Float(), nullable=True),       # DOUBLE PRECISION
+            sa.Column("se", sa.Float(), nullable=True),  # DOUBLE PRECISION
             sa.Column("model", sa.Text(), nullable=False),
             sa.Column("version", sa.Text(), nullable=True),
-            sa.Column("fitted_at", sa.TIMESTAMP(timezone=True), server_default=sa.func.now(), nullable=False),
-            sa.PrimaryKeyConstraint("user_id", "topic_id", name="pk_student_topic_theta"),
+            sa.Column(
+                "fitted_at",
+                sa.TIMESTAMP(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
+            ),
+            sa.PrimaryKeyConstraint(
+                "user_id", "topic_id", name="pk_student_topic_theta"
+            ),
         )
-        op.create_index("ix_theta_user_topic", "student_topic_theta", ["user_id", "topic_id"], unique=False)
+        op.create_index(
+            "ix_theta_user_topic",
+            "student_topic_theta",
+            ["user_id", "topic_id"],
+            unique=False,
+        )
 
 
 def downgrade() -> None:

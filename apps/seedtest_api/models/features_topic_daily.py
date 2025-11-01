@@ -1,4 +1,5 @@
 """Features topic daily model for daily user/topic aggregates."""
+
 from __future__ import annotations
 
 from sqlalchemy import Column, Date, DateTime, Integer, Numeric, Text
@@ -9,7 +10,7 @@ from ..db.base import Base
 
 class FeaturesTopicDaily(Base):
     """Daily aggregates per user/topic for analytics and ML features.
-    
+
     Columns align with KPI pipeline (Dev Contract 2-6):
     - attempts: total question attempts for this topic on this date
     - correct: number of correct attempts
@@ -26,21 +27,27 @@ class FeaturesTopicDaily(Base):
     user_id = Column(Text, primary_key=True)
     topic_id = Column(Text, primary_key=True, index=True)
     date = Column(Date, primary_key=True, index=True)
-    
+
     # Core metrics
     attempts = Column(Integer, nullable=False, server_default="0")
     correct = Column(Integer, nullable=False, server_default="0")
     avg_time_ms = Column(Integer, nullable=True)
     hints = Column(Integer, nullable=False, server_default="0")
-    
+
     # IRT metrics
-    theta_estimate = Column(Numeric(6, 3), nullable=True, comment="Mean theta for topic on date")
-    theta_sd = Column(Numeric(6, 3), nullable=True, comment="Standard deviation of theta")
-    
+    theta_estimate = Column(
+        Numeric(6, 3), nullable=True, comment="Mean theta for topic on date"
+    )
+    theta_sd = Column(
+        Numeric(6, 3), nullable=True, comment="Standard deviation of theta"
+    )
+
     # Additional KPI metrics
     rt_median = Column(Integer, nullable=True, comment="Median response time (ms)")
-    improvement = Column(Numeric(6, 3), nullable=True, comment="Improvement delta (e.g., accuracy gain)")
-    
+    improvement = Column(
+        Numeric(6, 3), nullable=True, comment="Improvement delta (e.g., accuracy gain)"
+    )
+
     # Metadata
     last_seen_at = Column(DateTime(timezone=True), nullable=True)
     computed_at = Column(

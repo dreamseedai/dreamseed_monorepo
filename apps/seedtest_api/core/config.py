@@ -39,6 +39,12 @@ class Config(BaseSettings):
     # Local dev convenience
     LOCAL_DEV: bool = False
 
+    # Result response configuration
+    RESULT_EXCLUDE_TIMESTAMPS: bool = Field(
+        default=False,
+        description="When true, omit volatile fields (timestamps) from result responses",
+    )
+
     model_config = SettingsConfigDict(
         env_file=(".env", "apps/seedtest_api/.env"),
         env_file_encoding="utf-8",
@@ -58,7 +64,7 @@ except ImportError:
     class SettingsCompat:
         def __getattr__(self, name: str):
             return getattr(config, name, None)
-    
+
     settings = SettingsCompat()
 
 __all__ = ["Config", "config", "settings"]
