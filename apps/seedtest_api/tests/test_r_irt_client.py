@@ -4,7 +4,6 @@ import os
 from typing import Any, Dict
 
 import pytest
-
 from seedtest_api.app.clients.r_irt import RIrtClient
 
 
