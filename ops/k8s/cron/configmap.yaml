@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cron-placeholder
+data:
+  placeholder: "true"
+  note: "V1 scope does not include cron workloads. This ConfigMap satisfies CI validation."

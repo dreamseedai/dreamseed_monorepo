@@ -1,0 +1,18 @@
+# PHP-Maintenance: minimal set (safe/idempotent)
+# Required core
+bmewburn.vscode-intelephense-client
+xdebug.php-debug
+
+# Optional format/lint (pick what the repo uses)
+# - Choose ONE sniffer client below (ikappas.phpcs is common; wongjn.php-sniffer is an alternative)
+junstyle.php-cs-fixer
+ikappas.phpcs
+wongjn.php-sniffer
+neilbrayfield.php-docblocker
+william-voyek.vscode-nginx
+
+# Common utilities (optional)
+EditorConfig.EditorConfig
+eamodio.gitlens
+redhat.vscode-yaml
+humao.rest-client

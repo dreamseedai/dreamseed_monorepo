@@ -1,0 +1,7 @@
+# One extension ID per line to additionally INSTALL for PHP work
+# Copy this file to extra-extensions.txt and uncomment lines you need.
+# Examples (verify IDs your team prefers):
+# ikappas.phpcs           # PHP_CodeSniffer integration (requires phpcs installed)
+# getpsalm.psalm-vscode   # Psalm static analysis client (verify official ID)
+# stef-k.phpstan          # PHPStan integration (verify ID)
+# neilbrayfield.php-docblocker

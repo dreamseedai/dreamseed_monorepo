@@ -1,0 +1,40 @@
+# DreamSeed-Full: recommended extensions (one ID per line)
+# AI
+continue.continue
+github.copilot
+github.copilot-chat
+
+# Python
+ms-python.python
+ms-python.vscode-pylance
+ms-python.black-formatter
+ms-python.debugpy
+charliermarsh.ruff
+
+# R / Quarto
+reditorsupport.r
+reditorsupport.r-syntax
+quarto.quarto
+
+# Frontend / Web
+# Prefer official Tailwind CSS IntelliSense
+bradlc.vscode-tailwindcss
+
+# K8s / Docker
+ms-kubernetes-tools.vscode-kubernetes-tools
+ms-azuretools.vscode-docker
+
+# Config / Lint / Formatting
+redhat.vscode-yaml
+dbaeumer.vscode-eslint
+esbenp.prettier-vscode
+EditorConfig.EditorConfig
+
+# Utilities
+github.vscode-github-actions
+eamodio.gitlens
+humao.rest-client
+streetsidesoftware.code-spell-checker
+mechatroner.rainbow-csv
+
+tamasfe.even-better-toml

@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: seedtest-mirt-calibrate
+  namespace: default
+spec:
+  schedule: "0 3 * * *"  # daily at 03:00 UTC
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: mirt-calibrate
+              image: ghcr.io/dreamseedai/seedtest-api:latest
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-api-db
+                      key: DATABASE_URL
+                - name: R_IRT_BASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-irt
+                      key: R_IRT_BASE_URL
+                - name: R_IRT_INTERNAL_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-irt
+                      key: R_IRT_INTERNAL_TOKEN
+                - name: IRT_CALIB_LOOKBACK_DAYS
+                  value: "30"
+                - name: IRT_MODEL
+                  value: "2PL"
+              command: ["/bin/sh","-lc"]
+              args:
+                - |
+                  set -euo pipefail
+                  echo "Running IRT calibration job..."
+                  python -m seedtest_api.jobs.mirt_calibrate

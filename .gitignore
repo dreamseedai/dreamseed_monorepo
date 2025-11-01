@@ -1,3 +1,25 @@
+# Coverage / caches
+.coverage
+**/.coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual env / tools
+.venv/
+.venv-*/
+.venv-tools/
+
+# Build / artifacts
+dist/
+build/
+.DS_Store
+
+# Infra local history
+infra/.history/
+
+# Local projects (ignore)
+CascadeProjects/
 # Dependencies
 node_modules/
 npm-debug.log*
@@ -92,6 +114,9 @@ mpcstudy_*.db
 !README.md
 !CHANGELOG.md
 !README_PROJECTS_AUTOMATION.md
+!*_TEMPLATE.md
+!RUNBOOK_*.md
+!DEPLOYMENT_GUIDE_*.md
 
 # Configuration files
 .editorconfig
@@ -200,6 +225,8 @@ schema.sql
 #! Allow tracking Kubernetes manifests under ops/k8s
 !ops/k8s/**/*.yml
 !ops/k8s/**/*.yaml
+!portal_front/ops/k8s/**/*.yml
+!portal_front/ops/k8s/**/*.yaml
 
 # TypeScript files
 *.ts
@@ -207,7 +234,12 @@ schema.sql
 
 # React files
 src/
-portal_front/
+
+# Portal front - mostly ignored except K8s manifests
+portal_front/*
+!portal_front/ops/
+portal_front/ops/*
+!portal_front/ops/k8s/
 
 # Tools
 tools/
@@ -348,3 +380,10 @@ tsconfig.json
 apps/seedtest_api/.venv/
 apps/seedtest_api/**/__pycache__/
 apps/seedtest_api/**/*.pyc
+
+# --- Branding assets (track SVGs and docs under assets/branding) ---
+!assets/
+!assets/branding/
+!assets/branding/**
+!assets/branding/**/*.md
+!assets/branding/**/*.svg
