@@ -6,7 +6,7 @@ Create Date: 2025-10-31 21:20:00
 
 Adds KPI pipeline columns to features_topic_daily:
 - hints: total hints used
-- theta_sd: standard deviation of theta estimates  
+- theta_sd: standard deviation of theta estimates
 - rt_median: median response time (ms)
 - improvement: improvement delta (accuracy gain, etc.)
 """
