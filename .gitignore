@@ -1,3 +1,25 @@
+# Coverage / caches
+.coverage
+**/.coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual env / tools
+.venv/
+.venv-*/
+.venv-tools/
+
+# Build / artifacts
+dist/
+build/
+.DS_Store
+
+# Infra local history
+infra/.history/
+
+# Local projects (ignore)
+CascadeProjects/
 # Dependencies
 node_modules/
 npm-debug.log*
