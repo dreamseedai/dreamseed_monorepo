@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-seedtest-api-to-r-irt-plumber
+  namespace: seedtest
+spec:
+  podSelector:
+    matchLabels:
+      app: r-irt-plumber
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: seedtest-api
+      ports:
+        - protocol: TCP
+          port: 80

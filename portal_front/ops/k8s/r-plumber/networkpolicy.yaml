@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-seedtest-api-to-r-plumber
+  namespace: seedtest
+  labels:
+    app: r-glmm-plumber
+spec:
+  podSelector:
+    matchLabels:
+      app: r-glmm-plumber
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: seedtest
+          podSelector:
+            matchLabels:
+              app: seedtest-api
+      ports:
+        - protocol: TCP
+          port: 8000

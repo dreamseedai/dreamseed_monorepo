@@ -225,6 +225,8 @@ schema.sql
 #! Allow tracking Kubernetes manifests under ops/k8s
 !ops/k8s/**/*.yml
 !ops/k8s/**/*.yaml
+!portal_front/ops/k8s/**/*.yml
+!portal_front/ops/k8s/**/*.yaml
 
 # TypeScript files
 *.ts
@@ -232,7 +234,12 @@ schema.sql
 
 # React files
 src/
-portal_front/
+
+# Portal front - mostly ignored except K8s manifests
+portal_front/*
+!portal_front/ops/
+portal_front/ops/*
+!portal_front/ops/k8s/
 
 # Tools
 tools/
