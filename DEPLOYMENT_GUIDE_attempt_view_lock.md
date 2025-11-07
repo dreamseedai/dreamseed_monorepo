@@ -184,5 +184,257 @@ pytest -k attempt_view_smoke -q
 
 ---
 
-**Last Updated**: 2025-10-31  
-**Status**: ✅ Local 검증 완료, Staging 준비 완료
+## Kubernetes 스테이징 배포 가이드 (2025-11-01 추가)
+
+### 환경 정보
+
+**Cloud SQL**
+- Instance: `seedtest-staging`
+- Connection: `univprepai:asia-northeast3:seedtest-staging`
+- Database: `dreamseed`
+- User: `seedstg`
+
+**Kubernetes**
+- Namespace: `seedtest`
+- Deployment: `seedtest-api`
+- Image: `asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:latest`
+- Secret: `seedtest-db-credentials`
+
+### 1) 보안 조치 (비밀번호 회전)
+
+```bash
+# 1-1) Cloud SQL 비밀번호 회전
+PROJECT=univprepai
+INSTANCE=seedtest-staging
+DBUSER=seedstg
+NEWPASS=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)
+
+gcloud sql users set-password $DBUSER --instance=$INSTANCE --password="$NEWPASS"
+
+# 1-2) Kubernetes Secret 갱신
+NS=seedtest
+SECRET=seedtest-db-credentials
+DBNAME=dreamseed
+
+kubectl -n $NS create secret generic $SECRET \
+  --from-literal=DATABASE_URL="postgresql+psycopg://$DBUSER:$NEWPASS@127.0.0.1:5432/$DBNAME" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# 1-3) 배포 재시작
+kubectl -n $NS rollout restart deploy/seedtest-api
+kubectl -n $NS rollout status deploy/seedtest-api --timeout=180s
+```
+
+### 2) 런타임 스모크 테스트 (90초)
+
+```bash
+NS=seedtest
+APP=seedtest-api
+POD=$(kubectl -n $NS get pod -l app=$APP -o jsonpath='{.items[0].metadata.name}')
+
+# 2-1) ENV 주입 확인
+kubectl -n $NS exec $POD -c api -- sh -c 'echo ${DATABASE_URL:+DATABASE_URL_set}'
+
+# 2-2) DB 연결 핑
+kubectl -n $NS exec $POD -c api -- python -c "
+import os, psycopg
+url=os.environ['DATABASE_URL'].replace('postgresql+psycopg','postgresql')
+with psycopg.connect(url) as c:
+    with c.cursor() as cur:
+        cur.execute('SELECT 1;')
+        print(cur.fetchone())
+print('DB OK')
+"
+
+# 2-3) Alembic 버전 확인
+kubectl -n $NS exec $POD -c api -- bash -c "cd /app/seedtest_api && PYTHONPATH=/app alembic current"
+```
+
+**예상 출력:**
+```
+DATABASE_URL_set
+(1,)
+DB OK
+20251101_0900_attempt_view_lock (head)
+```
+
+### 3) 마이그레이션 실행 (Pod 내부)
+
+```bash
+POD=$(kubectl -n seedtest get pod -l app=seedtest-api -o jsonpath='{.items[0].metadata.name}')
+
+# Alembic 마이그레이션
+kubectl -n seedtest exec $POD -c api -- bash -c \
+  "cd /app/seedtest_api && PYTHONPATH=/app alembic upgrade head"
+
+# 현재 버전 확인
+kubectl -n seedtest exec $POD -c api -- bash -c \
+  "cd /app/seedtest_api && PYTHONPATH=/app alembic current"
+```
+
+### 4) Cloud SQL Proxy 사이드카 설정
+
+**리소스 제한 및 헬스 프로브 권장:**
+
+```yaml
+- name: cloud-sql-proxy
+  image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+  args:
+    - "--structured-logs"
+    - "--port=5432"
+    - "univprepai:asia-northeast3:seedtest-staging"
+  securityContext:
+    runAsNonRoot: true
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+  livenessProbe:
+    tcpSocket:
+      port: 5432
+    periodSeconds: 10
+  readinessProbe:
+    tcpSocket:
+      port: 5432
+    periodSeconds: 5
+```
+
+### 5) Workload Identity 설정
+
+```bash
+# GSA에 Cloud SQL 권한 부여
+GSA=seedtest-deployer@univprepai.iam.gserviceaccount.com
+gcloud projects add-iam-policy-binding univprepai \
+  --member="serviceAccount:${GSA}" \
+  --role="roles/cloudsql.client"
+
+# Kubernetes SA 어노테이션
+kubectl -n seedtest annotate serviceaccount seedtest-api \
+  iam.gke.io/gcp-service-account=$GSA --overwrite
+
+# Workload Identity 바인딩
+gcloud iam service-accounts add-iam-policy-binding $GSA \
+  --role roles/iam.workloadIdentityUser \
+  --member "serviceAccount:univprepai.svc.id.goog[seedtest/seedtest-api]"
+
+gcloud iam service-accounts add-iam-policy-binding $GSA \
+  --role roles/iam.serviceAccountTokenCreator \
+  --member "serviceAccount:univprepai.svc.id.goog[seedtest/seedtest-api]"
+```
+
+### 6) 주요 해결 사항
+
+1. **ModuleNotFoundError: shared** → `COPY shared/ /app/shared/` Dockerfile에 추가
+2. **ModuleNotFoundError: psycopg** → `psycopg[binary]==3.2.1` requirements.txt에 추가
+3. **alembic/env.py 누락** → 표준 Alembic env.py 생성
+4. **alembic_version VARCHAR(32) 부족** → `ALTER COLUMN version_num TYPE VARCHAR(64)`
+5. **Cloud SQL 권한 오류** → Workload Identity + IAM 권한 설정
+
+### 7) 보안 권장사항
+
+- ✅ 비밀번호 32자 이상 랜덤 생성
+- ✅ Secret 회전 후 즉시 배포 재시작
+- ⚠️ Cloud SQL 공개 IP 비활성화 권장 (프록시 사이드카 사용 시)
+- ⚠️ Authorized networks 최소화
+- ⚠️ GSA 권한 최소화 (roles/cloudsql.client만 유지)
+
+### 8) Alembic 구조 안정화
+
+**권장 개선사항:**
+- `psycopg2-binary` 제거, `psycopg` (v3)만 유지
+- Revision ID를 32자 해시로 표준화 (또는 고정 길이 타임스탬프)
+- `alembic/env.py`를 Dockerfile에 명시적으로 포함 확인
+
+### 9) 외부 비밀 관리 (향후)
+
+**ExternalSecret + GCP Secret Manager 통합:**
+
+```yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: seedtest-db-credentials
+  namespace: seedtest
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: gcpsm-secret-store
+    kind: SecretStore
+  target:
+    name: seedtest-db-credentials
+  data:
+    - secretKey: DATABASE_URL
+      remoteRef:
+        key: seedtest-staging-database-url
+```
+
+### 10) 관측성 체크리스트
+
+- [ ] Cloud SQL 자동 백업 활성화
+- [ ] PITR (Point-in-Time Recovery) 설정
+- [ ] `/health`, `/ready` 엔드포인트 추가
+- [ ] Kubernetes Liveness/Readiness Probe 설정
+- [ ] Cloud Monitoring 알림 설정
+- [ ] 런북에 "비밀번호 회전 → Secret → 롤아웃 → 스모크" 체크리스트 추가
+
+### 11) 운영 스크립트 (Runbooks)
+
+**보안 원칙**: 민감 정보가 없는 샘플만 커밋, 실제 실행 스크립트는 로컬에서 관리
+
+**샘플 스크립트 위치**: `docs/runbooks/*.sh.sample`  
+**로컬 실행 스크립트**: `scripts/local/*.sh` (gitignore 대상)
+
+#### 사용 방법
+
+```bash
+# 1. 로컬 디렉토리 생성
+mkdir -p scripts/local
+
+# 2. 샘플 복사
+cp docs/runbooks/staging_rotate_db_secret.sh.sample scripts/local/staging_rotate_db_secret.sh
+cp docs/runbooks/staging_migrate_and_smoke.sh.sample scripts/local/staging_migrate_and_smoke.sh
+chmod +x scripts/local/*.sh
+
+# 3. 환경 변수 설정 (선택)
+cat > scripts/local/.env.local <<EOF
+PROJECT=univprepai
+INSTANCE=seedtest-staging
+NS=seedtest
+APP=seedtest-api
+SECRET=seedtest-db-credentials
+DBNAME=dreamseed
+DBUSER=seedstg
+APP_IMAGE=asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:latest
+CONN_NAME=univprepai:asia-northeast3:seedtest-staging
+EOF
+
+source scripts/local/.env.local
+
+# 4. 실행
+scripts/local/staging_rotate_db_secret.sh
+scripts/local/staging_migrate_and_smoke.sh
+```
+
+#### 제공 스크립트
+
+1. **`staging_rotate_db_secret.sh.sample`**
+   - Cloud SQL 비밀번호 회전
+   - Kubernetes Secret 갱신
+   - Deployment 롤아웃
+   - 상태 확인
+
+2. **`staging_migrate_and_smoke.sh.sample`**
+   - Alembic 마이그레이션 (Kubernetes Job)
+   - 런타임 스모크 테스트
+   - 로그 모니터링
+   - 최종 상태 확인
+
+자세한 내용은 [`docs/runbooks/README.md`](../docs/runbooks/README.md) 참고
+
+---
+
+**Last Updated**: 2025-11-01  
+**Status**: ✅ Staging 배포 완료 (Cloud SQL + Kubernetes)

@@ -1,0 +1,37 @@
+# Continue 인덱싱 제외 패턴
+# https://docs.continue.dev/reference/config#continueignore
+
+# 의존성 폴더
+node_modules/
+vendor/
+.venv/
+venv/
+__pycache__/
+
+# 빌드 산출물
+dist/
+build/
+.next/
+*.pyc
+*.pyo
+
+# 캐시/임시
+.cache/
+cache/
+tmp/
+logs/
+.git/
+
+# 대용량 데이터
+storage/
+public/uploads/
+backup*/
+restore*/
+*.log
+*.sql
+*.dump
+
+# 설정/메타데이터
+.vscode-server/
+.idea/
+*.code-workspace

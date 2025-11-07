@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
+# cSpell:ignore mirt LOOKBACK Upserted
 from __future__ import annotations
 
 """
 Backfill topic-level theta (student_topic_theta) from general abilities (mirt_ability).
+
+MIRT (Multidimensional Item Response Theory) is used for ability estimation.
+The mirt_ability table stores general ability estimates, which are backfilled to
+topic-specific estimates in student_topic_theta.
+
+Note: "mirt" refers to Multidimensional Item Response Theory (MIRT).
 
 Strategy:
 - For each user with a recent mirt_ability (or latest regardless), find topics they've engaged with
@@ -138,8 +145,8 @@ def main() -> None:
         ability = _latest_ability(uid)
         if not ability:
             continue
-        tset = _topics_for_user(uid, since_dt)
-        for tid in tset:
+        topic_ids = _topics_for_user(uid, since_dt)
+        for tid in topic_ids:
             _upsert_topic_theta(uid, tid, ability)
             total_rows += 1
     print(f"Backfill complete. Upserted {total_rows} topic thetas.")

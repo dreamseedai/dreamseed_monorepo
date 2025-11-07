@@ -1,0 +1,35 @@
+[Unit]
+Description=Generate IRT monthly drift reports
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/dreamseed
+Environment="PYTHONPATH=/opt/dreamseed"
+Environment="DATABASE_URL=postgresql://user:password@localhost:5432/dreamseed"
+Environment="REPORT_OUTPUT_DIR=/opt/dreamseed/reports"
+
+# Generate reports for all recent windows
+ExecStart=/bin/bash -c '\
+  DB_URL="${DATABASE_URL}" && \
+  for window_id in $(psql "$DB_URL" -t -c "SELECT id FROM shared_irt.windows ORDER BY start_at DESC LIMIT 3"); do \
+    python3 -m shared.irt.reports.drift_monthly \
+      --window-id $window_id \
+      --output ${REPORT_OUTPUT_DIR}/drift_window_${window_id}_$(date +%%Y%%m%%d).pdf; \
+  done'
+
+User=svc_dreamseed
+Group=svc_dreamseed
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/dreamseed/reports /tmp
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,262 @@
+---
+# ==============================================================================
+# IRT Monthly Calibration CronJob
+# ==============================================================================
+# Runs IRT calibration on a monthly schedule
+# Depends on: shared_irt schema, Python/R environments
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: irt-calibration-monthly
+  namespace: seedtest
+  labels:
+    app: irt-calibration
+    schedule: monthly
+spec:
+  # Run at 2 AM UTC on the 1st of every month
+  schedule: "0 2 1 * *"
+  
+  concurrencyPolicy: Forbid  # Don't run concurrent jobs
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  
+  jobTemplate:
+    metadata:
+      labels:
+        app: irt-calibration
+        job-type: monthly
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600  # 1 hour timeout
+      
+      template:
+        metadata:
+          labels:
+            app: irt-calibration
+        spec:
+          restartPolicy: Never
+          
+          serviceAccountName: seedtest-api
+          
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          
+          containers:
+          - name: calibrate
+            image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:latest
+            imagePullPolicy: Always
+            
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              
+              echo "[$(date -Iseconds)] Starting IRT calibration pipeline..."
+              
+              # Step 1: Create window for previous month
+              WINDOW_LABEL="$(date -d 'last month' +%Y-%m) monthly"
+              START_DATE="$(date -d 'last month' +%Y-%m-01)"
+              END_DATE="$(date +%Y-%m-01)"
+              
+              echo "[$(date -Iseconds)] Window: $WINDOW_LABEL ($START_DATE to $END_DATE)"
+              
+              # Step 2: Run ETL to extract responses
+              python -m shared.irt.etl_irt_responses \
+                --window-label "$WINDOW_LABEL" \
+                --start-date "$START_DATE" \
+                --end-date "$END_DATE" \
+                --population-tags "lang:ko" "lang:en" \
+                --min-responses 30 \
+                --output /tmp/irt_responses.csv
+              
+              # Step 3: Get window ID
+              WINDOW_ID=$(psql "$DATABASE_URL" -t -c \
+                "SELECT id FROM shared_irt.windows WHERE label = '$WINDOW_LABEL'" | xargs)
+              
+              if [ -z "$WINDOW_ID" ]; then
+                echo "[ERROR] Window not found: $WINDOW_LABEL"
+                exit 1
+              fi
+              
+              echo "[$(date -Iseconds)] Window ID: $WINDOW_ID"
+              
+              # Step 4: Run calibration
+              python -m shared.irt.calibrate_irt \
+                --window-id "$WINDOW_ID" \
+                --model 2PL
+              
+              # Step 5: Generate drift report
+              python -m shared.irt.report_drift \
+                --window-id "$WINDOW_ID" \
+                --output "/tmp/irt_drift_report_${WINDOW_LABEL// /_}.html"
+              
+              echo "[$(date -Iseconds)] IRT calibration complete ✓"
+            
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-api-credentials
+                  key: DATABASE_URL
+            
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            
+            - name: IRT_ETL_MIN_RESPONSES_PER_ITEM
+              value: "30"
+            
+            - name: IRT_ETL_MIN_VARIANCE
+              value: "0.05"
+            
+            resources:
+              requests:
+                cpu: 500m
+                memory: 2Gi
+              limits:
+                cpu: 2
+                memory: 4Gi
+            
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false  # Needs /tmp for CSV/reports
+              runAsNonRoot: true
+              capabilities:
+                drop:
+                - ALL
+            
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          
+          volumes:
+          - name: tmp
+            emptyDir:
+              sizeLimit: 1Gi
+
+---
+# ==============================================================================
+# Manual IRT Calibration Job Template
+# ==============================================================================
+# Use this for ad-hoc calibration runs
+# kubectl create -f - <<EOF (paste this manifest)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: irt-calibration-manual-$(date +%Y%m%d-%H%M)
+  namespace: seedtest
+  labels:
+    app: irt-calibration
+    job-type: manual
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 3600
+  
+  template:
+    metadata:
+      labels:
+        app: irt-calibration
+    spec:
+      restartPolicy: Never
+      
+      serviceAccountName: seedtest-api
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      
+      containers:
+      - name: calibrate
+        image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:latest
+        imagePullPolicy: Always
+        
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -euo pipefail
+          
+          # Customize these variables
+          WINDOW_LABEL="${WINDOW_LABEL:-$(date +%Y-%m) manual}"
+          START_DATE="${START_DATE:-$(date -d '30 days ago' +%Y-%m-%d)}"
+          END_DATE="${END_DATE:-$(date +%Y-%m-%d)}"
+          MODEL="${IRT_MODEL:-2PL}"
+          
+          echo "[INFO] Window: $WINDOW_LABEL"
+          echo "[INFO] Date range: $START_DATE to $END_DATE"
+          echo "[INFO] Model: $MODEL"
+          
+          # ETL
+          python -m shared.irt.etl_irt_responses \
+            --window-label "$WINDOW_LABEL" \
+            --start-date "$START_DATE" \
+            --end-date "$END_DATE" \
+            --population-tags "lang:ko" \
+            --output /tmp/irt_responses.csv
+          
+          # Get window ID
+          WINDOW_ID=$(psql "$DATABASE_URL" -t -c \
+            "SELECT id FROM shared_irt.windows WHERE label = '$WINDOW_LABEL'" | xargs)
+          
+          # Calibrate
+          python -m shared.irt.calibrate_irt \
+            --window-id "$WINDOW_ID" \
+            --model "$MODEL"
+          
+          # Report
+          python -m shared.irt.report_drift \
+            --window-id "$WINDOW_ID" \
+            --output "/tmp/irt_drift_report.html"
+          
+          echo "[INFO] Complete ✓"
+        
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: seedtest-api-credentials
+              key: DATABASE_URL
+        
+        - name: WINDOW_LABEL
+          value: "2025-11 manual"  # Customize
+        
+        - name: START_DATE
+          value: "2025-11-01"  # Customize
+        
+        - name: END_DATE
+          value: "2025-11-30"  # Customize
+        
+        - name: IRT_MODEL
+          value: "2PL"  # 1PL, 2PL, or 3PL
+        
+        resources:
+          requests:
+            cpu: 1
+            memory: 2Gi
+          limits:
+            cpu: 2
+            memory: 4Gi
+        
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+        
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 1Gi

@@ -1,0 +1,18 @@
+# cSpell:ignore univprepai
+apiVersion: v1
+kind: Service
+metadata:
+  name: r-analytics
+  namespace: seedtest
+  labels:
+    app: r-analytics
+    component: analytics
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8010
+    protocol: TCP
+    name: http
+  selector:
+    app: r-analytics

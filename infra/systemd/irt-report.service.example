@@ -1,0 +1,25 @@
+[Unit]
+Description=Render Monthly Drift PDF
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/dreamseed
+Environment="PYTHONPATH=/opt/dreamseed"
+Environment="DATABASE_URL=postgresql://user:password@localhost:5432/dreamseed"
+ExecStart=/usr/bin/python3 -m shared.irt.reports.drift_monthly --window-id 1 --output /opt/dreamseed/reports/drift_report.pdf
+User=svc_dreamseed
+Group=svc_dreamseed
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/dreamseed/reports /tmp
+
+[Install]
+WantedBy=multi-user.target

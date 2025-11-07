@@ -1,0 +1,66 @@
+# Create or replace a stub attempt VIEW so jobs don't fail with UndefinedTable
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: attempt-view-stub-create
+  namespace: seedtest
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 1800
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: seedtest-api
+      containers:
+        - name: apply-stub
+          image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:latest
+          imagePullPolicy: Always
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-db-credentials
+                  key: DATABASE_URL
+                  optional: false
+          command: ["python3", "-c"]
+          args:
+            - |
+              import os
+              from sqlalchemy import create_engine, text
+              STUB_SQL = """
+              DROP VIEW IF EXISTS attempt;
+              CREATE OR REPLACE VIEW attempt AS
+              SELECT
+                NULL::bigint AS id,
+                NULL::uuid AS student_id,
+                NULL::bigint AS item_id,
+                NULL::boolean AS correct,
+                NULL::integer AS response_time_ms,
+                NULL::boolean AS hint_used,
+                NULL::timestamptz AS completed_at,
+                NULL::timestamptz AS started_at,
+                NULL::integer AS attempt_no,
+                NULL::text AS session_id,
+                NULL::text AS topic_id
+              WHERE false;
+              """
+              url = os.environ["DATABASE_URL"]
+              print("Connecting to:", url.split("@")[-1])
+              eng = create_engine(url)
+              with eng.begin() as conn:
+                  conn.execute(text(STUB_SQL))
+              print("✅ attempt stub view created/replaced")
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+          imagePullPolicy: IfNotPresent
+          args:
+            - --structured-logs
+            - --port=5432
+            - univprepai:asia-northeast3:seedtest-staging
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              ephemeral-storage: "1Gi"
+      terminationGracePeriodSeconds: 60

@@ -1,0 +1,320 @@
+---
+# ==============================================================================
+# Bayesian IRT Monthly Calibration CronJob (brms)
+# ==============================================================================
+# Runs brms-based Bayesian 2PL calibration monthly
+# Requires: R, brms, cmdstanr, RPostgres
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: irt-calibration-brms-monthly
+  namespace: seedtest
+  labels:
+    app: irt-calibration
+    method: brms
+    schedule: monthly
+spec:
+  # Run at 3 AM UTC on the 2nd of every month (after mirt calibration)
+  schedule: "0 3 2 * *"
+  
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  
+  jobTemplate:
+    metadata:
+      labels:
+        app: irt-calibration
+        method: brms
+    spec:
+      backoffLimit: 1  # brms is computationally expensive
+      activeDeadlineSeconds: 7200  # 2 hours timeout
+      
+      template:
+        metadata:
+          labels:
+            app: irt-calibration
+            method: brms
+        spec:
+          restartPolicy: Never
+          
+          serviceAccountName: seedtest-api
+          
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          
+          containers:
+          - name: calibrate-brms
+            image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/r-brms-irt:latest
+            imagePullPolicy: Always
+            
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              
+              echo "[$(date -Iseconds)] Starting Bayesian IRT calibration (brms)..."
+              
+              # Parse DATABASE_URL to extract components
+              DB_HOST=$(echo $DATABASE_URL | sed -E 's|.*@([^:/]+).*|\1|')
+              DB_PORT=$(echo $DATABASE_URL | sed -E 's|.*:([0-9]+)/.*|\1|')
+              DB_NAME=$(echo $DATABASE_URL | sed -E 's|.*/([^?]+).*|\1|')
+              DB_USER=$(echo $DATABASE_URL | sed -E 's|.*://([^:]+):.*|\1|')
+              DB_PASS=$(echo $DATABASE_URL | sed -E 's|.*://[^:]+:([^@]+)@.*|\1|')
+              
+              echo "[INFO] Database: $DB_NAME @ $DB_HOST:$DB_PORT"
+              
+              # Run brms calibration
+              Rscript /app/shared/irt/calibrate_monthly_brms.R \
+                --host "$DB_HOST" \
+                --port "$DB_PORT" \
+                --dbname "$DB_NAME" \
+                --user "$DB_USER" \
+                --password "$DB_PASS" \
+                --min-responses 200 \
+                --drift-threshold-b 0.25 \
+                --drift-threshold-a 0.2 \
+                --iter 2000 \
+                --warmup 1000 \
+                --chains 4 \
+                --cores 4
+              
+              echo "[$(date -Iseconds)] Bayesian calibration complete ✓"
+            
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-api-credentials
+                  key: DATABASE_URL
+            
+            - name: CMDSTAN_PATH
+              value: "/usr/local/cmdstan"
+            
+            - name: R_MAX_VSIZE
+              value: "16Gb"  # Increase R memory limit
+            
+            resources:
+              requests:
+                cpu: 2
+                memory: 8Gi
+              limits:
+                cpu: 4
+                memory: 16Gi
+            
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false  # brms needs temp files
+              runAsNonRoot: true
+              capabilities:
+                drop:
+                - ALL
+            
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: r-libs
+              mountPath: /usr/local/lib/R/site-library
+          
+          volumes:
+          - name: tmp
+            emptyDir:
+              sizeLimit: 2Gi
+          - name: r-libs
+            emptyDir:
+              sizeLimit: 1Gi
+
+---
+# ==============================================================================
+# Manual Bayesian IRT Calibration Job Template
+# ==============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: irt-calibration-brms-manual
+  namespace: seedtest
+  labels:
+    app: irt-calibration
+    method: brms
+    job-type: manual
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 7200
+  
+  template:
+    metadata:
+      labels:
+        app: irt-calibration
+        method: brms
+    spec:
+      restartPolicy: Never
+      
+      serviceAccountName: seedtest-api
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      
+      containers:
+      - name: calibrate-brms
+        image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/r-brms-irt:latest
+        
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -euo pipefail
+          
+          # Parse DATABASE_URL
+          DB_HOST=$(echo $DATABASE_URL | sed -E 's|.*@([^:/]+).*|\1|')
+          DB_PORT=$(echo $DATABASE_URL | sed -E 's|.*:([0-9]+)/.*|\1|')
+          DB_NAME=$(echo $DATABASE_URL | sed -E 's|.*/([^?]+).*|\1|')
+          DB_USER=$(echo $DATABASE_URL | sed -E 's|.*://([^:]+):.*|\1|')
+          DB_PASS=$(echo $DATABASE_URL | sed -E 's|.*://[^:]+:([^@]+)@.*|\1|')
+          
+          # Customizable parameters
+          WINDOW_LABEL="${WINDOW_LABEL:-}"
+          MIN_RESP="${MIN_RESPONSES:-200}"
+          DRIFT_B="${DRIFT_THRESHOLD_B:-0.25}"
+          DRIFT_A="${DRIFT_THRESHOLD_A:-0.2}"
+          MCMC_ITER="${MCMC_ITER:-2000}"
+          MCMC_WARMUP="${MCMC_WARMUP:-1000}"
+          MCMC_CHAINS="${MCMC_CHAINS:-4}"
+          
+          echo "[INFO] Configuration:"
+          echo "  Window: ${WINDOW_LABEL:-auto}"
+          echo "  Min responses: $MIN_RESP"
+          echo "  Drift thresholds: Δb=$DRIFT_B, Δa=$DRIFT_A"
+          echo "  MCMC: iter=$MCMC_ITER, warmup=$MCMC_WARMUP, chains=$MCMC_CHAINS"
+          
+          # Build Rscript command
+          CMD="Rscript /app/shared/irt/calibrate_monthly_brms.R \
+            --host $DB_HOST \
+            --port $DB_PORT \
+            --dbname $DB_NAME \
+            --user $DB_USER \
+            --password $DB_PASS \
+            --min-responses $MIN_RESP \
+            --drift-threshold-b $DRIFT_B \
+            --drift-threshold-a $DRIFT_A \
+            --iter $MCMC_ITER \
+            --warmup $MCMC_WARMUP \
+            --chains $MCMC_CHAINS \
+            --cores 4"
+          
+          if [ -n "$WINDOW_LABEL" ]; then
+            CMD="$CMD --window-label '$WINDOW_LABEL'"
+          fi
+          
+          eval $CMD
+          
+          echo "[INFO] Complete ✓"
+        
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: seedtest-api-credentials
+              key: DATABASE_URL
+        
+        # Customizable parameters
+        - name: WINDOW_LABEL
+          value: ""  # Empty = auto-generate for previous month
+        
+        - name: MIN_RESPONSES
+          value: "200"
+        
+        - name: DRIFT_THRESHOLD_B
+          value: "0.25"
+        
+        - name: DRIFT_THRESHOLD_A
+          value: "0.2"
+        
+        - name: MCMC_ITER
+          value: "2000"
+        
+        - name: MCMC_WARMUP
+          value: "1000"
+        
+        - name: MCMC_CHAINS
+          value: "4"
+        
+        - name: CMDSTAN_PATH
+          value: "/usr/local/cmdstan"
+        
+        - name: R_MAX_VSIZE
+          value: "16Gb"
+        
+        resources:
+          requests:
+            cpu: 2
+            memory: 8Gi
+          limits:
+            cpu: 4
+            memory: 16Gi
+        
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+        
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: r-libs
+          mountPath: /usr/local/lib/R/site-library
+      
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 2Gi
+      - name: r-libs
+        emptyDir:
+          sizeLimit: 1Gi
+
+---
+# ==============================================================================
+# Dockerfile for r-brms-irt image
+# ==============================================================================
+# Build with:
+#   docker build -t asia-northeast3-docker.pkg.dev/univprepai/seedtest/r-brms-irt:latest -f Dockerfile.r-brms-irt .
+#   docker push asia-northeast3-docker.pkg.dev/univprepai/seedtest/r-brms-irt:latest
+#
+# FROM: rocker/r-ver:4.3
+# 
+# RUN apt-get update && apt-get install -y \
+#     libpq-dev \
+#     libcurl4-openssl-dev \
+#     libssl-dev \
+#     libxml2-dev \
+#     && rm -rf /var/lib/apt/lists/*
+# 
+# # Install cmdstan
+# RUN wget https://github.com/stan-dev/cmdstan/releases/download/v2.33.1/cmdstan-2.33.1.tar.gz \
+#     && tar -xzf cmdstan-2.33.1.tar.gz \
+#     && cd cmdstan-2.33.1 \
+#     && make build -j4 \
+#     && cd .. \
+#     && mv cmdstan-2.33.1 /usr/local/cmdstan \
+#     && rm cmdstan-2.33.1.tar.gz
+# 
+# # Install R packages
+# RUN R -e "install.packages(c('dplyr', 'DBI', 'RPostgres', 'jsonlite', 'optparse', 'cmdstanr', 'brms'), repos='https://cloud.r-project.org')"
+# 
+# WORKDIR /app
+# 
+# # Copy IRT scripts
+# COPY shared/irt/calibrate_monthly_brms.R /app/shared/irt/
+# 
+# USER 10001

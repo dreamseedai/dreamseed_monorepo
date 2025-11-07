@@ -26,12 +26,17 @@ class RIrtClient:
         return headers
 
     async def calibrate(
-        self, observations: List[Dict[str, Any]], model: Optional[str] = None
+        self,
+        observations: List[Dict[str, Any]],
+        model: Optional[str] = None,
+        anchors: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         url = f"{self.base_url}/irt/calibrate"
         payload: Dict[str, Any] = {"observations": observations}
         if model:
             payload["model"] = model
+        if anchors:
+            payload["anchors"] = anchors
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             r = await client.post(url, json=payload, headers=self._headers())
             r.raise_for_status()

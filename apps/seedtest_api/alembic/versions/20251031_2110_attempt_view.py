@@ -47,7 +47,7 @@ def _view_exists(conn: Connection, view_name: str) -> bool:
         """
         )
     )
-    return result.scalar()
+    return bool(result.scalar())
 
 
 def _table_exists(conn: Connection, table_name: str) -> bool:
@@ -65,7 +65,7 @@ def _table_exists(conn: Connection, table_name: str) -> bool:
         """
         )
     )
-    return result.scalar()
+    return bool(result.scalar())
 
 
 def upgrade() -> None:

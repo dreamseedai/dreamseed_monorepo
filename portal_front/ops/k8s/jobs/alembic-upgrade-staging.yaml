@@ -1,0 +1,107 @@
+# cSpell:ignore univprepai
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: alembic-upgrade-staging
+  namespace: seedtest
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: seedtest-api
+      containers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+        args:
+          - "--structured-logs"
+          - "--port=5432"
+          - "univprepai:asia-northeast3:seedtest-staging"
+        securityContext:
+          runAsNonRoot: true
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+      - name: migrator
+        image: gcr.io/univprepai/seedtest-api:latest
+        imagePullPolicy: Always
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: seedtest-db-credentials
+              key: DATABASE_URL
+              optional: false
+        - name: PYTHONPATH
+          value: "/app"
+        command: ["bash", "-c"]
+        args:
+          - |
+            set -euo pipefail
+            echo "=== Alembic Migration Job ==="
+            echo "PYTHONPATH: $PYTHONPATH"
+            echo "Finding alembic.ini..."
+            # Try /app/apps/seedtest_api first (where env.py likely exists)
+            if [ -f "/app/apps/seedtest_api/alembic.ini" ] && [ -f "/app/apps/seedtest_api/alembic/env.py" ]; then
+              ALEMBIC_DIR="/app/apps/seedtest_api"
+              ALEMBIC_INI="/app/apps/seedtest_api/alembic.ini"
+              echo "✅ Found complete alembic setup at: $ALEMBIC_DIR"
+            elif [ -f "/app/seedtest_api/alembic.ini" ]; then
+              ALEMBIC_DIR="/app/seedtest_api"
+              ALEMBIC_INI="/app/seedtest_api/alembic.ini"
+              echo "✅ Found alembic.ini at: $ALEMBIC_INI"
+              # Check if env.py exists in /app/apps/seedtest_api/alembic
+              if [ ! -f "$ALEMBIC_DIR/alembic/env.py" ] && [ -f "/app/apps/seedtest_api/alembic/env.py" ]; then
+                echo "Copying env.py from /app/apps/seedtest_api/alembic..."
+                cp /app/apps/seedtest_api/alembic/env.py "$ALEMBIC_DIR/alembic/env.py"
+              fi
+            else
+              echo "❌ alembic.ini not found. Listing /app structure:"
+              ls -la /app/ | head -20
+              exit 1
+            fi
+            cd "$ALEMBIC_DIR"
+            echo "Working directory: $ALEMBIC_DIR"
+            echo ""
+            echo "Waiting for Cloud SQL Proxy..."
+            sleep 5
+            echo "Checking database connection..."
+            python3 -c "
+            import os
+            from sqlalchemy import create_engine, text
+            url = os.getenv('DATABASE_URL')
+            if url:
+                print(f'Testing connection to: {url.split(\"@\")[-1]}')
+                engine = create_engine(url)
+                with engine.connect() as conn:
+                    result = conn.execute(text('SELECT version()'))
+                    print(f'✅ Connected: {result.fetchone()[0][:50]}...')
+            else:
+                print('❌ DATABASE_URL not set')
+                exit(1)
+            " || exit 1
+            echo ""
+            echo "Running Alembic upgrade..."
+            # Ensure PYTHONPATH includes /app for imports
+            export PYTHONPATH="/app:$PYTHONPATH"
+            # Upgrade all branches to their respective heads to resolve multiple-heads situation
+            alembic -c "$ALEMBIC_INI" upgrade heads
+            echo ""
+            echo "Current Alembic version:"
+            alembic -c "$ALEMBIC_INI" current
+            echo ""
+            echo "✅ Migration completed successfully"
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+      terminationGracePeriodSeconds: 60
+

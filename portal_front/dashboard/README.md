@@ -1,0 +1,382 @@
+# Shiny Admin Dashboard
+
+Multi-organization admin dashboard with JWT authentication and role-based access control.
+
+## Features
+
+- **Authentication**: JWT Bearer tokens verified by nginx reverse proxy
+- **Authorization**: Org/role-based data filtering (admin, analyst, content_editor, teacher, student)
+- **Performance**: Arrow datasets with server-side DataTables
+- **Interactivity**: Plotly visualizations with drill-down capabilities
+
+## Architecture
+
+```
+User → nginx (JWT verify) → Shiny (X-User, X-Org-Id, X-Roles headers)
+```
+
+### Menu Structure
+
+1. **Cohort Overview**: Student progression, completion rates, time-on-task
+2. **IRT Calibration**: Item parameters, drift detection, test information
+3. **A/B Lab**: Experiment analysis, lift/significance testing
+4. **Churn Monitor**: Retention trends, exit surveys, early warning
+5. **Content Bank**: Item metadata, usage stats, performance analytics
+
+---
+
+## Deployment
+
+### Prerequisites
+
+- R ≥ 4.0 with packages: `shiny`, `shinydashboard`, `DT`, `arrow`, `dplyr`, `plotly`, `lubridate`, `stringr`, `tidyr`, `tibble`, `readr`
+- Nginx with Lua module (OpenResty) **OR** JWT verification microservice
+- RSA key pair for JWT signing/verification
+
+### Setup JWT Authentication
+
+#### Option 1: Nginx + Lua (Recommended)
+
+**Install OpenResty (nginx with Lua)**:
+```bash
+# Ubuntu/Debian
+sudo apt-get install openresty luarocks
+sudo luarocks install lua-resty-jwt
+```
+
+**Generate RSA key pair**:
+```bash
+cd infra/nginx
+./generate_jwt_keypair.sh /etc/nginx
+```
+
+**Configure nginx**:
+```bash
+# Copy Lua script
+sudo cp jwt_auth.lua /etc/nginx/lua/
+
+# Copy nginx config
+sudo cp dashboard.dreamseedai.com.conf /etc/nginx/sites-available/
+sudo ln -s /etc/nginx/sites-available/dashboard.dreamseedai.com.conf /etc/nginx/sites-enabled/
+
+# Test and reload
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### Option 2: Nginx + External JWT Verifier
+
+**Install JWT verifier service**:
+```bash
+cd infra/nginx
+pip install fastapi uvicorn python-jose[cryptography] httpx
+
+# Copy systemd service
+sudo cp infra/systemd/jwt-verifier.service.example /etc/systemd/system/jwt-verifier.service
+
+# Edit paths and start
+sudo systemctl daemon-reload
+sudo systemctl enable jwt-verifier
+sudo systemctl start jwt-verifier
+```
+
+**Configure nginx**:
+```bash
+sudo cp jwt_auth_simple.conf /etc/nginx/sites-available/dashboard.dreamseedai.com.conf
+sudo ln -s /etc/nginx/sites-available/dashboard.dreamseedai.com.conf /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+---
+
+## Running the Dashboard
+
+### Production
+
+**SystemD service** (recommended):
+```bash
+sudo cp infra/systemd/shiny-dashboard.service.example /etc/systemd/system/shiny-dashboard.service
+sudo systemctl enable shiny-dashboard
+sudo systemctl start shiny-dashboard
+```
+
+**Manual**:
+```bash
+export DATASET_ROOT=/data/analytics
+Rscript -e 'shiny::runApp("dashboard", host="127.0.0.1", port=8080)'
+```
+
+### Local Development
+
+**Without JWT (dev mode)**:
+```bash
+export DEV_USER=alice
+export DEV_ORG_ID=1
+export DEV_ROLES=admin,analyst
+export DATASET_ROOT="$(pwd)/data/datasets"
+
+Rscript -e 'shiny::runApp("dashboard", host="0.0.0.0", port=8080)'
+```
+
+Access: http://localhost:8080
+
+**With JWT (testing nginx integration)**:
+
+1. Generate test token:
+```bash
+cd infra/nginx
+python dev_generate_jwt.py --user alice --org 1 --roles admin,analyst
+```
+
+2. Use token in request:
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost/admin/
+```
+
+---
+
+## Configuration
+
+### Minimal Schema Mode (Teacher Dashboard)
+
+You can run the Teacher-focused Class Monitor against a minimal set of tables
+without the full analytics warehouse. Enable it via env vars:
+
+```bash
+# Use minimal schema instead of demo datasets
+export USE_MIN_SCHEMA=true
+
+# Choose backend: arrow (Parquet) or db (Postgres)
+export MIN_SCHEMA_BACKEND=arrow   # or: db
+
+# For Arrow backend (expected layout under this root):
+#  student/, session/, attendance/, irt_snapshot/, skill_mastery/, [risk_flag/]
+export MIN_SCHEMA_ARROW_ROOT="/data/min_schema"
+
+# For Postgres backend (either DSN or individual settings)
+export PG_DSN=""                   # optional DSN
+export PGHOST=localhost
+export PGPORT=5432
+export PGDATABASE=dreamseed
+export PGUSER=postgres
+export PGPASSWORD=yourpass
+```
+
+Table expectations:
+- student(id, class_id, name, grade)
+- session(id, class_id, date, topic)
+- attendance(student_id, session_id, status in ['present','late','absent'])
+- irt_snapshot(student_id, week_start, theta, se, delta_theta, c_hat?, omit_rate?)
+- skill_mastery(student_id, skill_tag, mastery, updated_at)
+- risk_flag(optional): upserted weekly by batch, not required by the UI
+
+Notes:
+- If irt_snapshot lacks class_id, the app joins student to derive it.
+- Response metrics are derived from the latest irt_snapshot (c_hat→guess_like_rate, omit_rate).
+- Item-level anomaly heatmap uses demo data only; it’s informational.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATASET_ROOT` | `data/datasets` | Path to Arrow/Parquet datasets (supports S3) |
+| `DEV_USER` | `local_dev_user` | Dev mode user ID (no JWT) |
+| `DEV_ORG_ID` | `""` | Dev mode organization ID |
+| `DEV_ROLES` | `""` | Dev mode roles (comma-separated) |
+
+### JWT Configuration (nginx/verifier)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_PUBLIC_KEY_PATH` | `/etc/nginx/jwt_public.pem` | Public key for verification |
+| `JWT_ISSUER` | `dreamseedai` | Expected token issuer |
+| `JWT_AUDIENCE` | `dashboard` | Expected token audience |
+| `JWT_ALGORITHM` | `RS256` | Signing algorithm |
+
+---
+
+## Data Requirements
+
+### Directory Structure
+
+```
+$DATASET_ROOT/
+├── cohorts/              # Cohort metadata
+│   ├── org_id=1/
+│   │   └── data.parquet
+│   └── org_id=2/
+├── irt_calibration/      # IRT item parameters
+│   ├── org_id=1/
+│   └── org_id=2/
+├── ab_experiments/       # A/B test results
+├── churn_events/         # User activity logs
+└── content_items/        # Item metadata
+```
+
+### Schema Examples
+
+**cohorts** (partitioned by `org_id`):
+```
+session_id, user_id, org_id, cohort_name, start_date, completion_rate, time_on_task_min
+```
+
+**irt_calibration** (partitioned by `org_id`):
+```
+item_id, org_id, difficulty, discrimination, guessing, updated_at, n_responses
+```
+
+**ab_experiments**:
+```
+experiment_id, org_id, variant, metric, value, user_count, created_at
+```
+
+---
+
+## Security
+
+### Best Practices
+
+1. **Always run behind nginx** - Never expose Shiny directly to the internet
+2. **Bind to localhost** - Use `host="127.0.0.1"` in production
+3. **Rotate JWT keys** - Regenerate keys periodically
+4. **Validate org_id** - Dashboard filters data by `X-Org-Id` header
+5. **Audit logs** - Monitor access patterns via nginx logs
+
+### Role Hierarchy
+
+| Role | Access Level |
+|------|-------------|
+| `admin` | All organizations, all data |
+| `analyst` | Own organization, read-only dashboards |
+| `content_editor` | Own organization, Content Bank write access |
+| `teacher` | Own organization, student-level data |
+| `student` | Own data only (not dashboard access) |
+
+---
+
+## Troubleshooting
+
+### "Missing Authorization header"
+- Check nginx config: `auth_request` or Lua script is active
+- Verify JWT token in `Authorization: Bearer <token>` header
+
+### "Invalid token"
+- Verify `JWT_PUBLIC_KEY_PATH` matches private key used for signing
+- Check `JWT_ISSUER` and `JWT_AUDIENCE` in token claims
+- Ensure token hasn't expired (`exp` claim)
+
+### "No data visible"
+- Verify `DATASET_ROOT` points to correct directory
+- Check `org_id` partitioning matches `X-Org-Id` header
+- Run `arrow::open_dataset()` manually to debug schema
+
+### "Dashboard slow/crashes"
+- Reduce data volume with `head(10000)` before `collect()`
+- Use `server=TRUE` in `DT::renderDataTable`
+- Enable `deferRender` and `scroller` options
+- Check Arrow filter pushdown is working (no full table scans)
+
+---
+
+## Performance Optimization
+
+### Arrow Best Practices
+
+```r
+# ✅ Good: Filter before collect
+ds <- open_dataset("data/datasets/cohorts")
+df <- ds |>
+  filter(org_id == !!current_org) |>
+  select(session_id, completion_rate) |>
+  head(5000) |>
+  collect()
+
+# ❌ Bad: Collect everything
+df <- ds |> collect() |> filter(org_id == current_org)
+```
+
+### DataTables Configuration
+
+```r
+DT::renderDataTable({
+  data
+}, server = TRUE,           # Server-side processing
+   extensions = 'Scroller', # Virtual scrolling
+   options = list(
+     deferRender = TRUE,    # Lazy row rendering
+     scroller = TRUE,
+     scrollY = 600
+   ))
+```
+
+---
+
+## Development
+
+### Adding New Tabs
+
+1. Edit `dashboard/app.R`:
+```r
+# In sidebar menu
+menuItem("New Tab", tabName = "newtab", icon = icon("chart-bar"))
+
+# In body
+tabItem(tabName = "newtab",
+  fluidRow(
+    box(title = "New Visualization", plotlyOutput("newPlot"))
+  )
+)
+
+# In server
+output$newPlot <- renderPlotly({
+  # Load data filtered by org/role
+  df <- get_filtered_data()
+  plot_ly(df, x = ~x, y = ~y, type = "scatter")
+})
+```
+
+2. Test with dev mode:
+```bash
+export DEV_USER=test DEV_ORG_ID=1 DEV_ROLES=admin
+Rscript -e 'shiny::runApp("dashboard")'
+```
+
+### Testing JWT Integration
+
+```bash
+# Generate token
+TOKEN=$(python infra/nginx/dev_generate_jwt.py --user alice --org 1 --roles admin | grep -A1 "Bearer Token:" | tail -n1)
+
+# Test nginx → Shiny flow
+curl -v -H "Authorization: Bearer $TOKEN" http://localhost/admin/
+
+# Check headers received by Shiny (add debug logging in app.R)
+```
+
+---
+
+## Further Reading
+
+### Authentication/Security
+- **[IdP Integration Questionnaire](../../infra/nginx/IDP_INTEGRATION_QUESTIONNAIRE.md)** - Get custom config for your IdP
+- **[Security Checklist](../../infra/nginx/SECURITY_CHECKLIST.md)** - Pre-deployment security review
+- [Keycloak Setup](../../infra/nginx/KEYCLOAK_SETUP.md) - Open-source IdP integration
+- [Auth0 Setup](../../infra/nginx/AUTH0_SETUP.md) - SaaS IdP integration
+
+### Technical
+- [Shiny Server Configuration](https://docs.posit.co/shiny-server/)
+- [Arrow Dataset Performance](https://arrow.apache.org/docs/r/articles/dataset.html)
+- [nginx auth_request Module](https://nginx.org/en/docs/http/ngx_http_auth_request_module.html)
+- [OpenResty Lua](https://openresty-reference.readthedocs.io/)
+- [JWT Best Practices](https://datatracker.ietf.org/doc/html/rfc8725)
+
+---
+
+## Support
+
+For issues or questions:
+1. Check nginx error logs: `/var/log/nginx/dashboard.error.log`
+2. Check Shiny logs: `journalctl -u shiny-dashboard`
+3. Check JWT verifier logs: `journalctl -u jwt-verifier`
+4. Review this README and `infra/nginx/README.md`

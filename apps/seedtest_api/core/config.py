@@ -45,6 +45,12 @@ class Config(BaseSettings):
         description="When true, omit volatile fields (timestamps) from result responses",
     )
 
+    # Analysis feature flag
+    ENABLE_ANALYSIS: bool = Field(
+        default=True,
+        description="Enable or disable analysis endpoints",
+    )
+
     model_config = SettingsConfigDict(
         env_file=(".env", "apps/seedtest_api/.env"),
         env_file_encoding="utf-8",

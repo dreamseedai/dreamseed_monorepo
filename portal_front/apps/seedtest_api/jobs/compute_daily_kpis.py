@@ -9,13 +9,13 @@ Environment:
 """
 # cSpell:ignore LOOKBACK kpis
 from __future__ import annotations
-from datetime import date, datetime, timedelta
+
 import os
 import sys
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 # Ensure "apps.*" imports work when running this file directly
-
 def _ensure_project_root_on_path() -> None:
     here = Path(__file__).resolve()
     for parent in [here.parent] + list(here.parents):
@@ -25,7 +25,15 @@ def _ensure_project_root_on_path() -> None:
                 sys.path.insert(0, path_str)
             break
 
+
 _ensure_project_root_on_path()
+
+# Project imports (must be after sys.path setup)
+from apps.seedtest_api.services.db import get_session  # noqa: E402
+from apps.seedtest_api.services.metrics import (  # noqa: E402
+    calculate_and_store_weekly_kpi,
+    week_start as iso_week_start,
+)
 
 # Fallback for sqlalchemy.text if SQLAlchemy is unavailable
 try:
@@ -33,10 +41,6 @@ try:
 except Exception:
     def text(sql: str) -> str:
         return sql
-
-# Project imports (adjust if your project structure differs)
-from apps.seedtest_api.services.db import get_session
-from apps.seedtest_api.services.metrics import calculate_and_store_weekly_kpi, week_start as iso_week_start
 
 LOOKBACK_DAYS = int(os.getenv("KPI_LOOKBACK_DAYS", "30"))
 
