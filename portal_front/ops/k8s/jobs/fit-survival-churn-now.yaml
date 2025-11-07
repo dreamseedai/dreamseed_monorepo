@@ -1,0 +1,91 @@
+# cSpell:ignore survival churn univprepai
+# One-time Job for manual survival analysis run
+# Usage: kubectl apply -f fit-survival-churn-now.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fit-survival-churn-now
+  namespace: seedtest
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: seedtest-api
+      containers:
+        - name: fit-survival-churn
+          image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:latest
+          imagePullPolicy: Always
+          workingDir: /app
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Cloud SQL Proxy to be ready..."
+              sleep 5
+              echo "Starting survival analysis..."
+              echo "PYTHONPATH: $PYTHONPATH"
+              if [ -f "/app/apps/seedtest_api/jobs/fit_survival_churn.py" ]; then
+                echo "Found /app/apps/seedtest_api/jobs/fit_survival_churn.py, using apps path"
+                cd /app
+                python3 -m apps.seedtest_api.jobs.fit_survival_churn \
+                  --lookback-days "${SURVIVAL_LOOKBACK_DAYS:-90}" \
+                  --event-threshold-days "${SURVIVAL_EVENT_THRESHOLD_DAYS:-14}"
+              elif [ -f "/app/seedtest_api/jobs/fit_survival_churn.py" ]; then
+                echo "Found /app/seedtest_api/jobs/fit_survival_churn.py, using seedtest_api path"
+                cd /app
+                python3 -m seedtest_api.jobs.fit_survival_churn \
+                  --lookback-days "${SURVIVAL_LOOKBACK_DAYS:-90}" \
+                  --event-threshold-days "${SURVIVAL_EVENT_THRESHOLD_DAYS:-14}"
+              else
+                echo "Error: fit_survival_churn.py not found"
+                exit 1
+              fi
+          env:
+            - name: PYTHONPATH
+              value: "/app:/app/apps"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-db-credentials
+                  key: DATABASE_URL
+                  optional: false
+            - name: R_FORECAST_BASE_URL
+              value: "http://r-forecast-plumber.seedtest.svc.cluster.local:80"
+            - name: R_FORECAST_TIMEOUT_SECS
+              value: "300"
+            - name: SURVIVAL_LOOKBACK_DAYS
+              value: "90"
+            - name: SURVIVAL_EVENT_THRESHOLD_DAYS
+              value: "14"
+            - name: SURVIVAL_UPDATE_KPI
+              value: "true"
+            - name: R_FORECAST_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: r-forecast-credentials
+                  key: token
+                  optional: true
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+          imagePullPolicy: IfNotPresent
+          args:
+            - --structured-logs
+            - --port=5432
+            - univprepai:asia-northeast3:seedtest-staging
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              ephemeral-storage: "1Gi"
+      terminationGracePeriodSeconds: 300
+

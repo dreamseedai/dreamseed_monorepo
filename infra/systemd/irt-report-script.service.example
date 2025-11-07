@@ -1,0 +1,26 @@
+[Unit]
+Description=Generate IRT monthly drift reports (shell script version)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/dreamseed
+Environment="PYTHONPATH=/opt/dreamseed"
+Environment="DATABASE_URL=postgresql://user:password@localhost:5432/dreamseed"
+Environment="REPORT_OUTPUT_DIR=/opt/dreamseed/reports"
+ExecStart=/opt/dreamseed/infra/systemd/scripts/generate_reports.sh 3
+User=svc_dreamseed
+Group=svc_dreamseed
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/dreamseed/reports /tmp
+
+[Install]
+WantedBy=multi-user.target

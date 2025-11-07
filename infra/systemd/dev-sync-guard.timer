@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Dev Sync Guard at boot and hourly
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

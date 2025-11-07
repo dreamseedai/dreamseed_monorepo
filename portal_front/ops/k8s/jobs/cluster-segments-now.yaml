@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cluster-segments-now
+  namespace: seedtest
+  labels:
+    app: cluster-segments
+    component: analytics
+    type: one-off
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: cluster-segments
+        component: analytics
+    spec:
+      restartPolicy: Never
+      serviceAccountName: seedtest-api
+      
+      containers:
+      - name: cluster-segments
+        image: gcr.io/univprepai/seedtest-api:latest
+        imagePullPolicy: Always
+        
+        command:
+        - python
+        - -m
+        - apps.seedtest_api.jobs.cluster_segments
+        - --lookback-weeks
+        - "12"
+        - --n-clusters
+        - "5"
+        
+        env:
+        # Database connection
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: seedtest-db-credentials
+              key: DATABASE_URL
+        
+        # Python path
+        - name: PYTHONPATH
+          value: "/app:/app/apps"
+        
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+      
+      # Cloud SQL Proxy sidecar
+      - name: cloud-sql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:latest
+        command:
+        - "/cloud_sql_proxy"
+        - "-instances=univprepai:asia-northeast3:seedtest-db=tcp:5432"
+        - "-credential_file=/secrets/service_account.json"
+        
+        volumeMounts:
+        - name: cloudsql-instance-credentials
+          mountPath: /secrets
+          readOnly: true
+        
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+      
+      volumes:
+      - name: cloudsql-instance-credentials
+        secret:
+          secretName: cloudsql-instance-credentials

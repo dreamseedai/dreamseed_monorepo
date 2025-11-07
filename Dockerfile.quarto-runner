@@ -1,0 +1,36 @@
+# Quarto 리포팅 런너 이미지
+# R + Quarto + Python 환경을 포함하여 리포트 생성에 사용
+
+FROM rstudio/quarto:latest
+
+# Install Python and dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip3 install --no-cache-dir \
+    boto3 \
+    sqlalchemy \
+    psycopg2-binary
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY apps/seedtest_api /app/apps/seedtest_api
+COPY reports /app/reports
+
+# Set PYTHONPATH
+ENV PYTHONPATH=/app
+
+# Verify installations
+RUN python3 --version && \
+    pip3 list | grep -E "(boto3|sqlalchemy|psycopg2)" && \
+    quarto --version
+
+# Default command (can be overridden)
+CMD ["python3", "--version"]
+

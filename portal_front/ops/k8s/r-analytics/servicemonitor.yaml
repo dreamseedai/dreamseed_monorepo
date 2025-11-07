@@ -1,0 +1,20 @@
+# cSpell:ignore servicemonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: r-analytics
+  namespace: seedtest
+  labels:
+    release: kube-prometheus-stack
+    app: r-analytics
+    component: analytics
+spec:
+  selector:
+    matchLabels:
+      app: r-analytics
+  endpoints:
+    - port: http
+      interval: 30s
+      path: /health
+      scrapeTimeout: 10s
+

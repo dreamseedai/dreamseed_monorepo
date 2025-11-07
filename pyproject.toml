@@ -7,7 +7,7 @@ name = "dreamseed"
 version = "1.0.0"
 description = "DreamSeed AI Platform"
 authors = [{name = "DreamSeed Team", email = "team@dreamseed.com"}]
-license = {text = "MIT"}
+license = "MIT"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -23,7 +23,11 @@ dependencies = [
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.11.0",
     "locust>=2.17.0",
+    "weasyprint>=61.0.0",
 ]
+
+[tool.setuptools]
+packages = ["shared", "shared.auth", "shared.irt", "shared.irt.reports"]
 
 [project.optional-dependencies]
 dev = [

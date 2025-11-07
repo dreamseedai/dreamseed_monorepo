@@ -1,0 +1,39 @@
+[Unit]
+Description=Monthly IRT calibration job (brms Bayesian)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/dreamseed
+Environment="PGHOST=localhost"
+Environment="PGPORT=5432"
+Environment="PGDATABASE=dreamseed"
+Environment="PGUSER=irt_user"
+Environment="PGPASSWORD=secure_password"
+ExecStart=/usr/bin/Rscript /opt/dreamseed/shared/irt/calibrate_monthly_brms.R \
+    --dbname ${PGDATABASE} \
+    --host ${PGHOST} \
+    --user ${PGUSER} \
+    --password ${PGPASSWORD} \
+    --iter 2000 \
+    --warmup 1000 \
+    --chains 4
+User=svc_dreamseed
+Group=svc_dreamseed
+StandardOutput=journal
+StandardError=journal
+
+# R requires more resources
+TimeoutStartSec=3600
+MemoryMax=8G
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/dreamseed/logs /tmp
+
+[Install]
+WantedBy=multi-user.target

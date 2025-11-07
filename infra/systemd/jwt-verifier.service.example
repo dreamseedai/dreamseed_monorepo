@@ -1,0 +1,41 @@
+[Unit]
+Description=JWT Verification Service for Nginx
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/dreamseed/infra/nginx
+
+# Environment configuration
+Environment="JWT_PUBLIC_KEY_PATH=/etc/nginx/jwt_public.pem"
+Environment="JWT_ISSUER=dreamseedai"
+Environment="JWT_AUDIENCE=dashboard"
+Environment="JWT_ALGORITHM=RS256"
+Environment="PORT=9000"
+
+# Optional: Use JWKS instead of static public key
+# Environment="JWT_JWKS_URL=https://auth.dreamseedai.com/.well-known/jwks.json"
+
+# Python virtual environment (adjust path)
+ExecStart=/usr/bin/python3 /srv/dreamseed/infra/nginx/jwt_verifier.py
+
+# Restart policy
+Restart=always
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/jwt-verifier
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jwt-verifier
+
+[Install]
+WantedBy=multi-user.target

@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..db import get_session
+# Note: get_session is provided by callers; no direct import needed here
 
 
 def backfill_features_topic_daily(
@@ -205,7 +205,7 @@ def _load_user_topic_theta(
     user_id: str,
     topic_id: str,
     target_date: date,
-) -> dict[str, float] | None:
+) -> dict[str, float | None] | None:
     """Load IRT theta estimate for a user/topic as of a given date.
 
     This looks up from student_topic_theta or mirt_ability tables.
@@ -235,6 +235,31 @@ def _load_user_topic_theta(
         return {
             "theta": float(row[0]),
             "se": float(row[1]) if row[1] is not None and row[1] != "None" else None,
+        }
+
+    # Fallback: use latest user-level ability from mirt_ability
+    result2 = session.execute(
+        text(
+            """
+            SELECT theta, se
+            FROM mirt_ability
+            WHERE user_id = :user_id
+              AND fitted_at <= :target_date
+            ORDER BY fitted_at DESC
+            LIMIT 1
+            """
+        ),
+        {
+            "user_id": user_id,
+            "target_date": datetime.combine(target_date, datetime.max.time()),
+        },
+    )
+    row2 = result2.fetchone()
+
+    if row2 and row2[0] is not None:
+        return {
+            "theta": float(row2[0]),
+            "se": float(row2[1]) if row2[1] is not None and row2[1] != "None" else None,
         }
 
     return None

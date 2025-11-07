@@ -1,0 +1,9 @@
+[Unit]
+Description=Monthly IRT report generation timer
+
+[Timer]
+OnCalendar=monthly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

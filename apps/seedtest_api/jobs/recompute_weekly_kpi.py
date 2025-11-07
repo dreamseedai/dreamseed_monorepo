@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# cSpell:ignore mirt lookback
 from __future__ import annotations
 
 """

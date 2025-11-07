@@ -1,0 +1,91 @@
+# cSpell:ignore univprepai
+# Batch mode CronJob for generating weekly reports for multiple users
+# This replaces the single-user example with a batch processing approach
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: generate-weekly-report-batch
+  namespace: seedtest
+spec:
+  schedule: "0 4 * * 1" # Every Monday at 04:00 UTC (generate last week's report)
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          terminationGracePeriodSeconds: 300
+          restartPolicy: Never
+          serviceAccountName: seedtest-api
+          containers:
+            - name: generate-weekly-report
+              image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-report-runner:latest
+              imagePullPolicy: Always
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "Waiting for Cloud SQL Proxy to be ready..."
+                  sleep 5
+                  echo "Starting batch report generation..."
+                  python3 -m apps.seedtest_api.jobs.generate_weekly_report_batch \
+                    --week "$(date -u -d 'last monday - 7 days' +%Y-%m-%d)" \
+                    --max-users 1000
+              env:
+                - name: PYTHONPATH
+                  value: "/app"
+                - name: REPORT_FORMAT
+                  value: "pdf"
+                - name: S3_BUCKET
+                  value: "seedtest-reports"
+                - name: AWS_REGION
+                  value: "ap-northeast-2"
+                # AWS credentials from Secret (ExternalSecret or manual Secret)
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-s3-credentials
+                      key: AWS_ACCESS_KEY_ID
+                      optional: true
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-s3-credentials
+                      key: AWS_SECRET_ACCESS_KEY
+                      optional: true
+                # Database URL from Secret
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-db-credentials
+                      key: DATABASE_URL
+                      optional: false
+                # Optional: Cohort filtering (e.g., specific organization)
+                # - name: COHORT_FILTER
+                #   value: "org_id = 'org123'"
+                # Optional: Limit number of users processed
+                # - name: MAX_USERS
+                #   value: "500"
+              resources:
+                requests:
+                  memory: "4Gi"
+                  cpu: "2000m"
+                limits:
+                  memory: "8Gi"
+                  cpu: "4000m"
+            - name: cloud-sql-proxy
+              image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+              imagePullPolicy: IfNotPresent
+              args:
+                - --structured-logs
+                - --port=5432
+                - univprepai:asia-northeast3:seedtest-staging
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  ephemeral-storage: "1Gi"
+

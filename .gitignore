@@ -178,6 +178,11 @@ run*.sh
 # Allow database scripts to be tracked
 !scripts/db/*.sh
 !scripts/db/README.md
+# Allow runbook samples to be tracked (no sensitive values)
+!docs/runbooks/*.sh.sample
+!docs/runbooks/README.md
+# Allow documentation files
+!docs/*.md
 
 # System files
 systemd-*.service
@@ -196,6 +201,8 @@ openresty-*
 requirements*.txt
 *.py
 !mock_api.py
+# Allow tracking shared library Python files
+!shared/**/*.py
 
 # HTML test files
 *test*.html
@@ -235,18 +242,38 @@ schema.sql
 # React files
 src/
 
-# Portal front - mostly ignored except K8s manifests
+# Portal front - mostly ignored except K8s manifests and source code
 portal_front/*
 !portal_front/ops/
 portal_front/ops/*
 !portal_front/ops/k8s/
+!portal_front/src/
+!portal_front/src/**/*.tsx
+!portal_front/src/**/*.ts
+!portal_front/package.json
+!portal_front/tsconfig.json
+
+# Portal front dashboard (프로덕션 버전 포함)
+portal_front/dashboard/
+!portal_front/dashboard/*.R
+!portal_front/dashboard/config/
+!portal_front/dashboard/migrations/
+!portal_front/dashboard/*.md
+!portal_front/dashboard/*.sh
+!portal_front/dashboard/*.ts
 
 # Tools
 tools/
+!tools/vscode-copy-button/
+!tools/vscode-copy-button/**
 kekule_*
 map_*
 search_*
 math_*
+
+# Dashboard (교사용 포털)
+!dashboard/
+!dashboard/**
 
 # Alembic
 alembic/

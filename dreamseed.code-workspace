@@ -14,6 +14,8 @@
     "powershell.cwd": "portal_front",
     "cSpell.words": [
       "bmewburn",
+      "mirt",
+      "seedtest",
       "sqlalchemy"
     ]
   }
