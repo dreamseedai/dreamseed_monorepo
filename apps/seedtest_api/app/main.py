@@ -15,10 +15,13 @@ from sqlalchemy import text
 from ..core.config import config as app_config
 from ..middleware.correlation import CorrelationIdMiddleware
 from ..routers.metrics import router as metrics_router
+from ..routers.prometheus_metrics import router as prometheus_router
 from ..routers.wizard import router as wizard_router
 from ..routers.analytics_proxy import router as analytics_proxy_router
-from ..routers.analytics_irt import router as analytics_irt_router
+from ..routers.irt_drift_api import router as analytics_irt_router
 from ..routers.auth_jwt import router as auth_jwt_router
+from ..routers.teacher_dashboard import router as teacher_dashboard_router
+from ..routers.forecast import router as forecast_router
 from ..services import db as db_service
 from .api.routers.analysis import router as analysis_router
 from .api.routers.classrooms import router as classrooms_router
@@ -95,6 +98,7 @@ app.include_router(exams_router)
 app.include_router(results_router)
 app.include_router(analysis_router)
 app.include_router(metrics_router)
+app.include_router(prometheus_router)  # Prometheus metrics for monitoring
 app.include_router(classrooms_router)
 app.include_router(sessions_router)
 app.include_router(goals_router)
@@ -103,6 +107,8 @@ app.include_router(wizard_router)  # V1: Tutor onboarding wizard
 app.include_router(auth_jwt_router)  # JWT token issuance for Shiny Dashboard
 app.include_router(analytics_proxy_router)  # Analytics proxy to r-analytics (port 8010)
 app.include_router(analytics_irt_router)  # IRT drift monitoring and analytics
+app.include_router(teacher_dashboard_router)  # Teacher dashboard: class analytics and risk monitoring
+app.include_router(forecast_router)  # Student growth forecasting API
 
 
 @app.get("/healthz")
