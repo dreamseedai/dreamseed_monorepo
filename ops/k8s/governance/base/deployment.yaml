@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seedtest-api
+  labels:
+    app: seedtest-api
+    governance: enabled
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: seedtest-api
+  template:
+    metadata:
+      labels:
+        app: seedtest-api
+        governance: enabled
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: seedtest-api
+          image: gcr.io/univprepai/dreamseed-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            # Governance Settings
+            - name: POLICY_BUNDLE_ID
+              value: "phase1"
+            - name: GOVERNANCE_PHASE
+              value: "1"
+            - name: POLICY_STRICT_MODE
+              value: "soft"
+            - name: POLICY_BUNDLE_PATH
+              value: "/app/governance/compiled/policy_bundle_phase1.json"
+            - name: POLICY_HOT_RELOAD_ENABLED
+              value: "true"
+            
+            # Application Settings
+            - name: PORT
+              value: "8000"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: ENVIRONMENT
+              value: "staging"
+          
+          volumeMounts:
+            - name: governance-bundles
+              mountPath: /app/governance/compiled
+              readOnly: true
+          
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+      
+      volumes:
+        - name: governance-bundles
+          configMap:
+            name: governance-bundles
+            items:
+              - key: policy_bundle_phase0.json
+                path: policy_bundle_phase0.json
+              - key: policy_bundle_phase1.json
+                path: policy_bundle_phase1.json
+              - key: policy_bundle_prod.json
+                path: policy_bundle_prod.json

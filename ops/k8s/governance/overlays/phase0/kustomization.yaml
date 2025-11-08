@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: seedtest
+
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: Deployment
+      name: seedtest-api
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: "phase0"
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/value
+        value: "0"
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/value
+        value: "soft"
+      - op: replace
+        path: /spec/template/spec/containers/0/env/3/value
+        value: "/app/governance/compiled/policy_bundle_phase0.json"

@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  template:
+    metadata:
+      annotations:
+        governance.dreamseed.ai/phase: "0"
+        governance.dreamseed.ai/mode: "soft"
+    spec:
+      containers:
+        - name: backend
+          env:
+            - name: POLICY_BUNDLE_ID
+              value: "phase0"
+            - name: GOVERNANCE_PHASE
+              value: "0"
+            - name: POLICY_STRICT_MODE
+              value: "soft"
+            - name: POLICY_BUNDLE_PATH
+              value: "/app/governance/compiled/policy_bundle_phase0.json"

@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: seedtest
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - networkpolicy.yaml
+  - servicemonitor.yaml
+  - patch.reload-rbac.yaml
+
+# 1) 정책 번들 ConfigMap 자동 생성
+configMapGenerator:
+  - name: governance-bundles
+    files:
+      - compiled/policy_bundle_phase0.json
+      - compiled/policy_bundle_phase1.json
+      - compiled/policy_bundle_prod.json
+
+generatorOptions:
+  disableNameSuffixHash: false   # 해시를 통해 롤아웃 유도 (권장)
+
+# 2) Deployment에 env/volume/annotation 패치
+patches:
+  - path: patch.env-and-mount.yaml
+    target:
+      kind: Deployment
+      name: seedtest-api
