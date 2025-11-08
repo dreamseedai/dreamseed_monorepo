@@ -23,3 +23,6 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/env/3/value
         value: "/app/governance/compiled/policy_bundle_phase1.json"
+      - op: replace
+        path: /spec/template/spec/containers/0/env/4/value
+        value: "staging"

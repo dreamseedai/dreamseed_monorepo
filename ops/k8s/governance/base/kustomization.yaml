@@ -10,7 +10,7 @@ resources:
   - servicemonitor.yaml
   - patch.reload-rbac.yaml
 
-# 1) 정책 번들 ConfigMap 자동 생성
+# 거버넌스 번들(ConfigMap) 자동 생성: compiled/*.json → CM (해시로 롤아웃 유도)
 configMapGenerator:
   - name: governance-bundles
     files:
@@ -20,10 +20,3 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: false   # 해시를 통해 롤아웃 유도 (권장)
-
-# 2) Deployment에 env/volume/annotation 패치
-patches:
-  - path: patch.env-and-mount.yaml
-    target:
-      kind: Deployment
-      name: seedtest-api
