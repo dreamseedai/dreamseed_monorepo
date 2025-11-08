@@ -20,14 +20,14 @@ spec:
       ports:
         - protocol: TCP
           port: 8000
-    # 2) (옵션) monitoring 네임스페이스의 Prometheus가 있을 경우 허용
-    # - from:
-    #     - namespaceSelector:
-    #         matchLabels:
-    #           kubernetes.io/metadata.name: monitoring
-    #   ports:
-    #     - protocol: TCP
-    #       port: 8000
+    # 2) monitoring 네임스페이스의 Prometheus 스크레이핑 허용
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8000
   egress:
     # 1) 같은 네임스페이스 내부 통신 허용
     - to:
