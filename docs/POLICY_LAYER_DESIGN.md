@@ -404,7 +404,43 @@ async def generate_ai_content(prompt: str, user_id: str) -> str:
     return content
 ```
 
-### 4.3 접근 제어 정책
+### 4.3 접근 제어 정책 (Access Control Policies)
+
+접근 제어 정책은 DreamSeedAI에서 누가 어떤 데이터와 기능에 접근할 수 있는지 정의한 핵심 규칙입니다.
+
+#### 4.3.1 기본 원칙
+
+*   **최소 권한 원칙 (Principle of Least Privilege)**: 사용자에게 필요한 최소한의 권한만 부여합니다.
+*   **역할 기반 접근 제어 (Role-Based Access Control, RBAC)**: 사용자에게 역할을 부여하고, 역할에 따라 권한을 제어합니다.
+*   **명시적 거부 (Explicit Deny)**: 특정 사용자에 대한 접근을 명시적으로 거부하는 규칙을 설정합니다.
+*   **직무 분리 (Separation of Duties)**: 민감한 작업은 여러 역할로 분리하여 단일 사용자가 전체 프로세스를 제어할 수 없도록 합니다.
+
+#### 4.3.2 역할별 접근 권한
+
+**학생 (Student)**:
+*   자신의 학습 데이터만 열람 가능
+*   자신의 학습 활동 기록 조회
+*   자신의 성적 및 진도 확인
+*   할당된 학습 콘텐츠 접근
+
+**교사 (Teacher)**:
+*   자신이 담당하는 학급의 학생 데이터 열람
+*   담당 학급 성적 데이터 조회 및 분석
+*   학습 콘텐츠 관리 (생성, 수정, 삭제)
+*   학생 학습 활동 모니터링
+
+**학부모 (Parent)**:
+*   자녀의 학습 데이터 열람
+*   자녀의 성적 및 진도 확인
+*   교사와의 커뮤니케이션 기록 조회
+
+**관리자 (Administrator)**:
+*   시스템의 모든 데이터 접근
+*   모든 기능 사용 권한
+*   사용자 관리 (생성, 수정, 삭제)
+*   시스템 설정 변경
+
+#### 4.3.3 규칙 예시: 교사의 학급별 접근 제어
 
 **규칙**: 교사는 자신이 담당하는 학급의 학생 데이터에만 접근할 수 있다.
 
@@ -414,10 +450,22 @@ package student_data_access
 
 default allow = false
 
+# 학생은 자신의 데이터만 접근 가능
+allow {
+    input.user.role == "student"
+    input.student.id == input.user.id
+}
+
 # 교사는 담당 학급 학생만 접근 가능
 allow {
     input.user.role == "teacher"
     input.student.class_id == input.user.class_id
+}
+
+# 학부모는 자녀 데이터만 접근 가능
+allow {
+    input.user.role == "parent"
+    input.student.id in input.user.children_ids
 }
 
 # 관리자는 모든 학생 데이터 접근 가능
@@ -425,11 +473,25 @@ allow {
     input.user.role == "admin"
 }
 
-# 접근 거부 사유
+# 접근 거부 사유 (학생)
+deny[msg] {
+    input.user.role == "student"
+    input.student.id != input.user.id
+    msg := "Students can only access their own data"
+}
+
+# 접근 거부 사유 (교사)
 deny[msg] {
     input.user.role == "teacher"
     input.student.class_id != input.user.class_id
     msg := sprintf("Teacher can only access students in class %s", [input.user.class_id])
+}
+
+# 접근 거부 사유 (학부모)
+deny[msg] {
+    input.user.role == "parent"
+    not (input.student.id in input.user.children_ids)
+    msg := "Parents can only access their children's data"
 }
 ```
 
@@ -453,7 +515,8 @@ async def get_student_data(
         "user": {
             "id": current_user.id,
             "role": current_user.role,
-            "class_id": current_user.class_id
+            "class_id": current_user.class_id,
+            "children_ids": current_user.children_ids
         },
         "student": {
             "id": student.id,
@@ -466,6 +529,340 @@ async def get_student_data(
     
     return student.data
 ```
+
+#### 4.3.4 정책 시행 메커니즘 (Policy Enforcement Mechanisms)
+
+정책은 다층 방어(Defense in Depth) 전략으로 여러 계층에서 시행됩니다.
+
+##### 1️⃣ API Gateway 수준
+
+**역할**: 모든 API 호출의 진입점에서 인증 및 권한 검사
+
+**구현**:
+```python
+# governance/backend/policy_middleware.py
+@app.middleware("http")
+async def policy_enforcement_middleware(request: Request, call_next):
+    # 1. 사용자 인증 확인
+    user = await authenticate_user(request)
+    if not user:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Unauthorized"}
+        )
+    
+    # 2. 요청 경로에 해당하는 정책 검색
+    policy_name = get_policy_for_route(request.url.path)
+    
+    # 3. 정책 평가
+    if policy_name:
+        policy_result = await evaluate_policy(policy_name, {
+            "user": user.dict(),
+            "request": {
+                "method": request.method,
+                "path": request.url.path,
+                "query": dict(request.query_params)
+            }
+        })
+        
+        # 4. 접근 거부
+        if not policy_result["allow"]:
+            GOVERNANCE_DENY.labels(
+                policy=policy_name,
+                reason=policy_result.get("deny", ["unknown"])[0]
+            ).inc()
+            
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "Access denied",
+                    "reason": policy_result["deny"]
+                }
+            )
+    
+    # 5. 요청 계속 진행
+    response = await call_next(request)
+    return response
+```
+
+**특징**:
+*   모든 API 요청에 대한 중앙 집중식 정책 평가
+*   권한이 없는 요청은 애플리케이션 로직 실행 전에 차단
+*   Prometheus 메트릭으로 정책 거부 추적
+
+##### 2️⃣ UI 제어 수준
+
+**역할**: 사용자 인터페이스에서 권한이 없는 기능 숨김/비활성화
+
+**구현 (React 예시)**:
+```typescript
+// frontend/components/StudentDataView.tsx
+import { usePermission } from '@/hooks/usePermission';
+
+function StudentDataView({ studentId }: Props) {
+  const { hasPermission, loading } = usePermission('student_data_access', {
+    user: currentUser,
+    student: { id: studentId }
+  });
+  
+  if (loading) return <Spinner />;
+  
+  // 권한이 없으면 컴포넌트 자체를 렌더링하지 않음
+  if (!hasPermission) {
+    return <AccessDenied message="You don't have permission to view this student's data" />;
+  }
+  
+  return (
+    <div>
+      {/* 학생 데이터 표시 */}
+      <StudentProfile studentId={studentId} />
+      <StudentGrades studentId={studentId} />
+    </div>
+  );
+}
+
+// 조건부 버튼 렌더링
+function AdminPanel() {
+  const { hasRole } = useAuth();
+  
+  return (
+    <div>
+      {hasRole('admin') && (
+        <Button onClick={handleDeleteUser}>Delete User</Button>
+      )}
+      {hasRole(['admin', 'teacher']) && (
+        <Button onClick={handleExportData}>Export Data</Button>
+      )}
+    </div>
+  );
+}
+```
+
+**특징**:
+*   사용자 경험 향상 (권한 없는 기능은 보이지 않음)
+*   보안 강화 (클라이언트 측 추가 검증)
+*   주의: UI 제어만으로는 충분하지 않으며, 서버 측 검증 필수
+
+##### 3️⃣ 데이터베이스 접근 제어 수준
+
+**역할**: 데이터베이스 쿼리 시 역할과 조직 ID 기반 데이터 필터링
+
+**구현 (SQLAlchemy 예시)**:
+```python
+# models/student.py
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+class StudentRepository:
+    def get_students_by_permission(
+        self,
+        db: Session,
+        current_user: User
+    ) -> list[Student]:
+        """사용자 권한에 따라 접근 가능한 학생 목록 반환"""
+        query = select(Student)
+        
+        # 학생: 자신만
+        if current_user.role == "student":
+            query = query.where(Student.id == current_user.id)
+        
+        # 교사: 담당 학급만
+        elif current_user.role == "teacher":
+            query = query.where(Student.class_id == current_user.class_id)
+        
+        # 학부모: 자녀만
+        elif current_user.role == "parent":
+            query = query.where(Student.id.in_(current_user.children_ids))
+        
+        # 관리자: 모두
+        elif current_user.role == "admin":
+            pass  # 필터링 없음
+        
+        else:
+            # 알 수 없는 역할: 빈 결과 반환
+            query = query.where(Student.id == -1)
+        
+        return db.execute(query).scalars().all()
+```
+
+**Row-Level Security (PostgreSQL)**:
+```sql
+-- Row-Level Security 활성화
+ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+
+-- 학생은 자신의 데이터만 조회
+CREATE POLICY student_own_data ON students
+    FOR SELECT
+    TO student_role
+    USING (id = current_user_id());
+
+-- 교사는 담당 학급만 조회
+CREATE POLICY teacher_class_data ON students
+    FOR SELECT
+    TO teacher_role
+    USING (class_id = current_user_class_id());
+
+-- 관리자는 모두 조회
+CREATE POLICY admin_all_data ON students
+    FOR ALL
+    TO admin_role
+    USING (true);
+```
+
+**특징**:
+*   데이터베이스 레벨에서 추가 보안 계층
+*   애플리케이션 버그로 인한 데이터 유출 방지
+*   PostgreSQL RLS, MySQL 뷰, MongoDB Document-Level Security 활용
+
+##### 4️⃣ 코드 기반 검사 수준
+
+**역할**: 핵심 비즈니스 로직에서 명시적 권한 확인
+
+**구현**:
+```python
+# services/grade_service.py
+class GradeService:
+    async def update_grade(
+        self,
+        student_id: int,
+        grade_data: dict,
+        current_user: User
+    ) -> Grade:
+        """성적 업데이트 (명시적 권한 검사)"""
+        
+        # 1. 학생 정보 조회
+        student = await self.student_repo.get(student_id)
+        if not student:
+            raise HTTPException(status_code=404, detail="Student not found")
+        
+        # 2. 권한 검사 (명시적)
+        if current_user.role == "teacher":
+            # 교사는 담당 학급만
+            if student.class_id != current_user.class_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Teacher can only update grades for class {current_user.class_id}"
+                )
+        elif current_user.role == "admin":
+            # 관리자는 모두 허용
+            pass
+        else:
+            # 기타 역할은 거부
+            raise HTTPException(
+                status_code=403,
+                detail=f"Role {current_user.role} cannot update grades"
+            )
+        
+        # 3. 정책 평가 (OPA 이중 검증)
+        policy_result = await evaluate_policy("grade_update", {
+            "user": current_user.dict(),
+            "student": student.dict(),
+            "grade_data": grade_data
+        })
+        
+        if not policy_result["allow"]:
+            raise HTTPException(
+                status_code=403,
+                detail=policy_result["deny"]
+            )
+        
+        # 4. 성적 업데이트 실행
+        grade = await self.grade_repo.update(student_id, grade_data)
+        
+        # 5. 감사 로그
+        await self.audit_log.create({
+            "action": "grade_update",
+            "user_id": current_user.id,
+            "student_id": student_id,
+            "timestamp": datetime.utcnow()
+        })
+        
+        return grade
+```
+
+**특징**:
+*   비즈니스 로직 수준에서 최종 권한 검사
+*   OPA 정책과 코드 검사 이중 검증
+*   명시적 예외 처리로 보안 강화
+
+##### 5️⃣ 감사 로깅
+
+**역할**: 모든 정책 시행 활동 기록 및 추적
+
+**구현**:
+```python
+# services/audit_service.py
+class AuditService:
+    async def log_access_attempt(
+        self,
+        user_id: str,
+        resource: str,
+        action: str,
+        allowed: bool,
+        reason: Optional[str] = None
+    ):
+        """접근 시도 감사 로그 기록"""
+        await self.db.audit_logs.insert_one({
+            "timestamp": datetime.utcnow(),
+            "user_id": user_id,
+            "resource": resource,
+            "action": action,
+            "allowed": allowed,
+            "reason": reason,
+            "ip_address": get_client_ip(),
+            "user_agent": get_user_agent()
+        })
+        
+        # Prometheus 메트릭
+        AUDIT_LOG.labels(
+            action=action,
+            resource=resource,
+            result="allowed" if allowed else "denied"
+        ).inc()
+```
+
+**감사 로그 조회**:
+```python
+# 특정 사용자의 접근 거부 이력 조회
+denied_accesses = await audit_service.query({
+    "user_id": "user123",
+    "allowed": False,
+    "timestamp": {"$gte": datetime.utcnow() - timedelta(days=7)}
+})
+
+# 민감한 데이터 접근 이력 조회
+sensitive_accesses = await audit_service.query({
+    "resource": {"$in": ["student_data", "grade_data"]},
+    "timestamp": {"$gte": datetime.utcnow() - timedelta(hours=1)}
+})
+```
+
+#### 4.3.5 다층 방어 전략 요약
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 1: API Gateway (정책 미들웨어)                         │
+│  → 모든 요청 진입점에서 정책 평가                              │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 2: UI 제어                                            │
+│  → 권한 없는 기능 숨김/비활성화                               │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 3: 데이터베이스 접근 제어                               │
+│  → Row-Level Security, 쿼리 필터링                           │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 4: 코드 기반 검사                                      │
+│  → 비즈니스 로직에서 명시적 권한 확인                          │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 5: 감사 로깅                                           │
+│  → 모든 접근 시도 기록 및 추적                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**이점**:
+*   **심층 방어**: 한 계층이 뚫려도 다른 계층에서 차단
+*   **조기 차단**: API Gateway에서 대부분의 불법 요청 차단
+*   **감사 가능성**: 모든 접근 시도 추적
+*   **보안 강화**: 여러 검증 단계로 보안 취약점 최소화
 
 ### 4.4 학습 알고리즘 정책
 
