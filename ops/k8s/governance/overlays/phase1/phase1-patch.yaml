@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  template:
+    metadata:
+      annotations:
+        governance.dreamseed.ai/phase: "1"
+        governance.dreamseed.ai/mode: "enforce"
+    spec:
+      containers:
+        - name: backend
+          env:
+            - name: POLICY_BUNDLE_ID
+              value: "phase1"
+            - name: GOVERNANCE_PHASE
+              value: "1"
+            - name: POLICY_STRICT_MODE
+              value: "enforce"
+            - name: POLICY_BUNDLE_PATH
+              value: "/app/governance/compiled/policy_bundle_phase1.json"
+            - name: LOG_LEVEL
+              value: "WARNING"

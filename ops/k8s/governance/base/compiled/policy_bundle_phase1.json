@@ -1,0 +1,430 @@
+{
+  "version": "2025-11-07",
+  "bundle_id": "phase1",
+  "phase": 1,
+  "description": "Phase 1: 핵심 거버넌스 (개인정보 보호, 안전성, 교사 승인)",
+  "rbac": {
+    "enabled": true,
+    "roles": [
+      {
+        "name": "platform_admin",
+        "description": "플랫폼 최고 관리자",
+        "allows": [
+          "*"
+        ],
+        "denies": [
+          "pii:read:emergency"
+        ]
+      },
+      {
+        "name": "school_admin",
+        "description": "학교 관리자",
+        "allows": [
+          "school:read",
+          "school:write",
+          "teacher:create",
+          "teacher:read",
+          "student:create",
+          "student:read",
+          "class:manage"
+        ],
+        "denies": [
+          "policy:write",
+          "system:config"
+        ],
+        "constraints": [
+          "school_id must match user.school_id"
+        ]
+      },
+      {
+        "name": "teacher",
+        "description": "교사",
+        "allows": [
+          "class:read",
+          "student:read",
+          "assignment:create",
+          "assignment:read",
+          "assignment:update",
+          "content:propose",
+          "content:approve",
+          "grade:write",
+          "feedback:write",
+          "analytics:read:class"
+        ],
+        "denies": [
+          "policy:write",
+          "student:delete",
+          "pii:export"
+        ],
+        "constraints": [
+          "class_id must be in teacher.class_ids"
+        ]
+      },
+      {
+        "name": "parent",
+        "description": "학부모",
+        "allows": [
+          "student:read:own_children",
+          "learning_data:read:own_children",
+          "consent:manage:own_children",
+          "data_deletion:request",
+          "analytics:read:own_children"
+        ],
+        "denies": [
+          "student:write",
+          "grade:read:other_students"
+        ],
+        "constraints": [
+          "student_id must be in parent.children_ids"
+        ]
+      },
+      {
+        "name": "student",
+        "description": "학생",
+        "allows": [
+          "student:read:self",
+          "learning_data:read:self",
+          "assignment:read:self",
+          "assignment:submit",
+          "tutor:use",
+          "feedback:provide"
+        ],
+        "denies": [
+          "grade:write",
+          "analytics:read:others"
+        ],
+        "constraints": [
+          "student_id must be user.id"
+        ]
+      },
+      {
+        "name": "viewer",
+        "description": "읽기 전용 뷰어",
+        "allows": [
+          "content:read:public"
+        ],
+        "denies": [
+          "*:write"
+        ]
+      }
+    ],
+    "endpoint_mappings": [
+      {
+        "path": "/api/v1/admin/**",
+        "methods": [
+          "GET",
+          "POST",
+          "PUT",
+          "DELETE"
+        ],
+        "required_permission": "admin:*"
+      },
+      {
+        "path": "/api/v1/classes/{class_id}/students",
+        "methods": [
+          "GET"
+        ],
+        "required_permission": "student:read"
+      },
+      {
+        "path": "/api/v1/assignments",
+        "methods": [
+          "POST"
+        ],
+        "required_permission": "assignment:create"
+      },
+      {
+        "path": "/api/v1/approvals/{approval_id}/approve",
+        "methods": [
+          "POST"
+        ],
+        "required_permission": "content:approve"
+      },
+      {
+        "path": "/api/v1/students/{student_id}/data",
+        "methods": [
+          "GET"
+        ],
+        "required_permission": "learning_data:read"
+      },
+      {
+        "path": "/api/v1/students/{student_id}/consent",
+        "methods": [
+          "PUT"
+        ],
+        "required_permission": "consent:manage"
+      }
+    ]
+  },
+  "safety": {
+    "enabled": true,
+    "tutor": {
+      "allow_during_exam": false,
+      "response_mode_during_exam": "disabled",
+      "max_hints_per_problem": 3,
+      "disallow_topics": [
+        "self-harm",
+        "violence",
+        "adult",
+        "hate",
+        "illegal",
+        "personal_info_request"
+      ],
+      "content_filter": {
+        "enabled": true,
+        "ml_model": "content-safety-v1",
+        "keyword_filter": true,
+        "toxicity_threshold": 0.3
+      },
+      "pii_protection": {
+        "redact_in_prompts": true,
+        "redact_in_responses": true,
+        "allow_names": false,
+        "allow_locations": false
+      }
+    },
+    "content": {
+      "require_safety_check": true,
+      "safety_score_threshold": 0.85,
+      "age_appropriate_filter": true,
+      "prohibited_content_types": [
+        "user_generated_unsafe",
+        "external_links_unverified",
+        "copyrighted_material"
+      ]
+    }
+  },
+  "privacy": {
+    "enabled": true,
+    "data_collection": {
+      "require_consent": true,
+      "consent_age_threshold": 14,
+      "essential_data_only": true,
+      "prohibited_data": [
+        "biometric",
+        "health",
+        "location_precise",
+        "social_media_profiles"
+      ]
+    },
+    "data_protection": {
+      "encryption": {
+        "at_rest": "AES-256-GCM",
+        "in_transit": "TLS-1.3"
+      },
+      "pii_redaction": {
+        "enabled": true,
+        "log_redaction": true,
+        "export_redaction": true
+      },
+      "anonymization": {
+        "analytics_data": true,
+        "research_data": true
+      }
+    },
+    "data_retention": {
+      "active_student": 365,
+      "graduated_student": 365,
+      "audit_logs": 1095,
+      "auto_deletion": true,
+      "deletion_confirmation": true
+    },
+    "third_party": {
+      "allow_sharing": false,
+      "external_llm_send_pii": false,
+      "analytics_partners": []
+    }
+  },
+  "approvals": {
+    "enabled": true,
+    "rules": [
+      {
+        "id": "ai_content_recommendation",
+        "description": "AI가 추천한 학습 콘텐츠",
+        "approver_role": "teacher",
+        "escalation_role": "school_admin",
+        "sla_hours": 48,
+        "auto_approve_if": [
+          "content.safety_score > 0.95",
+          "content.type == 'verified_curriculum'"
+        ],
+        "require_comment": false
+      },
+      {
+        "id": "content_creation",
+        "description": "교사가 생성한 새 콘텐츠",
+        "approver_role": "school_admin",
+        "escalation_role": "platform_admin",
+        "sla_hours": 72,
+        "require_comment": true
+      },
+      {
+        "id": "data_deletion_request",
+        "description": "학부모/학생 데이터 삭제 요청",
+        "approver_role": "school_admin",
+        "escalation_role": "platform_admin",
+        "sla_hours": 168,
+        "require_comment": true,
+        "auto_approve_if": []
+      }
+    ],
+    "workflow": {
+      "max_pending_time_hours": 168,
+      "notification_enabled": true,
+      "reminder_hours": 24
+    }
+  },
+  "feature_flags": {
+    "rbac_enforcement": true,
+    "content_safety_filter": true,
+    "teacher_approval_workflow": true,
+    "audit_logging": true,
+    "ai_tutor": true,
+    "ai_content_recommendation": true,
+    "irt_ability_estimation": true,
+    "risk_prediction_engine": false,
+    "exam_proctoring": false,
+    "parent_portal": false,
+    "advanced_analytics": false,
+    "fairness_monitoring": false,
+    "governance_dashboard": true,
+    "policy_hot_reload": true
+  },
+  "monitoring": {
+    "enabled": true,
+    "audit_logging": {
+      "enabled": true,
+      "log_all_api_calls": true,
+      "log_pii_access": true,
+      "log_policy_violations": true,
+      "log_approvals": true,
+      "retention_days": 1095,
+      "events": [
+        "data_access",
+        "ai_decision",
+        "policy_violation",
+        "approval_request",
+        "approval_decision",
+        "consent_change",
+        "data_deletion"
+      ]
+    },
+    "metrics": {
+      "policy_compliance_rate": true,
+      "safety_check_success_rate": true,
+      "approval_sla_compliance": true,
+      "api_access_denied_count": true
+    },
+    "alerts": {
+      "enabled": true,
+      "channels": [
+        "email",
+        "slack"
+      ],
+      "triggers": [
+        {
+          "event": "policy_violation",
+          "severity": "high",
+          "threshold": 5
+        },
+        {
+          "event": "safety_check_failure",
+          "severity": "critical",
+          "threshold": 1
+        },
+        {
+          "event": "approval_overdue",
+          "severity": "medium",
+          "threshold_hours": 48
+        }
+      ]
+    }
+  },
+  "org_overrides": {
+    "enabled": false,
+    "allow_stricter_policies": true,
+    "allow_looser_policies": false,
+    "customizable_settings": [
+      "tutor.max_hints_per_problem",
+      "data_retention.active_student",
+      "feature_flags"
+    ]
+  },
+  "compliance": {
+    "enabled": true,
+    "regulations": [
+      {
+        "name": "COPPA",
+        "description": "Children's Online Privacy Protection Act",
+        "applicable": true,
+        "requirements": [
+          "parental_consent_under_13",
+          "no_third_party_sharing",
+          "data_deletion_on_request"
+        ]
+      },
+      {
+        "name": "FERPA",
+        "description": "Family Educational Rights and Privacy Act",
+        "applicable": true,
+        "requirements": [
+          "educational_records_protection",
+          "parent_access_rights",
+          "consent_for_disclosure"
+        ]
+      },
+      {
+        "name": "GDPR",
+        "description": "General Data Protection Regulation",
+        "applicable": true,
+        "requirements": [
+          "data_minimization",
+          "right_to_erasure",
+          "right_to_portability",
+          "data_protection_by_design"
+        ]
+      },
+      {
+        "name": "CCPA",
+        "description": "California Consumer Privacy Act",
+        "applicable": false,
+        "requirements": []
+      }
+    ]
+  },
+  "enforcement": {
+    "mode": "soft",
+    "soft_mode": {
+      "log_violations": true,
+      "send_alerts": true,
+      "allow_override": false
+    },
+    "enforce_mode": {
+      "block_violations": true,
+      "log_violations": true,
+      "send_alerts": true
+    }
+  },
+  "metadata": {
+    "created_at": "2025-11-07T00:00:00Z",
+    "created_by": "DreamSeedAI Governance Board",
+    "approved_by": [
+      "Education Expert",
+      "AI Ethics Expert",
+      "Legal Expert"
+    ],
+    "changelog": [
+      {
+        "version": "2025-11-07",
+        "changes": [
+          "Initial Phase 1 policy bundle",
+          "RBAC for 6 roles",
+          "Safety policies for AI tutor",
+          "Teacher approval workflow",
+          "Basic audit logging"
+        ]
+      }
+    ],
+    "next_review_date": "2026-02-07"
+  }
+}
