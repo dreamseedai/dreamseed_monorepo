@@ -15,8 +15,6 @@ spec:
   # 재배포/재설치 시에도 항상 Secret 마운트 보장
   secrets:
     - alertmanager-secrets       # Slack webhook URL
-    - pagerduty-routing-key      # PagerDuty routing key
   
   # 마운트 경로 (Prometheus Operator 자동 처리):
   # - /etc/alertmanager/secrets/alertmanager-secrets/slack_webhook_url
-  # - /etc/alertmanager/secrets/pagerduty-routing-key/routing_key

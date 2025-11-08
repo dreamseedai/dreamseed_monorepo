@@ -90,15 +90,6 @@ if [ -n "${POD_NAME:-}" ] && [ "$POD_STATUS" = "Running" ]; then
     else
         echo "   ❌ /etc/alertmanager/secrets/alertmanager-secrets/slack_webhook_url (없음)"
     fi
-    
-    echo ""
-    echo "   PagerDuty Routing Key:"
-    if kubectl -n "$NAMESPACE" exec "$POD_NAME" -- \
-        test -f /etc/alertmanager/secrets/pagerduty-routing-key/routing_key 2>/dev/null; then
-        echo "   ✅ /etc/alertmanager/secrets/pagerduty-routing-key/routing_key"
-    else
-        echo "   ⚠️  /etc/alertmanager/secrets/pagerduty-routing-key/routing_key (없음)"
-    fi
 else
     echo "⚠️  Pod가 Running 상태가 아니어서 Secret 마운트 확인 불가"
 fi
@@ -134,20 +125,20 @@ echo "   sudo cp alertmanager-0.26.0.linux-amd64/amtool /usr/local/bin/"
 echo ""
 echo "ℹ️  테스트 알림 전송 (포트포워드 후):"
 echo ""
-echo "   # Critical → PagerDuty"
+echo "   # Critical → Slack (#seedtest-alerts)"
 echo "   amtool --alertmanager.url=http://127.0.0.1:9093 alert add \\"
 echo "     alertname=TestCritical \\"
 echo "     service=seedtest-api \\"
 echo "     severity=critical \\"
-echo "     summary=\"PagerDuty 라우팅 테스트\" \\"
-echo "     description=\"Critical 알림이 PagerDuty로 전송되어야 합니다\""
+echo "     summary=\"[TEST] Critical 알림\" \\"
+echo "     description=\"Critical 알림이 즉시 Slack으로 전송되어야 합니다\""
 echo ""
-echo "   # Warning → Slack"
+echo "   # Warning → Slack (#seedtest-alerts)"
 echo "   amtool --alertmanager.url=http://127.0.0.1:9093 alert add \\"
 echo "     alertname=TestWarning \\"
 echo "     service=seedtest-api \\"
 echo "     severity=warning \\"
-echo "     summary=\"Slack 라우팅 테스트\" \\"
+echo "     summary=\"[TEST] Warning 알림\" \\"
 echo "     description=\"Warning 알림이 #seedtest-alerts로 전송되어야 합니다\""
 
 echo ""

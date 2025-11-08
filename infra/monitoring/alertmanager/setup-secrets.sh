@@ -1,15 +1,14 @@
 #!/bin/bash
 # infra/monitoring/alertmanager/setup-secrets.sh
-# Alertmanager 시크릿 생성 스크립트
+# Alertmanager Slack Webhook Secret 생성 스크립트
 
 set -euo pipefail
 
 NAMESPACE="${1:-monitoring}"
 SLACK_WEBHOOK_URL="${2:-}"
-PAGERDUTY_ROUTING_KEY="${3:-}"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔐 Alertmanager Secrets 생성"
+echo "🔐 Alertmanager Slack Webhook Secret 생성"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "네임스페이스: $NAMESPACE"
@@ -23,15 +22,14 @@ if [ -z "$SLACK_WEBHOOK_URL" ]; then
     echo "⚠️  Slack Webhook URL이 제공되지 않았습니다."
     echo ""
     echo "사용법:"
-    echo "  bash setup-secrets.sh <namespace> <slack_webhook_url> <pagerduty_routing_key>"
+    echo "  bash setup-secrets.sh <namespace> <slack_webhook_url>"
     echo ""
     echo "예시:"
     echo "  bash setup-secrets.sh monitoring \\"
-    echo "    'https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXX' \\"
-    echo "    'PD_ROUTING_KEY_XXXXXXXXXXXX'"
+    echo "    'https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXX'"
     echo ""
     echo "또는 환경 변수로 전달:"
-    echo "  SLACK_WEBHOOK_URL='...' PAGERDUTY_ROUTING_KEY='...' bash setup-secrets.sh monitoring"
+    echo "  SLACK_WEBHOOK_URL='...' bash setup-secrets.sh monitoring"
     exit 1
 fi
 
@@ -55,42 +53,9 @@ echo "   마운트 경로: /etc/alertmanager/secrets/alertmanager-secrets/slack_
 
 # ──────────────────────────────────────────────────────────
 echo ""
-echo "2️⃣  PagerDuty Routing Key Secret"
+echo "2️⃣  Secret 확인"
 echo "───────────────────────────────────────────────────────"
-
-if [ -z "$PAGERDUTY_ROUTING_KEY" ]; then
-    echo "⚠️  PagerDuty Routing Key가 제공되지 않았습니다."
-    echo "   건너뜀 (PagerDuty 사용하지 않을 경우 OK)"
-else
-    if kubectl -n "$NAMESPACE" get secret pagerduty-routing-key &>/dev/null; then
-        echo "⚠️  Secret 'pagerduty-routing-key'가 이미 존재합니다."
-        read -p "덮어쓰시겠습니까? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "❌ 건너뜀"
-        else
-            kubectl -n "$NAMESPACE" delete secret pagerduty-routing-key
-            kubectl -n "$NAMESPACE" create secret generic pagerduty-routing-key \
-                --from-literal=routing_key="$PAGERDUTY_ROUTING_KEY"
-            echo "✅ Secret 생성: pagerduty-routing-key"
-            echo "   키: routing_key"
-            echo "   마운트 경로: /etc/alertmanager/secrets/pagerduty-routing-key/routing_key"
-        fi
-    else
-        kubectl -n "$NAMESPACE" create secret generic pagerduty-routing-key \
-            --from-literal=routing_key="$PAGERDUTY_ROUTING_KEY"
-        echo "✅ Secret 생성: pagerduty-routing-key"
-        echo "   키: routing_key"
-        echo "   마운트 경로: /etc/alertmanager/secrets/pagerduty-routing-key/routing_key"
-    fi
-fi
-
-# ──────────────────────────────────────────────────────────
-echo ""
-echo "3️⃣  Secret 확인"
-echo "───────────────────────────────────────────────────────"
-kubectl -n "$NAMESPACE" get secret alertmanager-secrets pagerduty-routing-key 2>/dev/null || \
-    kubectl -n "$NAMESPACE" get secret alertmanager-secrets
+kubectl -n "$NAMESPACE" get secret alertmanager-secrets
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -98,12 +63,9 @@ echo "✅ Secret 생성 완료"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "📋 다음 단계:"
-echo "   1. Alertmanager CR 적용 (Secret 마운트):"
-echo "      kubectl apply -f infra/monitoring/alertmanager/alertmanager-cr.yaml"
+echo "   1. Alertmanager 배포:"
+echo "      kubectl apply -k infra/monitoring/alertmanager/"
 echo ""
-echo "   2. Alertmanager 설정 적용:"
-echo "      kubectl apply -f infra/monitoring/alertmanager/alertmanager-secret.yaml"
-echo ""
-echo "   3. 검증:"
+echo "   2. 검증:"
 echo "      bash infra/monitoring/alertmanager/validate-alertmanager.sh $NAMESPACE"
 echo ""

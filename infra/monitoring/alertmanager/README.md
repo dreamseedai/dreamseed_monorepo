@@ -1,6 +1,7 @@
-# Alertmanager Configuration
+# Alertmanager Configuration - Slack Only
 
 이 디렉토리는 Prometheus Operator 환경에서 Alertmanager 설정을 GitOps로 관리합니다.
+**Slack 전용 구성**으로 모든 알림이 Slack으로 전송됩니다.
 
 ## 📁 파일 구조
 
@@ -8,11 +9,11 @@
 infra/monitoring/alertmanager/
 ├── alertmanager-cr.yaml               # Alertmanager CR (Secret 마운트 설정)
 ├── alertmanager-cr-patch.yaml         # Kustomize 패치 (spec.secrets 보장)
-├── alertmanager-secret.yaml           # Alertmanager 설정 (api_url_file, routing_key_file 사용)
+├── alertmanager-secret.yaml           # Alertmanager 설정 (Slack 전용)
 ├── kustomization.yaml                 # Kustomize 설정
-├── setup-secrets.sh                   # Secret 생성 스크립트
+├── setup-secrets.sh                   # Slack Webhook Secret 생성 스크립트
 ├── validate-alertmanager.sh           # 검증 스크립트
-├── SETUP_CREDENTIALS.md               # ⭐ Slack/PagerDuty 키 발급 가이드
+├── SETUP_CREDENTIALS.md               # ⭐ Slack Webhook 발급 가이드
 ├── ALERTMANAGER_ROUTING_GUIDE.md      # 상세 설정 가이드 (보안, 트러블슈팅)
 └── OPERATIONS_RUNBOOK.md              # 운영 런북 (키 회전, 장애 대응, ArgoCD 통합)
 ```
@@ -22,14 +23,12 @@ infra/monitoring/alertmanager/
 ### Option A: Kustomize 사용 (권장)
 
 ```bash
-# 0. Slack/PagerDuty 키 발급 (SETUP_CREDENTIALS.md 참고)
-# - Slack Incoming Webhook URL
-# - PagerDuty Events API v2 Routing Key
+# 0. Slack Webhook 발급 (SETUP_CREDENTIALS.md 참고)
+# - https://api.slack.com/apps → Create App → Incoming Webhooks
 
-# 1. Secret 생성 (수동 또는 스크립트)
+# 1. Secret 생성
 bash infra/monitoring/alertmanager/setup-secrets.sh monitoring \
-  'https://hooks.slack.com/services/T실제값/B실제값/실제토큰' \
-  'PD_ROUTING_KEY_실제값'
+  'https://hooks.slack.com/services/T실제값/B실제값/실제토큰'
 
 # 2. Kustomize로 전체 적용
 kubectl apply -k infra/monitoring/alertmanager/
@@ -49,8 +48,7 @@ bash infra/monitoring/alertmanager/validate-alertmanager.sh monitoring
 ```bash
 # Option A: 스크립트 사용 (권장)
 bash infra/monitoring/alertmanager/setup-secrets.sh monitoring \
-  'https://hooks.slack.com/services/T실제값/B실제값/실제토큰' \
-  'PD_ROUTING_KEY_실제값'
+  'https://hooks.slack.com/services/T실제값/B실제값/실제토큰'
 
 # Option B: kubectl로 직접 생성
 kubectl -n monitoring create secret generic alertmanager-secrets \
@@ -58,14 +56,6 @@ kubectl -n monitoring create secret generic alertmanager-secrets \
 
 # Option C: External Secrets Operator (프로덕션 권장)
 # infra/monitoring/alertmanager/external-secret.yaml 참고
-```
-
-**PagerDuty Routing Key 주입:**
-
-```bash
-# PagerDuty UI → Services → Integrations → Events API v2 → Routing Key 복사
-kubectl -n monitoring create secret generic pagerduty-routing-key \
-  --from-literal=routing_key='YOUR_PAGERDUTY_ROUTING_KEY'
 ```
 
 ### 2. Alertmanager CR 적용 (Secret 마운트)
@@ -78,7 +68,7 @@ kubectl apply -f infra/monitoring/alertmanager/alertmanager-cr.yaml
 ### 3. Alertmanager 설정 적용
 
 ```bash
-# 설정 Secret 적용 (api_url_file, routing_key_file 사용)
+# 설정 Secret 적용 (api_url_file 사용)
 kubectl apply -f infra/monitoring/alertmanager/alertmanager-secret.yaml
 
 # Prometheus Operator가 자동으로 Alertmanager 재시작
@@ -93,7 +83,7 @@ kubectl -n monitoring rollout restart statefulset alertmanager-main
 bash infra/monitoring/alertmanager/validate-alertmanager.sh monitoring
 
 # 수동 검증
-kubectl -n monitoring get secret alertmanager-main alertmanager-secrets pagerduty-routing-key
+kubectl -n monitoring get secret alertmanager-main alertmanager-secrets
 kubectl -n monitoring get pod -l app.kubernetes.io/name=alertmanager
 ```
 
