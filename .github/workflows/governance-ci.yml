@@ -1,0 +1,67 @@
+name: Governance CI
+on:
+  pull_request:
+    paths:
+      - 'governance/bundles/**'
+      - 'governance/schemas/**'
+      - 'ops/scripts/compile_policy_bundle.py'
+  push:
+    branches:
+      - main
+      - staging/**
+    paths:
+      - 'governance/bundles/**'
+
+jobs:
+  validate-bundles:
+    name: Validate & Compile Policy Bundles
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install jsonschema pyyaml
+      
+      - name: Compile policy bundles
+        run: |
+          python ops/scripts/compile_policy_bundle.py
+      
+      - name: Verify compiled bundles
+        run: |
+          if [ -z "$(ls -A governance/compiled)" ]; then
+            echo "❌ No compiled bundles produced"
+            exit 1
+          fi
+          echo "✅ Compiled bundles:"
+          ls -lh governance/compiled/
+      
+      - name: Upload compiled bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-bundles
+          path: governance/compiled/*.json
+          retention-days: 30
+      
+      - name: Comment PR with bundle info
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const files = fs.readdirSync('governance/compiled');
+            const comment = `## 📦 Compiled Policy Bundles\n\n${files.map(f => `- \`${f}\``).join('\n')}`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

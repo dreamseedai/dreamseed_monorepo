@@ -1,0 +1,51 @@
+# Dependencies
+**/node_modules/**
+**/bower_components/**
+
+# Build outputs
+**/dist/**
+**/build/**
+**/.next/**
+**/.nuxt/**
+**/.output/**
+**/out/**
+
+# Python
+**/.venv/**
+**/__pycache__/**
+**/.pytest_cache/**
+**/.mypy_cache/**
+**/.ruff_cache/**
+**/.ipynb_checkpoints/**
+*.egg-info/**
+
+# IDEs
+**/.vscode/**
+**/.idea/**
+**/.vs/**
+
+# Version control
+**/.git/**
+**/.svn/**
+
+# Governance compiled (generated files)
+governance/compiled/**
+
+# Logs and databases
+**/*.log
+**/*.sqlite
+**/*.db
+
+# Large data directories
+datasets/**
+artifacts/**
+backup/**
+_archive/**
+
+# Generated reports
+_report_*.txt
+
+# Cache
+**/.cache/**
+**/.parcel-cache/**
+.turbo/**
