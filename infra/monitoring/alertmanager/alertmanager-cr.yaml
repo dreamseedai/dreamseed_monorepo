@@ -10,12 +10,11 @@ spec:
   replicas: 1
   
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # Secret 마운트: Slack Webhook & PagerDuty Routing Key
+  # Secret 마운트: Slack Webhook
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   # Prometheus Operator가 자동으로 /etc/alertmanager/secrets/<secret-name>/에 마운트
   secrets:
     - alertmanager-secrets       # Slack webhook URL
-    - pagerduty-routing-key      # PagerDuty routing key
   
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   # 리소스 설정 (선택 사항)
