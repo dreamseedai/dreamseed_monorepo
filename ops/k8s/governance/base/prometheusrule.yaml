@@ -1,7 +1,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: seedtest-api-alerts
+  name: seedtest-api-rules
   namespace: seedtest
   labels:
     app: seedtest-api
@@ -9,207 +9,234 @@ metadata:
     release: prometheus
 spec:
   groups:
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 1. 가용성 / HTTP 알림
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    - name: seedtest-api.availability
+    # ──────────────────────────────────────────────────────────────────
+    - name: seedtest-api.http
       interval: 30s
       rules:
-        - alert: SeedtestApiDown
-          expr: up{job="seedtest-api"} == 0
+        # Recording: HTTP 에러율(5xx) 5m/30m
+        - record: job:http_error_rate_5m
+          expr: |
+            sum by (endpoint, method) (rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum by (endpoint, method) (rate(http_requests_total[5m]))
+        - record: job:http_error_rate_30m
+          expr: |
+            sum by (endpoint, method) (rate(http_requests_total{status=~"5.."}[30m]))
+            /
+            sum by (endpoint, method) (rate(http_requests_total[30m]))
+
+        # Recording: HTTP 지연 p90/p95 (histogram)
+        - record: job:http_request_duration_seconds:p90_5m
+          expr: |
+            histogram_quantile(0.90, sum by (le, endpoint, method) (rate(http_request_duration_seconds_bucket[5m])))
+        - record: job:http_request_duration_seconds:p95_5m
+          expr: |
+            histogram_quantile(0.95, sum by (le, endpoint, method) (rate(http_request_duration_seconds_bucket[5m])))
+
+        # Alert: 에러율 상승
+        - alert: SeedtestApiHighErrorRate
+          expr: job:http_error_rate_5m > 0.05 and job:http_error_rate_30m > 0.03
+          for: 10m
+          labels:
+            severity: warning
+            service: seedtest-api
+          annotations:
+            summary: "HTTP 5xx 비율 증가 ({{ $labels.method }} {{ $labels.endpoint }})"
+            description: "5분 에러율 {{ $value | humanizePercentage }} (30분 기준선 초과)"
+
+        # Alert: 지연 p95 높음
+        - alert: SeedtestApiHighLatencyP95
+          expr: job:http_request_duration_seconds:p95_5m > 1.0
+          for: 10m
+          labels:
+            severity: warning
+            service: seedtest-api
+          annotations:
+            summary: "HTTP p95 지연 ↑ ({{ $labels.method }} {{ $labels.endpoint }})"
+            description: "p95 > 1.0s (최근 5분)"
+
+        # Alert: In-Flight 폭증
+        - alert: SeedtestApiRequestsInProgressHigh
+          expr: sum by (endpoint, method) (http_requests_in_progress) > 200
           for: 5m
+          labels:
+            severity: warning
+            service: seedtest-api
+          annotations:
+            summary: "진행중 요청 수 급증"
+            description: "in-flight > 200 (엔드포인트: {{ $labels.endpoint }})"
+
+        # Alert: 스크레이프/메트릭 결측
+        - alert: SeedtestApiMetricsAbsent
+          expr: |
+            absent(sum(rate(http_requests_total[5m])))
+          for: 10m
           labels:
             severity: critical
-            component: api
+            service: seedtest-api
           annotations:
-            summary: "SeedTest API is down"
-            description: "SeedTest API has been down for more than 5 minutes (instance: {{ $labels.instance }})"
+            summary: "메트릭 결측 (스크레이프 실패 가능)"
+            description: "/metrics 미노출 또는 ServiceMonitor/네트워크 이슈"
 
-        - alert: SeedtestApiHighLatency
-          expr: |
-            histogram_quantile(0.99, 
-              rate(http_request_duration_seconds_bucket{job="seedtest-api"}[5m])
-            ) > 2
-          for: 10m
-          labels:
-            severity: warning
-            component: api
-          annotations:
-            summary: "SeedTest API high latency"
-            description: "P99 latency > 2s for 10 minutes (endpoint: {{ $labels.endpoint }}, method: {{ $labels.method }})"
-
-        - alert: SeedtestApiHighErrorRate
-          expr: |
-            sum(rate(http_requests_total{job="seedtest-api", status=~"5.."}[5m])) 
-            / 
-            sum(rate(http_requests_total{job="seedtest-api"}[5m])) 
-            > 0.05
-          for: 5m
-          labels:
-            severity: warning
-            component: api
-          annotations:
-            summary: "SeedTest API high error rate"
-            description: "Error rate > 5% for 5 minutes (current: {{ $value | humanizePercentage }})"
-
-        - alert: SeedtestApiHighRequestVolume
-          expr: |
-            sum(rate(http_requests_total{job="seedtest-api"}[5m])) > 1000
-          for: 10m
-          labels:
-            severity: info
-            component: api
-          annotations:
-            summary: "SeedTest API high request volume"
-            description: "Request rate > 1000/s for 10 minutes (current: {{ $value | humanize }})"
-
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 2. Governance 정책 알림
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # ──────────────────────────────────────────────────────────────────
     - name: seedtest-api.governance
       interval: 30s
       rules:
-        - alert: GovernanceBundleNotLoaded
-          expr: governance_bundle_loaded{job="seedtest-api"} == 0
-          for: 2m
+        # Recording: 정책 평가 p95
+        - record: job:policy_evaluation_duration_seconds:p95_5m
+          expr: |
+            histogram_quantile(0.95, sum by (le, action, phase)
+              (rate(policy_evaluation_duration_seconds_bucket[5m])))
+
+        # Alert: 정책 거부 급증
+        - alert: GovernancePolicyDenySpike
+          expr: |
+            increase(policy_deny_total[10m]) > 50
+          for: 5m
+          labels:
+            severity: warning
+            service: seedtest-api
+          annotations:
+            summary: "거버넌스 정책 거부 급증"
+            description: "10분 내 deny > 50 (action={{ $labels.action }}, role={{ $labels.role }}, phase={{ $labels.phase }})"
+
+        # Alert: 정책 평가 지연 p95 높음
+        - alert: GovernancePolicyEvalLatencyHigh
+          expr: job:policy_evaluation_duration_seconds:p95_5m > 0.2
+          for: 10m
+          labels:
+            severity: warning
+            service: seedtest-api
+          annotations:
+            summary: "정책 평가 p95 지연 ↑"
+            description: "p95 > 200ms (phase={{ $labels.phase }})"
+
+        # Alert: 번들 로드 실패
+        - alert: GovernanceBundleLoadFailed
+          expr: |
+            min by (bundle_id, phase) (governance_bundle_loaded) < 1
+          for: 5m
           labels:
             severity: critical
-            component: governance
+            service: seedtest-api
           annotations:
-            summary: "Governance bundle not loaded"
-            description: "Bundle {{ $labels.bundle_id }} (phase {{ $labels.phase }}) failed to load"
+            summary: "거버넌스 번들 로드 실패"
+            description: "bundle_id={{ $labels.bundle_id }}, phase={{ $labels.phase }}"
 
-        - alert: GovernanceHighDenyRate
+        # Alert: 번들 리로드 실패/지연
+        - alert: GovernanceBundleReloadErrors
           expr: |
-            sum(rate(policy_deny_total{job="seedtest-api"}[5m])) 
-            / 
-            sum(rate(policy_evaluations_total{job="seedtest-api"}[5m])) 
-            > 0.3
+            increase(governance_bundle_reload_total{status="error"}[15m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: seedtest-api
+          annotations:
+            summary: "거버넌스 번들 리로드 오류 발생"
+            description: "최근 15분 내 reload error"
+
+    # ──────────────────────────────────────────────────────────────────
+    - name: seedtest-api.featureflags
+      interval: 30s
+      rules:
+        # Alert: 특정 핵심 플래그 비활성 (예: risk_engine)
+        - alert: FeatureFlagCriticalDisabled
+          expr: |
+            min by (flag_name) (feature_flag_enabled{flag_name="risk_engine"}) < 1
+          for: 10m
+          labels:
+            severity: critical
+            service: seedtest-api
+          annotations:
+            summary: "핵심 Feature Flag 비활성 (risk_engine)"
+            description: "phase={{ $labels.phase }} 에서 risk_engine 비활성"
+
+        # Alert: 플래그 체크 오류 급증
+        - alert: FeatureFlagCheckErrors
+          expr: |
+            increase(feature_flag_checks_total{result="error"}[10m]) > 10
+          for: 5m
+          labels:
+            severity: warning
+            service: seedtest-api
+          annotations:
+            summary: "Feature Flag 체크 오류 급증"
+            description: "10분 내 에러 > 10 (flag={{ $labels.flag_name }})"
+
+    # ──────────────────────────────────────────────────────────────────
+    - name: seedtest-api.irt
+      interval: 1m
+      rules:
+        - alert: IrtDriftDetectedSpike
+          expr: |
+            increase(irt_drift_detections_total{status="detected"}[30m]) > 5
           for: 10m
           labels:
             severity: warning
-            component: governance
+            service: seedtest-api
           annotations:
-            summary: "High governance policy denial rate"
-            description: "Policy denying >30% of requests for 10 minutes (phase: {{ $labels.phase }}, current: {{ $value | humanizePercentage }})"
+            summary: "IRT 드리프트 감지 급증"
+            description: "30분 내 감지 > 5 (검토 필요)"
 
-        - alert: GovernancePolicyEvaluationSlow
-          expr: |
-            histogram_quantile(0.95, 
-              rate(policy_evaluation_duration_seconds_bucket{job="seedtest-api"}[5m])
-            ) > 0.1
-          for: 10m
-          labels:
-            severity: warning
-            component: governance
-          annotations:
-            summary: "Governance policy evaluation slow"
-            description: "P95 policy evaluation > 100ms for 10 minutes (action: {{ $labels.action }}, phase: {{ $labels.phase }})"
-
-        - alert: GovernanceBundleReloadFailure
-          expr: |
-            sum(rate(governance_bundle_reload_total{job="seedtest-api", status="error"}[5m])) > 0
-          for: 5m
-          labels:
-            severity: warning
-            component: governance
-          annotations:
-            summary: "Governance bundle reload failures"
-            description: "Bundle reload failing (bundle_id: {{ $labels.bundle_id }}, phase: {{ $labels.phase }})"
-
-        - alert: GovernanceStrictModeViolations
-          expr: |
-            sum(rate(policy_deny_total{job="seedtest-api", phase="2"}[5m])) > 5
-          for: 5m
-          labels:
-            severity: info
-            component: governance
-          annotations:
-            summary: "Production strict mode violations"
-            description: "Policy denying requests in production (>5/s) - review audit logs (action: {{ $labels.action }}, role: {{ $labels.role }})"
-
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 3. Feature Flag 알림
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    - name: seedtest-api.feature-flags
-      interval: 30s
-      rules:
-        - alert: FeatureFlagCheckFailures
-          expr: |
-            sum(rate(feature_flag_checks_total{job="seedtest-api", result="error"}[5m])) > 0
-          for: 5m
-          labels:
-            severity: warning
-            component: feature-flags
-          annotations:
-            summary: "Feature flag check failures"
-            description: "Feature flag checks failing (flag: {{ $labels.flag_name }})"
-
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 4. IRT 드리프트 알림
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    - name: seedtest-api.irt-drift
-      interval: 30s
-      rules:
-        - alert: IrtDriftDetected
-          expr: irt_drift_flagged_items{job="seedtest-api"} > 10
+        - alert: IrtDriftFlaggedItemsHigh
+          expr: irt_drift_flagged_items > 50
           for: 15m
           labels:
             severity: warning
-            component: irt-drift
+            service: seedtest-api
           annotations:
-            summary: "IRT drift detected - flagged items"
-            description: "{{ $value }} items flagged for potential drift - review calibration"
+            summary: "IRT 플래그된 문항 많음"
+            description: "flagged items > 50 (콘텐츠 점검 권장)"
 
-        - alert: IrtDriftDetectionSlow
-          expr: |
-            histogram_quantile(0.95, 
-              rate(irt_drift_detection_duration_seconds_bucket{job="seedtest-api"}[5m])
-            ) > 5
-          for: 10m
-          labels:
-            severity: warning
-            component: irt-drift
-          annotations:
-            summary: "IRT drift detection slow"
-            description: "P95 drift detection > 5s for 10 minutes"
-
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 5. 데이터베이스 알림
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    - name: seedtest-api.database
+    # ──────────────────────────────────────────────────────────────────
+    - name: seedtest-api.db
       interval: 30s
       rules:
-        - alert: DatabaseConnectionPoolExhausted
-          expr: db_connections_active{job="seedtest-api"} > 90
-          for: 5m
-          labels:
-            severity: critical
-            component: database
-          annotations:
-            summary: "Database connection pool exhausted"
-            description: "Active connections > 90 for 5 minutes (current: {{ $value }})"
-
-        - alert: DatabaseQuerySlow
+        - record: job:db_query_duration_seconds:p95_5m
           expr: |
-            histogram_quantile(0.95, 
-              rate(db_query_duration_seconds_bucket{job="seedtest-api"}[5m])
-            ) > 1
+            histogram_quantile(0.95, sum by (le, query_type) (rate(db_query_duration_seconds_bucket[5m])))
+
+        - alert: DbLatencyHigh
+          expr: job:db_query_duration_seconds:p95_5m > 0.2
           for: 10m
           labels:
             severity: warning
-            component: database
+            service: seedtest-api
           annotations:
-            summary: "Database queries slow"
-            description: "P95 query duration > 1s for 10 minutes (query_type: {{ $labels.query_type }})"
+            summary: "DB 쿼리 p95 지연 ↑"
+            description: "p95 > 200ms (query_type={{ $labels.query_type }})"
 
-        - alert: DatabaseErrors
-          expr: |
-            sum(rate(db_errors_total{job="seedtest-api"}[5m])) > 0.1
+        - alert: DbErrorsSpike
+          expr: increase(db_errors_total[10m]) > 20
           for: 5m
           labels:
             severity: warning
-            component: database
+            service: seedtest-api
           annotations:
-            summary: "Database errors detected"
-            description: "DB errors > 0.1/s for 5 minutes (error_type: {{ $labels.error_type }})"
+            summary: "DB 오류 급증"
+            description: "10분 내 DB 에러 > 20 (type={{ $labels.error_type }})"
+
+        - alert: DbConnectionsHigh
+          expr: db_connections_active > 200
+          for: 10m
+          labels:
+            severity: warning
+            service: seedtest-api
+          annotations:
+            summary: "DB 연결 수 과다"
+            description: "활성 연결 > 200 (스케일링/풀 설정 검토)"
+
+    # ──────────────────────────────────────────────────────────────────
+    - name: seedtest-api.app
+      interval: 1m
+      rules:
+        - alert: AppVersionChanged
+          expr: |
+            changes(max by (version) (app_info{environment="production"})[10m]) > 0
+          for: 1m
+          labels:
+            severity: info
+            service: seedtest-api
+          annotations:
+            summary: "애플리케이션 버전 변경 감지"
+            description: "app_info version 변경됨 (배포/롤백 확인)"
