@@ -1,0 +1,215 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: seedtest-api-alerts
+  namespace: seedtest
+  labels:
+    app: seedtest-api
+    governance: enabled
+    release: prometheus
+spec:
+  groups:
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 1. 가용성 / HTTP 알림
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    - name: seedtest-api.availability
+      interval: 30s
+      rules:
+        - alert: SeedtestApiDown
+          expr: up{job="seedtest-api"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: api
+          annotations:
+            summary: "SeedTest API is down"
+            description: "SeedTest API has been down for more than 5 minutes (instance: {{ $labels.instance }})"
+
+        - alert: SeedtestApiHighLatency
+          expr: |
+            histogram_quantile(0.99, 
+              rate(http_request_duration_seconds_bucket{job="seedtest-api"}[5m])
+            ) > 2
+          for: 10m
+          labels:
+            severity: warning
+            component: api
+          annotations:
+            summary: "SeedTest API high latency"
+            description: "P99 latency > 2s for 10 minutes (endpoint: {{ $labels.endpoint }}, method: {{ $labels.method }})"
+
+        - alert: SeedtestApiHighErrorRate
+          expr: |
+            sum(rate(http_requests_total{job="seedtest-api", status=~"5.."}[5m])) 
+            / 
+            sum(rate(http_requests_total{job="seedtest-api"}[5m])) 
+            > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            component: api
+          annotations:
+            summary: "SeedTest API high error rate"
+            description: "Error rate > 5% for 5 minutes (current: {{ $value | humanizePercentage }})"
+
+        - alert: SeedtestApiHighRequestVolume
+          expr: |
+            sum(rate(http_requests_total{job="seedtest-api"}[5m])) > 1000
+          for: 10m
+          labels:
+            severity: info
+            component: api
+          annotations:
+            summary: "SeedTest API high request volume"
+            description: "Request rate > 1000/s for 10 minutes (current: {{ $value | humanize }})"
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 2. Governance 정책 알림
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    - name: seedtest-api.governance
+      interval: 30s
+      rules:
+        - alert: GovernanceBundleNotLoaded
+          expr: governance_bundle_loaded{job="seedtest-api"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: governance
+          annotations:
+            summary: "Governance bundle not loaded"
+            description: "Bundle {{ $labels.bundle_id }} (phase {{ $labels.phase }}) failed to load"
+
+        - alert: GovernanceHighDenyRate
+          expr: |
+            sum(rate(policy_deny_total{job="seedtest-api"}[5m])) 
+            / 
+            sum(rate(policy_evaluations_total{job="seedtest-api"}[5m])) 
+            > 0.3
+          for: 10m
+          labels:
+            severity: warning
+            component: governance
+          annotations:
+            summary: "High governance policy denial rate"
+            description: "Policy denying >30% of requests for 10 minutes (phase: {{ $labels.phase }}, current: {{ $value | humanizePercentage }})"
+
+        - alert: GovernancePolicyEvaluationSlow
+          expr: |
+            histogram_quantile(0.95, 
+              rate(policy_evaluation_duration_seconds_bucket{job="seedtest-api"}[5m])
+            ) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+            component: governance
+          annotations:
+            summary: "Governance policy evaluation slow"
+            description: "P95 policy evaluation > 100ms for 10 minutes (action: {{ $labels.action }}, phase: {{ $labels.phase }})"
+
+        - alert: GovernanceBundleReloadFailure
+          expr: |
+            sum(rate(governance_bundle_reload_total{job="seedtest-api", status="error"}[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: governance
+          annotations:
+            summary: "Governance bundle reload failures"
+            description: "Bundle reload failing (bundle_id: {{ $labels.bundle_id }}, phase: {{ $labels.phase }})"
+
+        - alert: GovernanceStrictModeViolations
+          expr: |
+            sum(rate(policy_deny_total{job="seedtest-api", phase="2"}[5m])) > 5
+          for: 5m
+          labels:
+            severity: info
+            component: governance
+          annotations:
+            summary: "Production strict mode violations"
+            description: "Policy denying requests in production (>5/s) - review audit logs (action: {{ $labels.action }}, role: {{ $labels.role }})"
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 3. Feature Flag 알림
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    - name: seedtest-api.feature-flags
+      interval: 30s
+      rules:
+        - alert: FeatureFlagCheckFailures
+          expr: |
+            sum(rate(feature_flag_checks_total{job="seedtest-api", result="error"}[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: feature-flags
+          annotations:
+            summary: "Feature flag check failures"
+            description: "Feature flag checks failing (flag: {{ $labels.flag_name }})"
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 4. IRT 드리프트 알림
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    - name: seedtest-api.irt-drift
+      interval: 30s
+      rules:
+        - alert: IrtDriftDetected
+          expr: irt_drift_flagged_items{job="seedtest-api"} > 10
+          for: 15m
+          labels:
+            severity: warning
+            component: irt-drift
+          annotations:
+            summary: "IRT drift detected - flagged items"
+            description: "{{ $value }} items flagged for potential drift - review calibration"
+
+        - alert: IrtDriftDetectionSlow
+          expr: |
+            histogram_quantile(0.95, 
+              rate(irt_drift_detection_duration_seconds_bucket{job="seedtest-api"}[5m])
+            ) > 5
+          for: 10m
+          labels:
+            severity: warning
+            component: irt-drift
+          annotations:
+            summary: "IRT drift detection slow"
+            description: "P95 drift detection > 5s for 10 minutes"
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 5. 데이터베이스 알림
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    - name: seedtest-api.database
+      interval: 30s
+      rules:
+        - alert: DatabaseConnectionPoolExhausted
+          expr: db_connections_active{job="seedtest-api"} > 90
+          for: 5m
+          labels:
+            severity: critical
+            component: database
+          annotations:
+            summary: "Database connection pool exhausted"
+            description: "Active connections > 90 for 5 minutes (current: {{ $value }})"
+
+        - alert: DatabaseQuerySlow
+          expr: |
+            histogram_quantile(0.95, 
+              rate(db_query_duration_seconds_bucket{job="seedtest-api"}[5m])
+            ) > 1
+          for: 10m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "Database queries slow"
+            description: "P95 query duration > 1s for 10 minutes (query_type: {{ $labels.query_type }})"
+
+        - alert: DatabaseErrors
+          expr: |
+            sum(rate(db_errors_total{job="seedtest-api"}[5m])) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "Database errors detected"
+            description: "DB errors > 0.1/s for 5 minutes (error_type: {{ $labels.error_type }})"
