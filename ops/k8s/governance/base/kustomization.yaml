@@ -8,6 +8,8 @@ resources:
   - service.yaml
   - networkpolicy.yaml
   - servicemonitor.yaml
+  - prometheusrule.yaml
+  - grafana-dashboard-configmap.yaml
   - patch.reload-rbac.yaml
 
 # 거버넌스 번들(ConfigMap) 자동 생성: compiled/*.json → CM (해시로 롤아웃 유도)
