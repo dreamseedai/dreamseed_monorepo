@@ -1,16 +1,21 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: backend
+  name: seedtest-api
+  namespace: seedtest
   labels:
-    app: backend
+    app: seedtest-api
     governance: enabled
 spec:
   selector:
     matchLabels:
-      app: backend
+      app: seedtest-api
+  namespaceSelector:
+    matchNames:
+      - seedtest
   endpoints:
-    - port: http
-      path: /metrics
+    - port: http                 # Service 포트명과 일치
       interval: 30s
       scrapeTimeout: 10s
+      path: /metrics             # 앱이 /metrics 노출 시 사용
+      scheme: http

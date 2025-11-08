@@ -1,20 +1,17 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend
+  name: seedtest-api
+  namespace: seedtest
   labels:
-    app: backend
+    app: seedtest-api
     governance: enabled
 spec:
-  type: ClusterIP
   selector:
-    app: backend
+    app: seedtest-api
   ports:
     - name: http
-      port: 80
-      targetPort: 8000
+      port: 8000          # ClusterIP 서비스 포트
+      targetPort: 8000    # 컨테이너 포트
       protocol: TCP
-    - name: metrics
-      port: 9090
-      targetPort: 8000
-      protocol: TCP
+  type: ClusterIP
