@@ -12,6 +12,7 @@ infra/monitoring/alertmanager/
 ├── kustomization.yaml                 # Kustomize 설정
 ├── setup-secrets.sh                   # Secret 생성 스크립트
 ├── validate-alertmanager.sh           # 검증 스크립트
+├── SETUP_CREDENTIALS.md               # ⭐ Slack/PagerDuty 키 발급 가이드
 ├── ALERTMANAGER_ROUTING_GUIDE.md      # 상세 설정 가이드 (보안, 트러블슈팅)
 └── OPERATIONS_RUNBOOK.md              # 운영 런북 (키 회전, 장애 대응, ArgoCD 통합)
 ```
@@ -21,6 +22,10 @@ infra/monitoring/alertmanager/
 ### Option A: Kustomize 사용 (권장)
 
 ```bash
+# 0. Slack/PagerDuty 키 발급 (SETUP_CREDENTIALS.md 참고)
+# - Slack Incoming Webhook URL
+# - PagerDuty Events API v2 Routing Key
+
 # 1. Secret 생성 (수동 또는 스크립트)
 bash infra/monitoring/alertmanager/setup-secrets.sh monitoring \
   'https://hooks.slack.com/services/T실제값/B실제값/실제토큰' \
@@ -31,6 +36,8 @@ kubectl apply -k infra/monitoring/alertmanager/
 
 # 3. 검증
 bash infra/monitoring/alertmanager/validate-alertmanager.sh monitoring
+
+# 4. 테스트 알림 전송 (SETUP_CREDENTIALS.md 참고)
 ```
 
 ### Option B: 개별 적용
@@ -153,6 +160,13 @@ curl -X POST https://events.pagerduty.com/v2/enqueue \
 ---
 
 ## 📚 상세 문서
+
+- **SETUP_CREDENTIALS.md**: ⭐ **먼저 읽으세요!**
+  - Slack Webhook 발급 (단계별 스크린샷)
+  - PagerDuty Routing Key 발급 (Events API v2)
+  - Secret 생성 및 동작 확인
+  - 키 회전 절차
+  - 트러블슈팅 (Slack/PagerDuty/라우팅 오류)
 
 - **OPERATIONS_RUNBOOK.md**:
   - 적용 & 검증 치트시트
