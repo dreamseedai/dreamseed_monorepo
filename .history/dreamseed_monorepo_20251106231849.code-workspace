@@ -1,0 +1,17 @@
+{
+  "folders": [
+    { "path": "." }
+  ],
+  "settings": {
+    "files.exclude": {
+      "dreamseed": true,
+      "**/node_modules": true,
+      "**/.git": true
+    },
+    "search.exclude": {
+      "dreamseed": true,
+      "**/node_modules": true
+    },
+    "workbench.startupEditor": "none"
+  }
+}

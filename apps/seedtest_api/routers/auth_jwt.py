@@ -17,7 +17,6 @@ from jose import jwt
 from pydantic import BaseModel
 
 from ..deps import User, get_current_user
-from ..settings import Settings
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -36,7 +35,7 @@ def load_private_key() -> str:
             return f.read()
     except FileNotFoundError:
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"JWT private key not found at {key_path}. "
             "Run infra/nginx/generate_jwt_keypair.sh first.",
         )
@@ -56,7 +55,6 @@ def generate_jwt_token(
     Returns:
         Signed JWT token string
     """
-    settings = Settings()
     private_key = load_private_key()
 
     now = datetime.now(timezone.utc)

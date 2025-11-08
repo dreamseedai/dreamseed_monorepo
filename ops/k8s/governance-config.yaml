@@ -1,0 +1,169 @@
+# ============================================================================
+# Governance Configuration for Kubernetes/Helm
+# Values.yaml에 추가할 내용
+# ============================================================================
+
+# Example usage in values.yaml:
+# governance:
+#   enabled: true
+#   bundleId: "phase1"
+#   phase: 1
+#   strictMode: "soft"
+
+governance:
+  # Governance 활성화 여부
+  enabled: true
+  
+  # 정책 번들 ID (phase0, phase1, prod)
+  bundleId: "phase1"
+  
+  # Governance Phase (0-3)
+  # 0: 감사만 (차단 없음)
+  # 1: 핵심 거버넌스 (RBAC, Safety)
+  # 2: 확장 (Risk Engine, Org Overrides)
+  # 3: 성숙 (전체 기능)
+  phase: 1
+  
+  # Strict Mode (soft | enforce)
+  # soft: 위반 시 로그만 기록
+  # enforce: 위반 시 차단 (403)
+  strictMode: "soft"
+  
+  # 정책 번들 파일 경로
+  bundlePath: "/app/governance/compiled/policy_bundle_phase1.json"
+  
+  # ConfigMap으로 정책 번들 마운트 여부
+  # true: ConfigMap 생성 및 마운트
+  # false: 이미지에 포함된 번들 사용
+  useBundleConfigMap: false
+  
+  # Database 마이그레이션 (초기 배포 시)
+  migrations:
+    enabled: false  # true로 설정하면 Job으로 실행
+    image: postgres:15-alpine
+
+---
+
+# ============================================================================
+# Deployment에 환경 변수 주입 예시
+# backend-deployment.yaml
+# ============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: dreamseed
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: dreamseedai/backend:latest
+          ports:
+            - containerPort: 8000
+          
+          # Governance 환경 변수
+          env:
+            - name: POLICY_BUNDLE_ID
+              value: "{{ .Values.governance.bundleId }}"
+            
+            - name: GOVERNANCE_PHASE
+              value: "{{ .Values.governance.phase }}"
+            
+            - name: POLICY_STRICT_MODE
+              value: "{{ .Values.governance.strictMode }}"
+            
+            - name: POLICY_BUNDLE_PATH
+              value: "{{ .Values.governance.bundlePath }}"
+          
+          # 정책 번들을 ConfigMap으로 마운트 (선택)
+          {{- if .Values.governance.useBundleConfigMap }}
+          volumeMounts:
+            - name: policy-bundle
+              mountPath: /app/governance/compiled
+              readOnly: true
+          {{- end }}
+      
+      {{- if .Values.governance.useBundleConfigMap }}
+      volumes:
+        - name: policy-bundle
+          configMap:
+            name: governance-policy-bundle
+      {{- end }}
+
+---
+
+# ============================================================================
+# ConfigMap for Policy Bundle (선택적)
+# governance-configmap.yaml
+# ============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: governance-policy-bundle
+  namespace: dreamseed
+data:
+  policy_bundle_phase1.json: |
+    {{- .Files.Get "governance/compiled/policy_bundle_phase1.json" | nindent 4 }}
+
+---
+
+# ============================================================================
+# Database Migration Job (초기 배포 시 1회)
+# governance-migration-job.yaml
+# ============================================================================
+
+{{- if .Values.governance.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: governance-migrations
+  namespace: dreamseed
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: {{ .Values.governance.migrations.image }}
+          command:
+            - sh
+            - -c
+            - |
+              psql "$DATABASE_URL" -f /migrations/0001_approvals.sql
+              psql "$DATABASE_URL" -f /migrations/0002_audit.sql
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: database-url
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+              readOnly: true
+      volumes:
+        - name: migrations
+          configMap:
+            name: governance-migrations
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: governance-migrations
+  namespace: dreamseed
+data:
+  0001_approvals.sql: |
+    {{- .Files.Get "ops/migrations/0001_approvals.sql" | nindent 4 }}
+  0002_audit.sql: |
+    {{- .Files.Get "ops/migrations/0002_audit.sql" | nindent 4 }}
+{{- end }}

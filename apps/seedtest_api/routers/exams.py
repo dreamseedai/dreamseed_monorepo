@@ -39,7 +39,7 @@ async def next_question(
         except Exception:
             data = la if isinstance(la, dict) else {}
         _, correct = score_answer(data)
-        ndiff = next_difficulty(payload.difficulty, correct)
+        ndiff = next_difficulty(payload.difficulty or 1, correct)
     else:
         _, correct = 0, False
         ndiff = payload.difficulty or 1
@@ -54,7 +54,13 @@ async def next_question(
         )
 
     # Next question (stub)
-    q = next_question_stub(ndiff)
+    q_dict = next_question_stub(ndiff)
+    q = QuestionOut(
+        id=q_dict.get("question_id", ""),
+        text=q_dict.get("stem", ""),
+        type="mcq",
+        options=q_dict.get("options"),
+    )
     return NextQuestionResponse(done=False, next_difficulty=ndiff, question=q)
 
 

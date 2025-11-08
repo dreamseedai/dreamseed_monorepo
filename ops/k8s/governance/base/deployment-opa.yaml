@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opa-policy-engine
+  namespace: governance
+  labels:
+    app: opa
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: opa
+  template:
+    metadata:
+      labels:
+        app: opa
+      annotations:
+        checksum/policy-bundle: "1234567890"  # 정책 번들 변경 시 업데이트하여 자동 재시작 트리거
+    spec:
+      containers:
+        - name: opa
+          image: openpolicyagent/opa:0.58.0-rootless
+          args:
+            - "run"
+            - "--server"
+            - "--addr=0.0.0.0:8181"
+            - "--config-file=/config/opa-config.yaml"
+            - "/policies"
+          ports:
+            - containerPort: 8181
+              name: http
+          volumeMounts:
+            - name: opa-config
+              mountPath: /config
+            - name: policy-bundle
+              mountPath: /policies
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health?bundle=true
+              port: 8181
+            initialDelaySeconds: 5
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+      volumes:
+        - name: opa-config
+          configMap:
+            name: opa-config
+        - name: policy-bundle
+          configMap:
+            name: governance-policy-bundle
