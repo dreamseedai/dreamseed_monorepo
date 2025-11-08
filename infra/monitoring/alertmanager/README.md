@@ -7,13 +7,33 @@
 ```
 infra/monitoring/alertmanager/
 ├── alertmanager-cr.yaml               # Alertmanager CR (Secret 마운트 설정)
+├── alertmanager-cr-patch.yaml         # Kustomize 패치 (spec.secrets 보장)
 ├── alertmanager-secret.yaml           # Alertmanager 설정 (api_url_file, routing_key_file 사용)
+├── kustomization.yaml                 # Kustomize 설정
 ├── setup-secrets.sh                   # Secret 생성 스크립트
+├── validate-alertmanager.sh           # 검증 스크립트
 ├── ALERTMANAGER_ROUTING_GUIDE.md      # 상세 설정 가이드 (보안, 트러블슈팅)
-└── validate-alertmanager.sh           # 검증 스크립트
+└── OPERATIONS_RUNBOOK.md              # 운영 런북 (키 회전, 장애 대응, ArgoCD 통합)
 ```
 
 ## 🚀 빠른 시작
+
+### Option A: Kustomize 사용 (권장)
+
+```bash
+# 1. Secret 생성 (수동 또는 스크립트)
+bash infra/monitoring/alertmanager/setup-secrets.sh monitoring \
+  'https://hooks.slack.com/services/T실제값/B실제값/실제토큰' \
+  'PD_ROUTING_KEY_실제값'
+
+# 2. Kustomize로 전체 적용
+kubectl apply -k infra/monitoring/alertmanager/
+
+# 3. 검증
+bash infra/monitoring/alertmanager/validate-alertmanager.sh monitoring
+```
+
+### Option B: 개별 적용
 
 ### 1. 보안 설정 (필수)
 
@@ -133,6 +153,12 @@ curl -X POST https://events.pagerduty.com/v2/enqueue \
 ---
 
 ## 📚 상세 문서
+
+- **OPERATIONS_RUNBOOK.md**:
+  - 적용 & 검증 치트시트
+  - 운영 작업 (키 회전, 라우팅 변경)
+  - 장애 대응 체크리스트 (Slack/PagerDuty/라우팅 오류)
+  - ArgoCD 통합 및 환경 분리 (Staging/Production)
 
 - **ALERTMANAGER_ROUTING_GUIDE.md**: 
   - 보안 설정 (ESO, Sealed Secrets, SOPS)
