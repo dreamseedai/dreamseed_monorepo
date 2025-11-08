@@ -2200,6 +2200,987 @@ panels:
 
 DreamSeedAI는 위와 같은 정책 및 기술적 메커니즘을 통해, AI가 교육적 가치를 훼손하지 않고 긍정적인 학습 경험을 제공할 수 있도록 지속적으로 노력합니다.
 
+### 4.6 승인/워크플로 정책 (Approval & Workflow Policies)
+
+승인/워크플로 정책은 DreamSeedAI에서 교사나 학부모의 승인 절차가 필요한 상황들을 정의하고 처리하는 규칙입니다. 이 정책은 AI 시스템의 의사 결정에 대한 인간의 감독을 강화하고, 학생들에게 안전하고 적절한 학습 경험을 제공하기 위해 설계되었습니다.
+
+#### 4.6.1 목표
+
+*   **인간 감독 강화**: AI 시스템의 주요 결정에 대한 교사 및 학부모의 승인을 통해 오류 및 부적절한 콘텐츠 노출을 방지합니다.
+*   **학습 환경 안전 보장**: 학생들에게 안전하고 적절한 학습 콘텐츠와 활동을 제공합니다.
+*   **정책 준수**: 데이터 접근 및 사용에 대한 정책을 효과적으로 시행합니다.
+*   **투명성 제공**: 모든 승인 절차를 추적하여 감사 가능성을 보장합니다.
+
+#### 4.6.2 주요 정책 규칙
+
+**고급 콘텐츠 접근**:
+*   학생이 특정 수준 이상의 난이도를 가진 콘텐츠에 접근 요청 시 교사 승인 필요
+*   민감한 사회 문제와 관련된 콘텐츠 접근 시 사전 승인 필수
+
+**AI 생성 콘텐츠 검토**:
+*   새로 생성된 AI 문제는 학생 노출 전 교사 검토 필수
+*   교사는 문제의 정확성, 명확성, 교육 과정 연관성을 확인
+
+**개인 정보 접근**:
+*   학생의 민감한 개인 정보 (건강 정보, 상담 기록) 접근 시 학부모 동의 필요
+*   데이터 접근 목적 및 범위 명시 필수
+
+**외부 자료 링크**:
+*   학생의 외부 웹사이트 또는 자료 접근 시 교사 승인 필요
+*   유해하거나 부적절한 콘텐츠 노출 방지
+
+**AI 튜터 개인 설정 변경**:
+*   학습 방법이나 난이도 조정 시 교사 또는 학부모 승인 필요
+*   설정 변경 이력 추적
+
+#### 4.6.3 Rego 정책 구현
+
+**고급 콘텐츠 접근 정책**:
+```rego
+package approval_advanced_content
+
+import future.keywords.if
+
+default allow = false
+
+# 콘텐츠 난이도 레벨 정의
+difficulty_threshold := 8  # 1-10 스케일
+
+# 민감한 주제 목록
+sensitive_topics := [
+    "politics", "religion", "war", "violence",
+    "discrimination", "controversial_history"
+]
+
+# 기본 콘텐츠는 승인 없이 접근 가능
+allow {
+    input.content.difficulty_level < difficulty_threshold
+    not is_sensitive_topic(input.content.topic)
+}
+
+# 고급 콘텐츠는 교사 승인 필요
+allow {
+    input.content.difficulty_level >= difficulty_threshold
+    input.approval.teacher_approved == true
+    input.approval.approved_at != null
+}
+
+# 민감한 주제는 교사 승인 필요
+allow {
+    is_sensitive_topic(input.content.topic)
+    input.approval.teacher_approved == true
+}
+
+# 민감한 주제 확인
+is_sensitive_topic(topic) if {
+    topic in sensitive_topics
+}
+
+# 승인 필요 사유
+deny[msg] {
+    input.content.difficulty_level >= difficulty_threshold
+    input.approval.teacher_approved != true
+    msg := sprintf("Advanced content (level %d) requires teacher approval", [input.content.difficulty_level])
+}
+
+deny[msg] {
+    is_sensitive_topic(input.content.topic)
+    input.approval.teacher_approved != true
+    msg := sprintf("Sensitive topic '%s' requires teacher approval", [input.content.topic])
+}
+```
+
+**AI 생성 콘텐츠 검토 정책**:
+```rego
+package approval_ai_generated_content
+
+import future.keywords.if
+
+default allow = false
+
+# AI 생성 콘텐츠는 교사 검토 필수
+allow {
+    input.content.source == "ai_generated"
+    input.content.status == "teacher_reviewed"
+    input.content.approved_by != null
+}
+
+# 인간이 작성한 검증된 콘텐츠는 승인 불필요
+allow {
+    input.content.source == "human_created"
+    input.content.verified == true
+}
+
+# 검토 대기 상태
+deny[msg] {
+    input.content.source == "ai_generated"
+    input.content.status == "pending_review"
+    msg := "AI-generated content is pending teacher review"
+}
+
+# 검토 거부됨
+deny[msg] {
+    input.content.source == "ai_generated"
+    input.content.status == "rejected"
+    msg := sprintf("Content rejected by teacher: %s", [input.content.rejection_reason])
+}
+```
+
+**개인 정보 접근 승인 정책**:
+```rego
+package approval_personal_data_access
+
+import future.keywords.if
+import future.keywords.contains
+
+default allow = false
+
+# 민감한 개인 정보 카테고리
+sensitive_data_categories := [
+    "health_records", "counseling_records", 
+    "family_information", "financial_data"
+]
+
+# 일반 학습 데이터는 승인 불필요
+allow {
+    not is_sensitive_data(input.data_category)
+    input.user.role in ["teacher", "student"]
+}
+
+# 민감한 데이터는 학부모 동의 필요
+allow {
+    is_sensitive_data(input.data_category)
+    input.approval.parent_consent == true
+    input.approval.consent_date != null
+    # 동의는 1년 유효
+    consent_is_valid(input.approval.consent_date)
+}
+
+# 관리자는 모든 데이터 접근 가능 (감사 로그 기록)
+allow {
+    input.user.role == "administrator"
+    input.purpose == "administrative_review"
+}
+
+is_sensitive_data(category) if {
+    category in sensitive_data_categories
+}
+
+consent_is_valid(consent_date) if {
+    # 실제 구현에서는 날짜 계산 로직 사용
+    consent_date != null
+}
+
+deny[msg] {
+    is_sensitive_data(input.data_category)
+    input.approval.parent_consent != true
+    msg := sprintf("Access to %s requires parent consent", [input.data_category])
+}
+
+deny[msg] {
+    is_sensitive_data(input.data_category)
+    input.approval.parent_consent == true
+    not consent_is_valid(input.approval.consent_date)
+    msg := "Parent consent has expired. Please request new consent."
+}
+```
+
+**외부 링크 접근 승인 정책**:
+```rego
+package approval_external_links
+
+import future.keywords.if
+import future.keywords.contains
+
+default allow = false
+
+# 화이트리스트 도메인 (사전 승인됨)
+whitelisted_domains := [
+    "wikipedia.org", "khanacademy.org", "coursera.org",
+    "edx.org", "mit.edu", "youtube.com/education"
+]
+
+# 화이트리스트 도메인은 승인 불필요
+allow {
+    is_whitelisted_domain(input.external_link.url)
+}
+
+# 기타 도메인은 교사 승인 필요
+allow {
+    not is_whitelisted_domain(input.external_link.url)
+    input.approval.teacher_approved == true
+    input.approval.approved_at != null
+}
+
+is_whitelisted_domain(url) if {
+    some domain in whitelisted_domains
+    contains(url, domain)
+}
+
+deny[msg] {
+    not is_whitelisted_domain(input.external_link.url)
+    input.approval.teacher_approved != true
+    msg := sprintf("External link '%s' requires teacher approval", [input.external_link.url])
+}
+```
+
+#### 4.6.4 구현 메커니즘
+
+**1. 정책 엔진 통합**
+
+승인 워크플로우를 관리하고, 해당 이벤트 발생 시 자동으로 승인 절차를 트리거합니다.
+
+```python
+# governance/backend/approval_engine.py
+from enum import Enum
+from typing import Optional, Dict, List
+from datetime import datetime, timedelta
+
+class ApprovalStatus(Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+class ApprovalRequest:
+    def __init__(
+        self,
+        request_id: str,
+        request_type: str,
+        requester_id: str,
+        approver_role: str,
+        content: Dict,
+        reason: str = ""
+    ):
+        self.request_id = request_id
+        self.request_type = request_type
+        self.requester_id = requester_id
+        self.approver_role = approver_role
+        self.content = content
+        self.reason = reason
+        self.status = ApprovalStatus.PENDING
+        self.created_at = datetime.now()
+        self.approved_by: Optional[str] = None
+        self.approved_at: Optional[datetime] = None
+        self.rejection_reason: Optional[str] = None
+
+class ApprovalEngine:
+    def __init__(self, policy_engine, notification_service, db):
+        self.policy_engine = policy_engine
+        self.notification_service = notification_service
+        self.db = db
+    
+    async def request_approval(
+        self,
+        request_type: str,
+        requester_id: str,
+        content: Dict,
+        reason: str = ""
+    ) -> ApprovalRequest:
+        """승인 요청 생성 및 처리"""
+        
+        # 1. 승인이 필요한지 정책 평가
+        policy_result = await self._check_approval_required(
+            request_type, requester_id, content
+        )
+        
+        if not policy_result["approval_required"]:
+            # 승인 불필요 - 즉시 허용
+            return self._create_auto_approved_request(
+                request_type, requester_id, content
+            )
+        
+        # 2. 승인 요청 생성
+        request = ApprovalRequest(
+            request_id=generate_uuid(),
+            request_type=request_type,
+            requester_id=requester_id,
+            approver_role=policy_result["approver_role"],
+            content=content,
+            reason=reason
+        )
+        
+        # 3. 데이터베이스 저장
+        await self.db.approval_requests.insert_one(request.__dict__)
+        
+        # 4. 승인자에게 알림 발송
+        await self._send_approval_notification(request)
+        
+        # 5. 메트릭 기록
+        APPROVAL_REQUESTS.labels(
+            request_type=request_type,
+            approver_role=request.approver_role
+        ).inc()
+        
+        return request
+    
+    async def _check_approval_required(
+        self, 
+        request_type: str, 
+        requester_id: str, 
+        content: Dict
+    ) -> Dict:
+        """정책 엔진을 통해 승인 필요 여부 확인"""
+        
+        # 요청 타입별 정책 매핑
+        policy_map = {
+            "advanced_content_access": "approval_advanced_content",
+            "ai_generated_content": "approval_ai_generated_content",
+            "personal_data_access": "approval_personal_data_access",
+            "external_link_access": "approval_external_links"
+        }
+        
+        policy_name = policy_map.get(request_type)
+        if not policy_name:
+            return {"approval_required": False}
+        
+        # 정책 평가 (승인 없이)
+        policy_input = {
+            "content": content,
+            "user": await self._get_user_info(requester_id),
+            "approval": {
+                "teacher_approved": False,
+                "parent_consent": False
+            }
+        }
+        
+        result = await self.policy_engine.evaluate(policy_name, policy_input)
+        
+        if not result["allow"]:
+            # 승인 필요
+            approver_role = self._determine_approver_role(request_type)
+            return {
+                "approval_required": True,
+                "approver_role": approver_role,
+                "reason": result.get("deny", ["Approval required"])[0]
+            }
+        
+        return {"approval_required": False}
+    
+    def _determine_approver_role(self, request_type: str) -> str:
+        """요청 타입에 따른 승인자 역할 결정"""
+        approver_map = {
+            "advanced_content_access": "teacher",
+            "ai_generated_content": "teacher",
+            "personal_data_access": "parent",
+            "external_link_access": "teacher"
+        }
+        return approver_map.get(request_type, "teacher")
+    
+    async def _send_approval_notification(self, request: ApprovalRequest):
+        """승인자에게 알림 발송"""
+        
+        # 승인자 목록 가져오기
+        approvers = await self._get_approvers(
+            request.approver_role,
+            request.requester_id
+        )
+        
+        for approver in approvers:
+            # 이메일 알림
+            await self.notification_service.send_email(
+                to=approver.email,
+                subject=f"Approval Request: {request.request_type}",
+                template="approval_request",
+                context={
+                    "request": request,
+                    "requester_name": await self._get_user_name(request.requester_id),
+                    "approval_link": f"/approvals/{request.request_id}"
+                }
+            )
+            
+            # 앱 푸시 알림
+            await self.notification_service.send_push(
+                user_id=approver.id,
+                title="새로운 승인 요청",
+                body=f"{request.request_type} 승인이 필요합니다.",
+                data={"request_id": request.request_id}
+            )
+            
+            # Slack 알림 (교사용)
+            if request.approver_role == "teacher":
+                await slack_notify(
+                    channel="#teacher-approvals",
+                    message=f"📋 New approval request: {request.request_type}\n"
+                            f"From: {await self._get_user_name(request.requester_id)}\n"
+                            f"Review: /approvals/{request.request_id}"
+                )
+    
+    async def approve_request(
+        self,
+        request_id: str,
+        approver_id: str,
+        comments: str = ""
+    ) -> bool:
+        """승인 요청 승인"""
+        
+        # 1. 승인 요청 조회
+        request = await self.db.approval_requests.find_one(
+            {"request_id": request_id}
+        )
+        
+        if not request or request["status"] != ApprovalStatus.PENDING.value:
+            raise ValueError("Invalid or already processed approval request")
+        
+        # 2. 승인자 권한 확인
+        approver = await self._get_user_info(approver_id)
+        if approver["role"] != request["approver_role"]:
+            raise PermissionError("User does not have permission to approve this request")
+        
+        # 3. 승인 처리
+        await self.db.approval_requests.update_one(
+            {"request_id": request_id},
+            {"$set": {
+                "status": ApprovalStatus.APPROVED.value,
+                "approved_by": approver_id,
+                "approved_at": datetime.now(),
+                "comments": comments
+            }}
+        )
+        
+        # 4. 요청자에게 알림
+        await self.notification_service.send_notification(
+            user_id=request["requester_id"],
+            title="승인 완료",
+            body=f"{request['request_type']} 요청이 승인되었습니다.",
+            data={"request_id": request_id}
+        )
+        
+        # 5. 워크플로우 다음 단계 실행
+        await self._execute_post_approval_workflow(request)
+        
+        # 6. 감사 로그 기록
+        await self._log_approval_action(
+            request_id=request_id,
+            action="approved",
+            approver_id=approver_id,
+            comments=comments
+        )
+        
+        # 7. 메트릭 기록
+        APPROVAL_DECISIONS.labels(
+            request_type=request["request_type"],
+            decision="approved"
+        ).inc()
+        
+        return True
+    
+    async def reject_request(
+        self,
+        request_id: str,
+        approver_id: str,
+        reason: str
+    ) -> bool:
+        """승인 요청 거부"""
+        
+        # 1. 승인 요청 조회
+        request = await self.db.approval_requests.find_one(
+            {"request_id": request_id}
+        )
+        
+        if not request or request["status"] != ApprovalStatus.PENDING.value:
+            raise ValueError("Invalid or already processed approval request")
+        
+        # 2. 승인자 권한 확인
+        approver = await self._get_user_info(approver_id)
+        if approver["role"] != request["approver_role"]:
+            raise PermissionError("User does not have permission to reject this request")
+        
+        # 3. 거부 처리
+        await self.db.approval_requests.update_one(
+            {"request_id": request_id},
+            {"$set": {
+                "status": ApprovalStatus.REJECTED.value,
+                "rejected_by": approver_id,
+                "rejected_at": datetime.now(),
+                "rejection_reason": reason
+            }}
+        )
+        
+        # 4. 요청자에게 알림
+        await self.notification_service.send_notification(
+            user_id=request["requester_id"],
+            title="승인 거부",
+            body=f"{request['request_type']} 요청이 거부되었습니다.",
+            data={
+                "request_id": request_id,
+                "reason": reason
+            }
+        )
+        
+        # 5. 감사 로그 기록
+        await self._log_approval_action(
+            request_id=request_id,
+            action="rejected",
+            approver_id=approver_id,
+            reason=reason
+        )
+        
+        # 6. 메트릭 기록
+        APPROVAL_DECISIONS.labels(
+            request_type=request["request_type"],
+            decision="rejected"
+        ).inc()
+        
+        return True
+    
+    async def _execute_post_approval_workflow(self, request: Dict):
+        """승인 후 워크플로우 실행"""
+        
+        workflow_handlers = {
+            "advanced_content_access": self._grant_content_access,
+            "ai_generated_content": self._publish_content,
+            "personal_data_access": self._grant_data_access,
+            "external_link_access": self._enable_external_link
+        }
+        
+        handler = workflow_handlers.get(request["request_type"])
+        if handler:
+            await handler(request)
+```
+
+**2. 알림 시스템**
+
+```python
+# api/services/notification_service.py
+class NotificationService:
+    def __init__(self, email_client, push_client, sms_client):
+        self.email_client = email_client
+        self.push_client = push_client
+        self.sms_client = sms_client
+    
+    async def send_notification(
+        self,
+        user_id: str,
+        title: str,
+        body: str,
+        channels: List[str] = ["push", "email"],
+        data: Dict = None
+    ):
+        """다중 채널 알림 발송"""
+        
+        user = await get_user(user_id)
+        
+        if "push" in channels and user.push_enabled:
+            await self.send_push(user_id, title, body, data)
+        
+        if "email" in channels and user.email_enabled:
+            await self.send_email(
+                to=user.email,
+                subject=title,
+                template="notification",
+                context={"title": title, "body": body, "data": data}
+            )
+        
+        if "sms" in channels and user.sms_enabled:
+            await self.send_sms(user.phone, f"{title}: {body}")
+```
+
+**3. 승인 인터페이스 API**
+
+```python
+# api/routes/approvals.py
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+router = APIRouter()
+
+class ApprovalRequestCreate(BaseModel):
+    request_type: str
+    content: Dict
+    reason: str = ""
+
+class ApprovalDecision(BaseModel):
+    decision: str  # "approve" or "reject"
+    comments: str = ""
+    reason: str = ""  # for rejection
+
+@router.post("/api/approvals/request")
+async def create_approval_request(
+    request: ApprovalRequestCreate,
+    current_user: User = Depends(get_current_user)
+):
+    """승인 요청 생성"""
+    approval_engine = ApprovalEngine(opa_engine, notification_service, db)
+    
+    approval_request = await approval_engine.request_approval(
+        request_type=request.request_type,
+        requester_id=current_user.id,
+        content=request.content,
+        reason=request.reason
+    )
+    
+    return {
+        "request_id": approval_request.request_id,
+        "status": approval_request.status.value,
+        "message": "Approval request created successfully" 
+                   if approval_request.status == ApprovalStatus.PENDING
+                   else "Request auto-approved"
+    }
+
+@router.get("/api/approvals/pending")
+async def get_pending_approvals(
+    current_user: User = Depends(get_current_user)
+):
+    """현재 사용자에게 할당된 대기 중인 승인 요청 조회"""
+    
+    # 역할에 따른 필터링
+    approvals = await db.approval_requests.find({
+        "approver_role": current_user.role,
+        "status": ApprovalStatus.PENDING.value
+    }).sort("created_at", -1).to_list(100)
+    
+    return approvals
+
+@router.post("/api/approvals/{request_id}/decide")
+async def decide_approval(
+    request_id: str,
+    decision: ApprovalDecision,
+    current_user: User = Depends(get_current_user)
+):
+    """승인 요청에 대한 결정 (승인 또는 거부)"""
+    approval_engine = ApprovalEngine(opa_engine, notification_service, db)
+    
+    try:
+        if decision.decision == "approve":
+            await approval_engine.approve_request(
+                request_id=request_id,
+                approver_id=current_user.id,
+                comments=decision.comments
+            )
+            return {"success": True, "message": "Request approved"}
+        
+        elif decision.decision == "reject":
+            if not decision.reason:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Rejection reason is required"
+                )
+            
+            await approval_engine.reject_request(
+                request_id=request_id,
+                approver_id=current_user.id,
+                reason=decision.reason
+            )
+            return {"success": True, "message": "Request rejected"}
+        
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid decision. Must be 'approve' or 'reject'"
+            )
+    
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/api/approvals/history")
+async def get_approval_history(
+    current_user: User = Depends(get_current_user),
+    days: int = 30
+):
+    """승인 이력 조회"""
+    
+    start_date = datetime.now() - timedelta(days=days)
+    
+    history = await db.approval_requests.find({
+        "$or": [
+            {"requester_id": current_user.id},
+            {"approved_by": current_user.id},
+            {"rejected_by": current_user.id}
+        ],
+        "created_at": {"$gte": start_date}
+    }).sort("created_at", -1).to_list(200)
+    
+    return history
+```
+
+#### 4.6.5 승인 워크플로우 예시
+
+**시나리오: 고급 콘텐츠 접근 요청**
+
+```python
+# 실제 워크플로우 실행 예시
+async def student_requests_advanced_content(student_id: str, content_id: str):
+    """학생이 고급 콘텐츠 접근 요청"""
+    
+    # 1. 콘텐츠 정보 조회
+    content = await db.contents.find_one({"id": content_id})
+    
+    # 2. 승인 요청 생성
+    approval_engine = ApprovalEngine(opa_engine, notification_service, db)
+    
+    request = await approval_engine.request_approval(
+        request_type="advanced_content_access",
+        requester_id=student_id,
+        content={
+            "content_id": content_id,
+            "difficulty_level": content["difficulty_level"],
+            "topic": content["topic"],
+            "title": content["title"]
+        },
+        reason="Student requested access to advanced mathematics content"
+    )
+    
+    # 3. 승인 대기 상태 반환
+    if request.status == ApprovalStatus.PENDING:
+        return {
+            "access_granted": False,
+            "message": "Your request has been sent to your teacher for approval.",
+            "request_id": request.request_id
+        }
+    else:
+        # 자동 승인된 경우
+        return {
+            "access_granted": True,
+            "message": "Access granted to content.",
+            "content": content
+        }
+
+# 교사가 승인한 후
+async def teacher_approves_content_access(request_id: str, teacher_id: str):
+    """교사가 콘텐츠 접근 승인"""
+    
+    approval_engine = ApprovalEngine(opa_engine, notification_service, db)
+    
+    # 승인 처리
+    await approval_engine.approve_request(
+        request_id=request_id,
+        approver_id=teacher_id,
+        comments="Content is appropriate for student's learning level"
+    )
+    
+    # 자동으로 다음 동작 실행:
+    # - 학생에게 콘텐츠 접근 권한 부여
+    # - 학생에게 알림 발송
+    # - 감사 로그 기록
+```
+
+**전체 워크플로우**:
+
+```
+1. 학생이 고급 콘텐츠 접근 요청
+   ↓
+2. 시스템이 정책 엔진을 통해 승인 필요 여부 확인
+   - 난이도 레벨 8 이상 → 승인 필요
+   ↓
+3. 승인 요청 생성 및 저장
+   ↓
+4. 교사에게 알림 발송
+   - 이메일: "새로운 승인 요청"
+   - 앱 푸시: "학생이 고급 콘텐츠 접근 요청"
+   - Slack: "#teacher-approvals 채널"
+   ↓
+5. 교사가 승인 인터페이스에서 요청 확인
+   - 콘텐츠 상세 정보 검토
+   - 학생의 학습 레벨 확인
+   ↓
+6. 교사가 승인 또는 거부 결정
+   - 승인: "학생의 수준에 적합함"
+   - 거부: "아직 준비가 되지 않음"
+   ↓
+7. 시스템이 결정에 따라 자동 처리
+   승인 시:
+   - 학생에게 콘텐츠 접근 권한 부여
+   - 학생에게 승인 알림 발송
+   - 콘텐츠 제공
+   
+   거부 시:
+   - 학생에게 거부 알림 발송 (사유 포함)
+   - 대체 콘텐츠 추천
+   ↓
+8. 모든 승인 행위를 감사 로그에 기록
+   - 타임스탬프
+   - 요청자/승인자 ID
+   - 결정 및 사유
+   - 관련 콘텐츠 정보
+```
+
+#### 4.6.6 감사 추적 (Audit Trail)
+
+모든 승인 행위는 상세하게 기록되어 추후 감사 가능하도록 합니다.
+
+```python
+# governance/backend/audit_service.py
+class ApprovalAuditService:
+    def __init__(self, db, elasticsearch_client=None):
+        self.db = db
+        self.es = elasticsearch_client
+    
+    async def log_approval_action(
+        self,
+        request_id: str,
+        action: str,  # "created", "approved", "rejected", "expired"
+        actor_id: str,
+        actor_role: str,
+        details: Dict = None
+    ):
+        """승인 관련 행위 감사 로그 기록"""
+        
+        audit_log = {
+            "timestamp": datetime.now(),
+            "event_type": "approval_action",
+            "request_id": request_id,
+            "action": action,
+            "actor_id": actor_id,
+            "actor_role": actor_role,
+            "actor_name": await self._get_user_name(actor_id),
+            "details": details or {},
+            "ip_address": get_client_ip(),
+            "user_agent": get_user_agent()
+        }
+        
+        # MongoDB에 저장
+        await self.db.audit_logs.insert_one(audit_log)
+        
+        # Elasticsearch에 저장 (검색 및 분석용)
+        if self.es:
+            await self.es.index(
+                index="approval-audit-logs",
+                body=audit_log
+            )
+        
+        # 구조화된 로깅
+        logger.info(
+            "Approval action recorded",
+            extra={
+                "request_id": request_id,
+                "action": action,
+                "actor": actor_id,
+                "role": actor_role
+            }
+        )
+    
+    async def get_approval_audit_trail(
+        self,
+        request_id: str
+    ) -> List[Dict]:
+        """특정 승인 요청의 전체 감사 추적 조회"""
+        
+        audit_trail = await self.db.audit_logs.find({
+            "request_id": request_id
+        }).sort("timestamp", 1).to_list(None)
+        
+        return audit_trail
+    
+    async def generate_approval_report(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        approver_role: str = None
+    ) -> Dict:
+        """승인 활동 보고서 생성"""
+        
+        query = {
+            "timestamp": {"$gte": start_date, "$lte": end_date},
+            "event_type": "approval_action"
+        }
+        
+        if approver_role:
+            query["actor_role"] = approver_role
+        
+        # 승인 통계
+        logs = await self.db.audit_logs.find(query).to_list(None)
+        
+        stats = {
+            "total_requests": 0,
+            "approved": 0,
+            "rejected": 0,
+            "pending": 0,
+            "by_type": {},
+            "by_approver": {},
+            "avg_approval_time": timedelta(0)
+        }
+        
+        approval_times = []
+        
+        for log in logs:
+            if log["action"] == "created":
+                stats["total_requests"] += 1
+                request_type = log["details"].get("request_type", "unknown")
+                stats["by_type"][request_type] = stats["by_type"].get(request_type, 0) + 1
+            
+            elif log["action"] == "approved":
+                stats["approved"] += 1
+                approver = log["actor_name"]
+                stats["by_approver"][approver] = stats["by_approver"].get(approver, 0) + 1
+                
+                # 승인 시간 계산 (요청 생성 ~ 승인)
+                created_log = await self.db.audit_logs.find_one({
+                    "request_id": log["request_id"],
+                    "action": "created"
+                })
+                if created_log:
+                    approval_time = log["timestamp"] - created_log["timestamp"]
+                    approval_times.append(approval_time)
+            
+            elif log["action"] == "rejected":
+                stats["rejected"] += 1
+        
+        # 평균 승인 시간 계산
+        if approval_times:
+            stats["avg_approval_time"] = sum(approval_times, timedelta(0)) / len(approval_times)
+        
+        return stats
+```
+
+**Prometheus 메트릭**:
+
+```python
+# governance/backend/metrics.py
+APPROVAL_REQUESTS = Counter(
+    'approval_requests_total',
+    'Total approval requests',
+    ['request_type', 'approver_role']
+)
+
+APPROVAL_DECISIONS = Counter(
+    'approval_decisions_total',
+    'Total approval decisions',
+    ['request_type', 'decision']
+)
+
+APPROVAL_PROCESSING_TIME = Histogram(
+    'approval_processing_time_seconds',
+    'Time taken to process approval requests',
+    ['request_type'],
+    buckets=[60, 300, 900, 1800, 3600, 7200, 86400]  # 1분 ~ 1일
+)
+
+PENDING_APPROVALS = Gauge(
+    'pending_approvals_count',
+    'Current number of pending approval requests',
+    ['approver_role']
+)
+```
+
+**Grafana 대시보드**:
+
+```yaml
+# Grafana Dashboard: Approval Workflow Monitoring
+panels:
+  - title: "Approval Requests (Last 7 days)"
+    query: |
+      sum(increase(approval_requests_total[7d])) by (request_type)
+  
+  - title: "Approval Decision Rate"
+    query: |
+      sum(rate(approval_decisions_total{decision="approved"}[1h]))
+        /
+      sum(rate(approval_requests_total[1h]))
+  
+  - title: "Average Approval Processing Time"
+    query: |
+      avg(approval_processing_time_seconds) by (request_type)
+  
+  - title: "Pending Approvals"
+    query: |
+      pending_approvals_count
+```
+
+이러한 승인/워크플로 정책은 DreamSeedAI가 안전하고 신뢰할 수 있는 학습 환경을 제공하는 데 중요한 역할을 수행합니다. 인간 감독과 AI 자동화의 균형을 통해 효율성과 안전성을 동시에 확보합니다.
+
 ---
 
 ## 5. 정책 생명주기 관리
