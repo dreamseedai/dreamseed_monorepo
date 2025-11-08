@@ -347,11 +347,44 @@ def anonymize_student_data(student_data: dict) -> dict:
     }
 ```
 
-### 4.2 AI 콘텐츠 정책
+### 4.2 AI 콘텐츠 정책 (필터링 및 검열)
 
-**규칙**: AI가 생성하는 모든 콘텐츠는 유해 콘텐츠 필터링 시스템을 통과해야 한다.
+콘텐츠 정책은 DreamSeedAI에서 학생에게 제공되는 콘텐츠와 AI 응답이 거버넌스 원칙에 부합하도록 실시간으로 필터링하고 검열하는 규칙들을 포함합니다.
 
-**Rego 정책**:
+#### 4.2.1 목표
+
+*   **안전한 학습 환경**: 학생들을 유해하거나 부적절한 콘텐츠로부터 보호
+*   **윤리적 가치 준수**: AI 응답이 공정성, 객관성, 존중의 가치를 반영하도록 보장
+*   **학습 목표 부합**: 콘텐츠가 교육 과정 및 학습 목표에 부합하도록 관리
+
+#### 4.2.2 필터링 및 검열 대상
+
+*   **AI 튜터 응답**: AI 튜터가 생성하는 모든 텍스트, 이미지, 오디오, 비디오 콘텐츠
+*   **문항 은행 콘텐츠**: 시험 문제, 연습 문제, 설명 자료 및 관련 이미지/비디오
+*   **사용자 생성 콘텐츠**: 학생 및 교사가 업로드하거나 생성하는 콘텐츠 (포럼 게시글, 과제 제출물)
+
+#### 4.2.3 주요 정책 규칙
+
+**유해 콘텐츠 금지**:
+*   폭력, 혐오, 차별, 성적 내용, 약물 사용, 자살, 자해 등 유해하거나 불법적인 콘텐츠 금지
+*   정치적 또는 종교적 편향을 드러내는 콘텐츠 금지
+*   타인의 개인 정보 또는 명예를 침해하는 콘텐츠 금지
+
+**부적절한 언어 사용 금지**:
+*   욕설, 비속어, 은어, 차별적 표현 등 부적절한 언어 사용 금지
+*   공격적이거나 위협적인 언어 사용 금지
+
+**연령 부적절 콘텐츠 제한**:
+*   특정 연령대에 부적합한 주제 (예: 성, 폭력, 흡연)에 대한 콘텐츠 제한
+*   만 13세 미만 학생 대상 데이터 수집 시 COPPA 준수
+
+**학습 내용 관련성**:
+*   콘텐츠가 교육 과정 및 학습 목표와 관련성이 있어야 함
+*   허위 정보 또는 오해를 유발할 수 있는 콘텐츠 금지
+
+#### 4.2.4 Rego 정책 구현
+
+**기본 콘텐츠 안전성 정책**:
 ```rego
 package ai_content_safety
 
@@ -370,39 +403,576 @@ deny[msg] {
     input.safety_check.passed != true
     msg := sprintf("Content blocked: safety score %v", [input.safety_check.score])
 }
+
+# 연령별 콘텐츠 제한
+deny[msg] {
+    input.user.age < 13
+    input.content.contains_sensitive_topics == true
+    msg := "Age-inappropriate content blocked for user under 13"
+}
 ```
 
-**액션**:
-*   유해 콘텐츠 감지 시, 콘텐츠 생성 중단 및 관리자 알림
-*   Slack 알림: "AI 콘텐츠 안전성 검사 실패"
-*   감사 로그: 유해 콘텐츠 유형, 점수, 사용자 기록
+**유해 언어 필터링 정책**:
+```rego
+package content_language_filter
 
-**구현**:
+import future.keywords.contains
+import future.keywords.if
+
+default allow = false
+
+# 금지 단어 목록 (실제 구현에서는 외부 데이터로 관리)
+prohibited_words := [
+    "욕설1", "비속어1", "차별어1", "폭력어1"
+]
+
+# 텍스트에 금지 단어 포함 여부 확인
+contains_prohibited_language(text) if {
+    some word in prohibited_words
+    contains(lower(text), word)
+}
+
+# 금지 언어 없으면 허용
+allow {
+    not contains_prohibited_language(input.content.text)
+}
+
+# 금지 언어 발견 시 차단
+deny[msg] {
+    contains_prohibited_language(input.content.text)
+    msg := "Content contains prohibited language"
+}
+```
+
+**사용자 입력 검열 정책**:
+```rego
+package user_input_moderation
+
+import future.keywords.if
+
+default allow = false
+
+# 개인정보 패턴 감지
+contains_personal_info(text) if {
+    # 전화번호 패턴 (한국)
+    regex.match(`\d{3}-\d{4}-\d{4}`, text)
+}
+
+contains_personal_info(text) if {
+    # 이메일 패턴
+    regex.match(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`, text)
+}
+
+contains_personal_info(text) if {
+    # 주민등록번호 패턴
+    regex.match(`\d{6}-\d{7}`, text)
+}
+
+# 개인정보 없으면 허용
+allow {
+    not contains_personal_info(input.user_input)
+}
+
+# 개인정보 포함 시 차단
+deny[msg] {
+    contains_personal_info(input.user_input)
+    msg := "User input contains personal information"
+}
+```
+
+#### 4.2.5 구현 메커니즘
+
+**1. 사전 학습 필터 (Pre-training Filters)**
+
+AI 모델 학습 시, 유해하거나 편향된 데이터는 제외하고 학습합니다.
+
 ```python
-async def generate_ai_content(prompt: str, user_id: str) -> str:
+# ai/training/data_filter.py
+class TrainingDataFilter:
+    def __init__(self, safety_threshold: float = 0.8):
+        self.safety_threshold = safety_threshold
+        self.safety_model = load_safety_classifier()
+    
+    def filter_training_data(self, dataset: List[dict]) -> List[dict]:
+        """학습 데이터에서 유해 콘텐츠 제거"""
+        filtered_data = []
+        
+        for item in dataset:
+            # 안전성 점수 계산
+            safety_score = self.safety_model.predict(item["content"])
+            
+            # 정책 평가
+            policy_result = evaluate_policy("training_data_safety", {
+                "content": item["content"],
+                "safety_score": safety_score
+            })
+            
+            if policy_result["allow"]:
+                filtered_data.append(item)
+            else:
+                logger.warning(
+                    f"Training data filtered: {policy_result['deny']}"
+                )
+        
+        return filtered_data
+    
+    def fine_tune_with_ethical_data(self, model, ethical_dataset):
+        """윤리적 데이터로 모델 미세 조정"""
+        # 윤리적 가치를 반영한 데이터셋으로 fine-tuning
+        filtered_data = self.filter_training_data(ethical_dataset)
+        model.train(filtered_data)
+        return model
+```
+
+**2. 실시간 필터 (Real-time Filters)**
+
+AI가 생성하는 콘텐츠를 실시간으로 분석하고, 유해하거나 부적절한 내용을 탐지합니다.
+
+```python
+# ai/safety/realtime_filter.py
+from transformers import pipeline
+import re
+
+class RealtimeContentFilter:
+    def __init__(self):
+        # NLP 기반 안전성 분류기
+        self.text_classifier = pipeline(
+            "text-classification",
+            model="unitary/toxic-bert"
+        )
+        
+        # 이미지 안전성 분류기
+        self.image_classifier = pipeline(
+            "image-classification",
+            model="Falconsai/nsfw_image_detection"
+        )
+        
+        # 금지 단어 목록 (정규 표현식)
+        self.prohibited_patterns = [
+            r'\b욕설\d+\b',
+            r'\b비속어\d+\b',
+            # ... 추가 패턴
+        ]
+    
+    async def check_text_safety(self, text: str) -> dict:
+        """텍스트 안전성 검사"""
+        # 1. NLP 모델 검사
+        result = self.text_classifier(text)[0]
+        
+        # 2. 패턴 매칭 검사
+        has_prohibited = any(
+            re.search(pattern, text) 
+            for pattern in self.prohibited_patterns
+        )
+        
+        return {
+            "passed": result["label"] == "SAFE" and not has_prohibited,
+            "score": result["score"] if result["label"] == "SAFE" else 0.0,
+            "toxic_type": result["label"] if result["label"] != "SAFE" else None,
+            "prohibited_pattern_found": has_prohibited
+        }
+    
+    async def check_image_safety(self, image_url: str) -> dict:
+        """이미지 안전성 검사"""
+        result = self.image_classifier(image_url)[0]
+        
+        return {
+            "passed": result["label"] == "normal",
+            "score": result["score"] if result["label"] == "normal" else 0.0,
+            "nsfw_type": result["label"] if result["label"] != "normal" else None
+        }
+    
+    async def check_video_safety(self, video_url: str) -> dict:
+        """비디오 안전성 검사 (프레임별 이미지 분석)"""
+        # 비디오를 프레임으로 분할하여 각 프레임 검사
+        frames = extract_frames(video_url, interval=1.0)  # 1초마다
+        
+        results = []
+        for frame in frames:
+            frame_result = await self.check_image_safety(frame)
+            results.append(frame_result)
+        
+        # 모든 프레임이 안전해야 통과
+        all_passed = all(r["passed"] for r in results)
+        avg_score = sum(r["score"] for r in results) / len(results)
+        
+        return {
+            "passed": all_passed,
+            "score": avg_score,
+            "total_frames": len(frames),
+            "unsafe_frames": [i for i, r in enumerate(results) if not r["passed"]]
+        }
+```
+
+**3. 콘텐츠 수정 및 차단**
+
+정책 엔진은 유해 콘텐츠 탐지 시, 콘텐츠를 자동으로 수정하거나 차단합니다.
+
+```python
+# ai/content/moderator.py
+async def generate_ai_content(prompt: str, user_id: str, user_age: int) -> str:
+    """AI 콘텐츠 생성 및 필터링"""
     # 1. AI 콘텐츠 생성
     content = await ai_model.generate(prompt)
     
     # 2. 안전성 검사
-    safety_result = await safety_filter.check(content)
+    safety_filter = RealtimeContentFilter()
+    safety_result = await safety_filter.check_text_safety(content)
     
     # 3. 정책 평가
     policy_result = await evaluate_policy("ai_content_safety", {
         "content_type": "ai_generated",
         "safety_check": safety_result,
-        "user_id": user_id
+        "user_id": user_id,
+        "user": {"age": user_age},
+        "content": {"contains_sensitive_topics": check_sensitive_topics(content)}
     })
     
     if not policy_result["allow"]:
         # Slack 알림
         await slack_notify(
             channel="#ai-safety-alerts",
-            message=f"⚠️ AI content blocked: {policy_result['deny']}"
+            message=f"⚠️ AI content blocked for user {user_id}: {policy_result['deny']}"
         )
-        raise ValueError("Content blocked by safety policy")
+        
+        # 관리자 검토 대기열에 추가
+        await add_to_review_queue({
+            "content": content,
+            "user_id": user_id,
+            "reason": policy_result["deny"],
+            "timestamp": datetime.now()
+        })
+        
+        # 사용자에게 안전한 대체 메시지 반환
+        return "죄송합니다. 해당 내용은 안전성 검토가 필요합니다. 다른 질문을 해주세요."
     
     return content
+
+async def moderate_user_content(content: str, content_type: str, user_id: str) -> dict:
+    """사용자 생성 콘텐츠 검열"""
+    safety_filter = RealtimeContentFilter()
+    
+    # 콘텐츠 타입별 검사
+    if content_type == "text":
+        safety_result = await safety_filter.check_text_safety(content)
+    elif content_type == "image":
+        safety_result = await safety_filter.check_image_safety(content)
+    elif content_type == "video":
+        safety_result = await safety_filter.check_video_safety(content)
+    else:
+        raise ValueError(f"Unsupported content type: {content_type}")
+    
+    # 정책 평가
+    policy_result = await evaluate_policy("user_content_moderation", {
+        "content_type": content_type,
+        "safety_check": safety_result,
+        "user_id": user_id
+    })
+    
+    return {
+        "allowed": policy_result["allow"],
+        "reason": policy_result.get("deny", [None])[0],
+        "requires_review": not policy_result["allow"]
+    }
 ```
+
+**4. 사용자 신고 시스템**
+
+학생, 교사, 학부모는 부적절한 콘텐츠를 신고할 수 있습니다.
+
+```python
+# api/routes/content_report.py
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
+router = APIRouter()
+
+class ContentReport(BaseModel):
+    content_id: str
+    content_type: str  # "ai_response", "forum_post", "assignment", etc.
+    reason: str
+    description: str
+
+@router.post("/api/content/report")
+async def report_content(
+    report: ContentReport,
+    current_user: User = Depends(get_current_user)
+):
+    """부적절한 콘텐츠 신고"""
+    # 1. 신고 내용 저장
+    report_id = await db.content_reports.insert_one({
+        "content_id": report.content_id,
+        "content_type": report.content_type,
+        "reported_by": current_user.id,
+        "reason": report.reason,
+        "description": report.description,
+        "status": "pending",
+        "created_at": datetime.now()
+    })
+    
+    # 2. 콘텐츠 임시 숨김 처리
+    await db.contents.update_one(
+        {"id": report.content_id},
+        {"$set": {"hidden": True, "hidden_reason": "user_report"}}
+    )
+    
+    # 3. 관리자 알림
+    await slack_notify(
+        channel="#content-moderation",
+        message=f"🚨 New content report: {report.content_type} - {report.reason}\n"
+                f"Reporter: {current_user.name} ({current_user.role})\n"
+                f"Review: /admin/reports/{report_id}"
+    )
+    
+    # 4. 메트릭 기록
+    CONTENT_REPORTS.labels(
+        content_type=report.content_type,
+        reason=report.reason
+    ).inc()
+    
+    return {
+        "success": True,
+        "report_id": str(report_id),
+        "message": "신고가 접수되었습니다. 관리자가 검토 후 조치할 예정입니다."
+    }
+
+@router.get("/api/admin/reports")
+async def get_pending_reports(
+    admin_user: User = Depends(require_admin)
+):
+    """관리자용 신고 목록 조회"""
+    reports = await db.content_reports.find(
+        {"status": "pending"}
+    ).sort("created_at", -1).to_list(100)
+    
+    return reports
+
+@router.post("/api/admin/reports/{report_id}/resolve")
+async def resolve_report(
+    report_id: str,
+    action: str,  # "remove", "restore", "warn_user"
+    admin_user: User = Depends(require_admin)
+):
+    """신고 처리"""
+    report = await db.content_reports.find_one({"_id": ObjectId(report_id)})
+    
+    if action == "remove":
+        # 콘텐츠 영구 삭제
+        await db.contents.delete_one({"id": report["content_id"]})
+    elif action == "restore":
+        # 콘텐츠 복원
+        await db.contents.update_one(
+            {"id": report["content_id"]},
+            {"$set": {"hidden": False}}
+        )
+    elif action == "warn_user":
+        # 콘텐츠 작성자에게 경고
+        content = await db.contents.find_one({"id": report["content_id"]})
+        await send_warning(content["user_id"], report["reason"])
+    
+    # 신고 상태 업데이트
+    await db.content_reports.update_one(
+        {"_id": ObjectId(report_id)},
+        {"$set": {
+            "status": "resolved",
+            "action": action,
+            "resolved_by": admin_user.id,
+            "resolved_at": datetime.now()
+        }}
+    )
+    
+    return {"success": True}
+```
+
+#### 4.2.6 사용자 입력 검열
+
+학생 입력에 금지된 내용 (예: 욕설, 개인정보)이 있으면 경고 또는 블록합니다.
+
+```python
+# api/middleware/input_filter.py
+from fastapi import Request, HTTPException
+import re
+
+class UserInputFilterMiddleware:
+    async def __call__(self, request: Request, call_next):
+        # POST/PUT 요청의 body 검사
+        if request.method in ["POST", "PUT", "PATCH"]:
+            body = await request.body()
+            body_str = body.decode('utf-8')
+            
+            # 정책 평가
+            policy_result = await evaluate_policy("user_input_moderation", {
+                "user_input": body_str
+            })
+            
+            if not policy_result["allow"]:
+                # 위반 메트릭 기록
+                USER_INPUT_VIOLATIONS.labels(
+                    reason=policy_result["deny"][0]
+                ).inc()
+                
+                # 경고 반환
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "Input validation failed",
+                        "reason": policy_result["deny"][0],
+                        "message": "입력 내용에 부적절한 정보가 포함되어 있습니다."
+                    }
+                )
+        
+        response = await call_next(request)
+        return response
+
+# 애플리케이션에 미들웨어 추가
+app.middleware("http")(UserInputFilterMiddleware())
+```
+
+**반복 위반 처리**:
+```python
+# api/services/violation_tracker.py
+class ViolationTracker:
+    def __init__(self, redis_client):
+        self.redis = redis_client
+    
+    async def record_violation(self, user_id: str, violation_type: str):
+        """위반 기록"""
+        key = f"violations:{user_id}:{violation_type}"
+        count = await self.redis.incr(key)
+        await self.redis.expire(key, 86400)  # 24시간 TTL
+        
+        # 위반 횟수에 따른 조치
+        if count >= 3:
+            await self.suspend_user(user_id, duration=3600)  # 1시간 정지
+            await slack_notify(
+                channel="#security-alerts",
+                message=f"⚠️ User {user_id} suspended: 3+ {violation_type} violations"
+            )
+        elif count >= 5:
+            await self.ban_user(user_id)  # 영구 차단
+            await slack_notify(
+                channel="#security-alerts",
+                message=f"🚫 User {user_id} banned: 5+ {violation_type} violations"
+            )
+        
+        return count
+    
+    async def suspend_user(self, user_id: str, duration: int):
+        """사용자 일시 정지"""
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {
+                "suspended": True,
+                "suspended_until": datetime.now() + timedelta(seconds=duration),
+                "suspended_reason": "repeated_violations"
+            }}
+        )
+    
+    async def ban_user(self, user_id: str):
+        """사용자 영구 차단"""
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {
+                "banned": True,
+                "banned_at": datetime.now(),
+                "banned_reason": "severe_repeated_violations"
+            }}
+        )
+```
+
+#### 4.2.7 모니터링 및 감사
+
+**로그 기록**:
+```python
+# 모든 콘텐츠 필터링 활동 상세 기록
+logger.info(
+    "Content safety check",
+    extra={
+        "content_type": content_type,
+        "user_id": user_id,
+        "safety_score": safety_result["score"],
+        "passed": safety_result["passed"],
+        "decision": "allow" if policy_result["allow"] else "deny",
+        "toxic_type": safety_result.get("toxic_type"),
+        "timestamp": datetime.now().isoformat()
+    }
+)
+```
+
+**Prometheus 메트릭**:
+```python
+# governance/backend/metrics.py
+CONTENT_SAFETY_CHECKS = Counter(
+    'content_safety_checks_total',
+    'Total content safety checks',
+    ['content_type', 'decision']
+)
+
+CONTENT_SAFETY_SCORE = Histogram(
+    'content_safety_score',
+    'Content safety scores',
+    ['content_type'],
+    buckets=[0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 1.0]
+)
+
+CONTENT_REPORTS = Counter(
+    'content_reports_total',
+    'Total content reports',
+    ['content_type', 'reason']
+)
+
+USER_INPUT_VIOLATIONS = Counter(
+    'user_input_violations_total',
+    'Total user input violations',
+    ['reason']
+)
+```
+
+**정기적인 감사**:
+```python
+# scripts/audit_content_policies.py
+async def audit_content_policies():
+    """콘텐츠 정책 효과성 감사"""
+    # 1. 최근 30일간 차단된 콘텐츠 분석
+    blocked_contents = await db.audit_logs.find({
+        "event": "content_blocked",
+        "timestamp": {"$gte": datetime.now() - timedelta(days=30)}
+    }).to_list(None)
+    
+    # 2. 차단 사유 통계
+    block_reasons = {}
+    for log in blocked_contents:
+        reason = log["reason"]
+        block_reasons[reason] = block_reasons.get(reason, 0) + 1
+    
+    # 3. 오탐지율 계산 (복원된 콘텐츠 비율)
+    restored = await db.contents.count_documents({
+        "hidden": False,
+        "hidden_reason": "user_report",
+        "restored_at": {"$gte": datetime.now() - timedelta(days=30)}
+    })
+    
+    false_positive_rate = restored / len(blocked_contents) if blocked_contents else 0
+    
+    # 4. 보고서 생성
+    report = {
+        "period": "last_30_days",
+        "total_blocked": len(blocked_contents),
+        "block_reasons": block_reasons,
+        "false_positive_rate": false_positive_rate,
+        "recommendations": []
+    }
+    
+    # 5. 개선 권장사항
+    if false_positive_rate > 0.1:
+        report["recommendations"].append(
+            "High false positive rate detected. Review filtering thresholds."
+        )
+    
+    return report
+```
+
+DreamSeedAI는 위와 같은 포괄적인 콘텐츠 정책을 통해 학생들에게 안전하고 윤리적인 학습 환경을 제공합니다.
 
 ### 4.3 접근 제어 정책 (Access Control Policies)
 
