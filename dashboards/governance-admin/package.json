@@ -1,0 +1,19 @@
+{
+  "name": "governance-admin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DreamSeedAI Governance Admin Dashboard",
+  "scripts": {
+    "dev": "echo 'TODO: Implement governance dashboard (React/Next/Vue)' && exit 1",
+    "build": "echo 'TODO: Build governance dashboard' && exit 1",
+    "start": "echo 'TODO: Start governance dashboard server' && exit 1"
+  },
+  "keywords": [
+    "governance",
+    "dashboard",
+    "policy",
+    "rbac"
+  ],
+  "author": "DreamSeedAI",
+  "license": "UNLICENSED"
+}
