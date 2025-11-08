@@ -1504,6 +1504,702 @@ async def deploy_ai_model(model_id: str, evaluation_results: dict):
     )
 ```
 
+### 4.5 AI 행동 정책 (AI Behavior Policies)
+
+AI 행동 정책은 DreamSeedAI에서 AI 모델의 행동 영역과 한계를 명확히 정의하는 규칙들을 포함합니다. 이 정책은 AI가 교육적 목적에 부합하고, 윤리적 및 법적 기준을 준수하며, 사용자에게 안전하고 신뢰할 수 있는 서비스를 제공하도록 보장하는 데 핵심적인 역할을 합니다.
+
+#### 4.5.1 목표
+
+*   **윤리적 AI 사용**: AI 모델이 DreamSeedAI의 핵심 가치와 윤리 원칙을 준수하도록 합니다.
+*   **안전한 사용자 경험**: AI 모델이 유해하거나 부적절한 콘텐츠를 생성하지 않도록 합니다.
+*   **학습 목표 집중**: AI 모델이 학습 활동과 관련된 질문에만 응답하고, 학생들의 학습에 집중하도록 지원합니다.
+*   **전문 분야 존중**: AI 모델이 전문적인 지식 (의학, 법률 등)을 제공하는 것을 제한하고, 전문가의 도움을 받도록 안내합니다.
+
+#### 4.5.2 주요 정책 규칙
+
+**학습 목적 외 대화 금지**:
+*   AI 튜터는 학습 내용과 직접 관련되지 않은 개인적인 대화 (사생활 상담, 연애 상담 등)를 수행하지 않습니다.
+*   학생의 감정적인 어려움에 대한 공감은 제공하되, 전문적인 상담이 필요한 경우 전문가의 도움을 받도록 안내합니다.
+
+**전문 분야 답변 제한**:
+*   AI 튜터는 의학적 또는 법률적 조언을 제공하지 않습니다.
+*   해당 분야의 전문가와 상담하도록 안내합니다.
+
+**시험 상황에서의 힌트 제공 금지**:
+*   학생이 시험 응시 중에는 AI 튜터의 힌트 제공 기능을 제한합니다.
+*   학생의 자기 평가 및 복습을 돕는 기능은 시험 종료 후에 제공합니다.
+
+**부적절한 요청 처리 금지**:
+*   AI는 폭력적이거나 혐오적인 콘텐츠를 생성하는 요청을 거부합니다.
+*   AI는 차별적이거나 불쾌감을 주는 언어를 사용하는 요청을 거부합니다.
+
+#### 4.5.3 Rego 정책 구현
+
+**학습 관련 질문 검증 정책**:
+```rego
+package ai_behavior_educational_focus
+
+import future.keywords.if
+import future.keywords.contains
+
+default allow = false
+
+# 허용되는 주제 카테고리
+educational_topics := [
+    "mathematics", "science", "language", "history",
+    "geography", "computer_science", "arts", "music"
+]
+
+# 금지된 주제 카테고리
+forbidden_topics := [
+    "personal_counseling", "romantic_advice", "medical_advice",
+    "legal_advice", "financial_advice", "political_opinion"
+]
+
+# 질문 분류 (실제로는 ML 모델 사용)
+classify_question(question) := category {
+    # 간단한 키워드 매칭 (실제로는 NLP 모델)
+    category := "mathematics"  # 예시
+}
+
+# 교육 관련 질문 허용
+allow {
+    category := classify_question(input.question)
+    category in educational_topics
+}
+
+# 금지된 주제 차단
+deny[msg] {
+    category := classify_question(input.question)
+    category in forbidden_topics
+    msg := sprintf("Question category '%s' is not allowed. AI tutor focuses on educational topics only.", [category])
+}
+
+# 전문 분야 안내 메시지
+referral_message[msg] {
+    category := classify_question(input.question)
+    category == "medical_advice"
+    msg := "의학적 조언은 전문 의료인과 상담하시기 바랍니다."
+}
+
+referral_message[msg] {
+    category := classify_question(input.question)
+    category == "legal_advice"
+    msg := "법률적 조언은 전문 변호사와 상담하시기 바랍니다."
+}
+```
+
+**시험 중 힌트 제공 제한 정책**:
+```rego
+package ai_behavior_exam_assistance
+
+import future.keywords.if
+
+default allow = false
+
+# 일반 학습 모드에서는 힌트 허용
+allow {
+    input.context.mode == "learning"
+    input.request.type == "hint"
+}
+
+# 시험 모드에서는 힌트 거부
+deny[msg] {
+    input.context.mode == "exam"
+    input.request.type == "hint"
+    msg := "Hints are not available during exams. Please complete the exam independently."
+}
+
+# 복습 모드에서는 상세 설명 허용
+allow {
+    input.context.mode == "review"
+    input.request.type in ["hint", "solution", "explanation"]
+}
+```
+
+**부적절한 요청 차단 정책**:
+```rego
+package ai_behavior_request_validation
+
+import future.keywords.if
+import future.keywords.contains
+
+default allow = false
+
+# 폭력/혐오 요청 감지 (간단한 예시)
+contains_harmful_intent(request) if {
+    harmful_keywords := ["폭력", "차별", "혐오", "괴롭힘"]
+    some keyword in harmful_keywords
+    contains(lower(request), keyword)
+}
+
+# 정상 요청 허용
+allow {
+    not contains_harmful_intent(input.request)
+}
+
+# 유해 요청 차단
+deny[msg] {
+    contains_harmful_intent(input.request)
+    msg := "This request contains inappropriate content and cannot be processed."
+}
+```
+
+#### 4.5.4 코그니티브 정책 레이어 (Cognitive Policy Layer)
+
+DreamSeedAI의 핵심 기술로, AI 모델이 출력을 생성하기 **전에** 코그니티브 정책 레이어가 해당 논의 주제가 허용되는지 여부를 검토합니다. 이 사전 억제 방식은 단순 출력 결과를 검사해 지우는 사후 필터링보다 훨씬 강력하며, AI 안전성을 획기적으로 향상시킵니다.
+
+**동작 원리**:
+
+```
+사용자 요청
+    ↓
+┌─────────────────────────────────────┐
+│ Cognitive Policy Layer              │
+│  1. 요청 의도 분석                   │
+│  2. 정책 규칙 매칭                   │
+│  3. 사전 허용/거부 결정              │
+└─────────────────────────────────────┘
+    ↓
+허용된 경우만 → AI 모델 실행
+    ↓
+응답 생성 (정책 위반 가능성 ↓↓)
+```
+
+**구현 예시**:
+
+```python
+# ai/cognitive_policy_layer.py
+from typing import Dict, Optional
+from enum import Enum
+
+class RequestCategory(Enum):
+    EDUCATIONAL = "educational"
+    PERSONAL_COUNSELING = "personal_counseling"
+    MEDICAL_ADVICE = "medical_advice"
+    LEGAL_ADVICE = "legal_advice"
+    HARMFUL_INTENT = "harmful_intent"
+    EXAM_CHEATING = "exam_cheating"
+
+class PolicyDecision:
+    def __init__(self, allowed: bool, reason: str = "", referral: str = ""):
+        self.allowed = allowed
+        self.reason = reason
+        self.referral = referral
+    
+    def is_allowed(self) -> bool:
+        return self.allowed
+    
+    def get_rejection_message(self) -> str:
+        if self.referral:
+            return f"{self.reason}\n\n{self.referral}"
+        return self.reason
+
+class CognitivePolicyLayer:
+    def __init__(self, policy_engine, intent_classifier):
+        self.policy_engine = policy_engine
+        self.intent_classifier = intent_classifier
+    
+    async def check(self, user_input: str, context: Dict) -> PolicyDecision:
+        """
+        AI가 답을 만들기 전 정책 엔진이 요청을 검토하고 처리를 결정합니다.
+        
+        Args:
+            user_input: 사용자의 질문/요청
+            context: 컨텍스트 정보 (모드, 사용자 정보 등)
+        
+        Returns:
+            PolicyDecision: 허용 여부 및 거부 사유
+        """
+        # 1. 요청 의도 분석
+        intent = await self.intent_classifier.classify(user_input)
+        category = self._map_intent_to_category(intent)
+        
+        # 2. 정책 규칙 매칭 및 평가
+        policy_result = await self.policy_engine.evaluate("ai_behavior", {
+            "question": user_input,
+            "context": context,
+            "request": {"type": intent.request_type},
+            "category": category.value
+        })
+        
+        # 3. 사전 허용/거부 결정
+        if not policy_result["allow"]:
+            # 거부 사유 생성
+            reason = policy_result.get("deny", ["Request not allowed"])[0]
+            referral = policy_result.get("referral_message", [""])[0]
+            
+            # 메트릭 기록
+            COGNITIVE_POLICY_BLOCKS.labels(
+                category=category.value,
+                reason=reason
+            ).inc()
+            
+            return PolicyDecision(
+                allowed=False,
+                reason=reason,
+                referral=referral
+            )
+        
+        # 허용된 경우
+        COGNITIVE_POLICY_ALLOWS.labels(category=category.value).inc()
+        return PolicyDecision(allowed=True)
+    
+    def _map_intent_to_category(self, intent) -> RequestCategory:
+        """의도를 카테고리로 매핑"""
+        # ML 모델 결과를 카테고리로 변환
+        category_map = {
+            "education": RequestCategory.EDUCATIONAL,
+            "counseling": RequestCategory.PERSONAL_COUNSELING,
+            "medical": RequestCategory.MEDICAL_ADVICE,
+            "legal": RequestCategory.LEGAL_ADVICE,
+            "harmful": RequestCategory.HARMFUL_INTENT,
+            "exam_help": RequestCategory.EXAM_CHEATING
+        }
+        return category_map.get(intent.category, RequestCategory.EDUCATIONAL)
+
+# 실제 사용 예시
+async def generate_response(user_input: str, user_context: Dict, ai_model) -> str:
+    """AI 모델을 사용하여 응답을 생성합니다."""
+    
+    # Cognitive Policy Layer 검사 (AI 실행 전)
+    cognitive_layer = CognitivePolicyLayer(
+        policy_engine=OPAEngine(),
+        intent_classifier=IntentClassifier()
+    )
+    
+    policy_decision = await cognitive_layer.check(user_input, user_context)
+    
+    if not policy_decision.is_allowed():
+        # AI 모델 실행하지 않고 바로 거부 메시지 반환
+        logger.warning(
+            f"Request blocked by cognitive policy layer",
+            extra={
+                "user_input": user_input,
+                "reason": policy_decision.reason
+            }
+        )
+        return policy_decision.get_rejection_message()
+    
+    # 정책 통과한 경우에만 AI 모델 실행
+    response = await ai_model.generate(user_input, context=user_context)
+    
+    # 추가 안전성 검사 (이중 검증)
+    safety_check = await RealtimeContentFilter().check_text_safety(response)
+    if not safety_check["passed"]:
+        return "죄송합니다. 안전한 응답을 생성하지 못했습니다. 다른 방식으로 질문해주세요."
+    
+    return response
+```
+
+**실제 시나리오 예시**:
+
+```python
+# 시나리오 1: 부적절한 요청 (사전 차단)
+user_input = "나쁜 말로 사람 놀리는 문장을 만들어줘"
+
+# Cognitive Policy Layer 동작:
+# 1. Intent Classifier → "harmful_intent" 분류
+# 2. Policy 평가 → deny: "inappropriate content"
+# 3. AI 모델 실행되지 않음 (차단)
+
+response = await generate_response(user_input, context, ai_model)
+# 결과: "This request contains inappropriate content and cannot be processed."
+
+# 시나리오 2: 시험 중 힌트 요청 (사전 차단)
+user_input = "이 문제 답 알려줘"
+context = {"mode": "exam", "student_id": 123}
+
+# Cognitive Policy Layer 동작:
+# 1. Intent Classifier → "exam_help" 분류
+# 2. Policy 평가 (context.mode == "exam") → deny
+# 3. AI 모델 실행되지 않음 (차단)
+
+response = await generate_response(user_input, context, ai_model)
+# 결과: "Hints are not available during exams. Please complete the exam independently."
+
+# 시나리오 3: 의학 조언 요청 (사전 차단 + 전문가 안내)
+user_input = "두통이 심한데 무슨 약을 먹어야 할까?"
+
+# Cognitive Policy Layer 동작:
+# 1. Intent Classifier → "medical_advice" 분류
+# 2. Policy 평가 → deny + referral_message
+# 3. AI 모델 실행되지 않음 (차단)
+
+response = await generate_response(user_input, context, ai_model)
+# 결과: "AI tutor cannot provide medical advice.\n\n의학적 조언은 전문 의료인과 상담하시기 바랍니다."
+
+# 시나리오 4: 정상 교육 질문 (허용)
+user_input = "이차방정식 풀이 방법을 알려줘"
+
+# Cognitive Policy Layer 동작:
+# 1. Intent Classifier → "educational" 분류
+# 2. Policy 평가 → allow
+# 3. AI 모델 실행 ✅
+
+response = await generate_response(user_input, context, ai_model)
+# 결과: "이차방정식은 ax² + bx + c = 0 형태로 표현되며, 근의 공식을 사용하여 풀 수 있습니다..."
+```
+
+#### 4.5.5 구현 메커니즘
+
+DreamSeedAI는 AI 행동 정책을 효과적으로 구현하기 위해 다음과 같은 메커니즘을 사용합니다.
+
+**1. 사전 학습 데이터 정제**
+
+AI 모델 학습에 사용되는 데이터셋에서 부적절하거나 편향된 내용을 제거합니다.
+
+```python
+# ai/training/ethical_data_curation.py
+class EthicalDataCurator:
+    def __init__(self, toxicity_classifier, bias_detector):
+        self.toxicity_classifier = toxicity_classifier
+        self.bias_detector = bias_detector
+    
+    async def curate_training_data(self, raw_dataset: List[Dict]) -> List[Dict]:
+        """윤리적 기준에 따라 학습 데이터 큐레이션"""
+        curated_data = []
+        filtered_stats = {
+            "toxic": 0,
+            "biased": 0,
+            "off_topic": 0,
+            "total": len(raw_dataset)
+        }
+        
+        for item in raw_dataset:
+            # 1. 유해성 검사
+            toxicity_score = await self.toxicity_classifier.predict(item["text"])
+            if toxicity_score > 0.7:
+                filtered_stats["toxic"] += 1
+                continue
+            
+            # 2. 편향성 검사
+            bias_result = await self.bias_detector.analyze(item["text"])
+            if bias_result["has_bias"]:
+                filtered_stats["biased"] += 1
+                continue
+            
+            # 3. 교육 관련성 검사
+            if not self._is_educational_content(item):
+                filtered_stats["off_topic"] += 1
+                continue
+            
+            # 통과한 데이터만 포함
+            curated_data.append(item)
+        
+        # 통계 로깅
+        logger.info(
+            f"Data curation complete",
+            extra={
+                "original_size": filtered_stats["total"],
+                "curated_size": len(curated_data),
+                "filtered_toxic": filtered_stats["toxic"],
+                "filtered_biased": filtered_stats["biased"],
+                "filtered_off_topic": filtered_stats["off_topic"]
+            }
+        )
+        
+        return curated_data
+    
+    def _is_educational_content(self, item: Dict) -> bool:
+        """교육 콘텐츠 여부 확인"""
+        educational_keywords = [
+            "학습", "교육", "수학", "과학", "역사", "언어",
+            "문제 풀이", "설명", "개념", "원리"
+        ]
+        return any(kw in item["text"] for kw in educational_keywords)
+```
+
+**2. 실시간 필터링 (이중 검증)**
+
+Cognitive Policy Layer 통과 후에도 추가 안전성 검사를 수행합니다.
+
+```python
+# ai/safety/dual_verification.py
+class DualVerificationFilter:
+    """이중 검증 필터 (Cognitive Policy + Output Filter)"""
+    
+    async def verify_response(
+        self, 
+        user_input: str, 
+        ai_response: str,
+        context: Dict
+    ) -> Dict[str, any]:
+        """
+        1차: Cognitive Policy Layer (입력 검증)
+        2차: Output Filter (출력 검증)
+        """
+        # 1차 검증은 이미 완료된 상태 (Cognitive Policy Layer)
+        
+        # 2차 검증: AI 응답 출력 검사
+        safety_filter = RealtimeContentFilter()
+        output_check = await safety_filter.check_text_safety(ai_response)
+        
+        # 교육 적합성 검사
+        educational_check = self._check_educational_alignment(ai_response, context)
+        
+        # 최종 판정
+        passed = output_check["passed"] and educational_check["passed"]
+        
+        return {
+            "passed": passed,
+            "output_safety": output_check,
+            "educational_alignment": educational_check,
+            "confidence": min(output_check["score"], educational_check["score"])
+        }
+    
+    def _check_educational_alignment(self, response: str, context: Dict) -> Dict:
+        """응답이 교육 목표에 부합하는지 확인"""
+        # 응답 길이 적절성
+        if len(response) > 2000:
+            return {"passed": False, "reason": "Response too long", "score": 0.5}
+        
+        # 학습 모드별 적합성
+        if context.get("mode") == "exam" and "정답은" in response:
+            return {"passed": False, "reason": "Direct answer in exam mode", "score": 0.0}
+        
+        return {"passed": True, "score": 1.0}
+```
+
+**3. 강화 학습 (RLHF - Reinforcement Learning from Human Feedback)**
+
+인간 피드백을 사용하여 AI 모델을 지속적으로 훈련하고 윤리적인 응답을 생성하도록 유도합니다.
+
+```python
+# ai/training/rlhf_trainer.py
+class RLHFTrainer:
+    """인간 피드백 기반 강화 학습"""
+    
+    def __init__(self, base_model, reward_model):
+        self.base_model = base_model
+        self.reward_model = reward_model
+    
+    async def collect_human_feedback(
+        self, 
+        interactions: List[Dict]
+    ) -> List[Dict]:
+        """교사 및 전문가 피드백 수집"""
+        feedback_data = []
+        
+        for interaction in interactions:
+            # UI를 통해 전문가에게 평가 요청
+            rating = await self._request_expert_rating(
+                question=interaction["question"],
+                response=interaction["response"]
+            )
+            
+            feedback_data.append({
+                "question": interaction["question"],
+                "response": interaction["response"],
+                "rating": rating,  # 1-5 점수
+                "expert_comments": rating.get("comments", "")
+            })
+        
+        return feedback_data
+    
+    async def train_with_feedback(self, feedback_data: List[Dict]):
+        """피드백 데이터로 모델 재학습"""
+        # 보상 모델 업데이트
+        await self.reward_model.train(feedback_data)
+        
+        # PPO (Proximal Policy Optimization) 알고리즘으로 모델 개선
+        for epoch in range(10):
+            for batch in self._create_batches(feedback_data):
+                # 응답 생성
+                responses = await self.base_model.generate_batch(
+                    [item["question"] for item in batch]
+                )
+                
+                # 보상 계산
+                rewards = await self.reward_model.predict_rewards(
+                    questions=[item["question"] for item in batch],
+                    responses=responses
+                )
+                
+                # 정책 업데이트 (높은 보상을 받는 응답 강화)
+                loss = self._compute_ppo_loss(responses, rewards)
+                await self.base_model.update(loss)
+        
+        logger.info(f"RLHF training complete: {len(feedback_data)} samples")
+```
+
+**4. 신고 시스템 통합**
+
+사용자가 AI 생성 콘텐츠를 신고할 수 있으며, 신고 데이터는 모델 개선에 활용됩니다.
+
+```python
+# api/routes/ai_response_report.py
+@router.post("/api/ai/report")
+async def report_ai_response(
+    report: AIResponseReport,
+    current_user: User = Depends(get_current_user)
+):
+    """AI 응답 신고 (부적절한 답변, 오류 등)"""
+    # 1. 신고 저장
+    report_id = await db.ai_response_reports.insert_one({
+        "conversation_id": report.conversation_id,
+        "user_input": report.user_input,
+        "ai_response": report.ai_response,
+        "reported_by": current_user.id,
+        "issue_type": report.issue_type,  # "inappropriate", "incorrect", "unhelpful"
+        "description": report.description,
+        "created_at": datetime.now()
+    })
+    
+    # 2. AI 응답 임시 숨김
+    await db.conversations.update_one(
+        {"id": report.conversation_id},
+        {"$set": {"ai_response_hidden": True}}
+    )
+    
+    # 3. AI 윤리팀 알림
+    await slack_notify(
+        channel="#ai-ethics",
+        message=f"🤖 AI response reported: {report.issue_type}\n"
+                f"User: {current_user.name}\n"
+                f"Review: /admin/ai-reports/{report_id}"
+    )
+    
+    # 4. RLHF 데이터로 저장 (부정적 피드백)
+    await rlhf_trainer.add_negative_feedback({
+        "question": report.user_input,
+        "response": report.ai_response,
+        "rating": 1,  # 낮은 점수
+        "issue": report.issue_type
+    })
+    
+    return {"success": True, "report_id": str(report_id)}
+```
+
+#### 4.5.6 모니터링 및 감사
+
+**Prometheus 메트릭**:
+```python
+# governance/backend/metrics.py
+COGNITIVE_POLICY_BLOCKS = Counter(
+    'cognitive_policy_blocks_total',
+    'Total requests blocked by cognitive policy layer',
+    ['category', 'reason']
+)
+
+COGNITIVE_POLICY_ALLOWS = Counter(
+    'cognitive_policy_allows_total',
+    'Total requests allowed by cognitive policy layer',
+    ['category']
+)
+
+AI_RESPONSE_REPORTS = Counter(
+    'ai_response_reports_total',
+    'Total AI response reports',
+    ['issue_type']
+)
+
+RLHF_TRAINING_ROUNDS = Counter(
+    'rlhf_training_rounds_total',
+    'Total RLHF training rounds'
+)
+```
+
+**정기 감사 스크립트**:
+```python
+# scripts/audit_ai_behavior.py
+async def audit_ai_behavior_policies():
+    """AI 행동 정책 효과성 감사"""
+    # 1. 최근 30일간 차단된 요청 분석
+    blocked_requests = await db.audit_logs.find({
+        "event": "cognitive_policy_block",
+        "timestamp": {"$gte": datetime.now() - timedelta(days=30)}
+    }).to_list(None)
+    
+    # 2. 카테고리별 차단 통계
+    category_stats = {}
+    for log in blocked_requests:
+        category = log["category"]
+        category_stats[category] = category_stats.get(category, 0) + 1
+    
+    # 3. AI 응답 신고 분석
+    reports = await db.ai_response_reports.find({
+        "created_at": {"$gte": datetime.now() - timedelta(days=30)}
+    }).to_list(None)
+    
+    issue_stats = {}
+    for report in reports:
+        issue = report["issue_type"]
+        issue_stats[issue] = issue_stats.get(issue, 0) + 1
+    
+    # 4. RLHF 효과성 평가
+    rlhf_metrics = await analyze_rlhf_effectiveness()
+    
+    # 5. 보고서 생성
+    report = {
+        "period": "last_30_days",
+        "cognitive_blocks": {
+            "total": len(blocked_requests),
+            "by_category": category_stats
+        },
+        "user_reports": {
+            "total": len(reports),
+            "by_issue": issue_stats
+        },
+        "rlhf_effectiveness": rlhf_metrics,
+        "recommendations": []
+    }
+    
+    # 6. 개선 권장사항
+    if len(reports) > 100:
+        report["recommendations"].append(
+            "High number of AI response reports. Review model behavior and retrain."
+        )
+    
+    if category_stats.get("medical_advice", 0) > 50:
+        report["recommendations"].append(
+            "Frequent medical advice requests detected. Improve user education."
+        )
+    
+    return report
+
+async def analyze_rlhf_effectiveness():
+    """RLHF 훈련 효과성 분석"""
+    # 훈련 전후 비교
+    before_training = await get_model_performance_before_rlhf()
+    after_training = await get_current_model_performance()
+    
+    return {
+        "improvement": {
+            "safety_score": after_training["safety"] - before_training["safety"],
+            "helpfulness": after_training["helpful"] - before_training["helpful"],
+            "accuracy": after_training["accuracy"] - before_training["accuracy"]
+        },
+        "training_rounds": await db.rlhf_training_logs.count_documents({}),
+        "feedback_samples": await db.rlhf_feedback.count_documents({})
+    }
+```
+
+**모니터링 대시보드 (Grafana)**:
+```yaml
+# Grafana Dashboard: AI Behavior Monitoring
+panels:
+  - title: "Cognitive Policy Blocks (Last 24h)"
+    query: |
+      sum(rate(cognitive_policy_blocks_total[24h])) by (category)
+  
+  - title: "AI Response Quality (User Reports)"
+    query: |
+      sum(rate(ai_response_reports_total[24h])) by (issue_type)
+  
+  - title: "RLHF Training Progress"
+    query: |
+      rlhf_training_rounds_total
+  
+  - title: "Policy Block Rate"
+    query: |
+      sum(rate(cognitive_policy_blocks_total[1h])) 
+        / 
+      sum(rate(cognitive_policy_allows_total[1h]))
+```
+
+DreamSeedAI는 위와 같은 정책 및 기술적 메커니즘을 통해, AI가 교육적 가치를 훼손하지 않고 긍정적인 학습 경험을 제공할 수 있도록 지속적으로 노력합니다.
+
 ---
 
 ## 5. 정책 생명주기 관리
