@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# cSpell:ignore mirt
 from __future__ import annotations
 
 """Print row counts for key analytics tables.

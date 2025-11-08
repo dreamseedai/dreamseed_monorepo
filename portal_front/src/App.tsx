@@ -22,6 +22,7 @@ import USExamsAP from './pages/guides/USExamsAP';
 import USExamsACT from './pages/guides/USExamsACT';
 import USExamsOUAC from './pages/guides/USExamsOUAC';
 import TutorDashboard from './pages/TutorDashboard';
+import IrtDocsPage from './pages/admin/IrtDocsPage';
 
 export const App: React.FC = () => {
   const location = useLocation();
@@ -79,6 +80,9 @@ export const App: React.FC = () => {
   if (location.pathname === '/admin/expiring') {
     return <ExpiringListPage />;
   }
+  if (location.pathname === '/admin/irt/docs') {
+    return <IrtDocsPage />;
+  }
   if (location.pathname === '/login') {
     return (
       <div style={{ padding: 24 }}>
@@ -93,6 +97,12 @@ export const App: React.FC = () => {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <h1>DreamSeed Portal</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <a
+            href="/admin/irt/docs"
+            style={{ padding:'6px 10px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', textDecoration:'none', color:'#0f172a' }}
+          >
+            IRT 문서
+          </a>
           <button onClick={() => setOpsOpen(true)} style={{ padding:'6px 10px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#ffffff', cursor: 'pointer' }}>운영 작업</button>
           <UserStatus />
         </div>

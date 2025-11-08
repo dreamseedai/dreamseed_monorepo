@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: r-forecast-plumber
+  namespace: seedtest
+  labels:
+    app: r-forecast-plumber
+    component: analytics
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: r-forecast-plumber
+  template:
+    metadata:
+      labels:
+        app: r-forecast-plumber
+        component: analytics
+    spec:
+      serviceAccountName: seedtest-api
+      
+      containers:
+      - name: r-forecast-plumber
+        image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/r-forecast-plumber:latest
+        imagePullPolicy: Always
+        
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        
+        env:
+        - name: R_FORECAST_INTERNAL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: r-forecast-credentials
+              key: token
+              optional: true
+        
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "4000m"
+            memory: "8Gi"
+      
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - r-forecast-plumber
+              topologyKey: kubernetes.io/hostname

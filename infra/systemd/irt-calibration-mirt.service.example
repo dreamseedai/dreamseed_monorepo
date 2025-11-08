@@ -1,0 +1,28 @@
+[Unit]
+Description=Monthly IRT calibration job (mirt baseline)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/dreamseed
+Environment="PYTHONPATH=/opt/dreamseed"
+Environment="DATABASE_URL=postgresql://user:password@localhost:5432/dreamseed"
+ExecStart=/usr/bin/python3 -m shared.irt.calibrate_irt \
+    --database-url ${DATABASE_URL} \
+    --model 2PL \
+    --min-responses 30
+User=svc_dreamseed
+Group=svc_dreamseed
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/dreamseed/logs /tmp
+
+[Install]
+WantedBy=multi-user.target

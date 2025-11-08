@@ -1,0 +1,93 @@
+# cSpell:ignore prophet univprepai
+# One-time Job for manual Prophet forecasting
+# Usage: kubectl apply -f forecast-prophet-now.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: forecast-prophet-now
+  namespace: seedtest
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: seedtest-api
+      containers:
+        - name: forecast-prophet
+          image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:latest
+          imagePullPolicy: Always
+          workingDir: /app
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Cloud SQL Proxy to be ready..."
+              sleep 5
+              echo "Starting Prophet forecasting..."
+              echo "PYTHONPATH: $PYTHONPATH"
+              if [ -f "/app/apps/seedtest_api/jobs/forecast_prophet.py" ]; then
+                echo "Found /app/apps/seedtest_api/jobs/forecast_prophet.py, using apps path"
+                cd /app
+                python3 -m apps.seedtest_api.jobs.forecast_prophet \
+                  --lookback-weeks "${PROPHET_LOOKBACK_WEEKS:-12}" \
+                  --forecast-weeks "${PROPHET_FORECAST_WEEKS:-4}" \
+                  --anomaly-threshold "${PROPHET_ANOMALY_THRESHOLD:-2.5}"
+              elif [ -f "/app/seedtest_api/jobs/forecast_prophet.py" ]; then
+                echo "Found /app/seedtest_api/jobs/forecast_prophet.py, using seedtest_api path"
+                cd /app
+                python3 -m seedtest_api.jobs.forecast_prophet \
+                  --lookback-weeks "${PROPHET_LOOKBACK_WEEKS:-12}" \
+                  --forecast-weeks "${PROPHET_FORECAST_WEEKS:-4}" \
+                  --anomaly-threshold "${PROPHET_ANOMALY_THRESHOLD:-2.5}"
+              else
+                echo "Error: forecast_prophet.py not found"
+                exit 1
+              fi
+          env:
+            - name: PYTHONPATH
+              value: "/app:/app/apps"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-db-credentials
+                  key: DATABASE_URL
+                  optional: false
+            - name: R_FORECAST_BASE_URL
+              value: "http://r-forecast-plumber.seedtest.svc.cluster.local:80"
+            - name: R_FORECAST_TIMEOUT_SECS
+              value: "300"
+            - name: PROPHET_LOOKBACK_WEEKS
+              value: "12"
+            - name: PROPHET_FORECAST_WEEKS
+              value: "4"
+            - name: PROPHET_ANOMALY_THRESHOLD
+              value: "2.5"
+            - name: R_FORECAST_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: r-forecast-credentials
+                  key: token
+                  optional: true
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+          imagePullPolicy: IfNotPresent
+          args:
+            - --structured-logs
+            - --port=5432
+            - univprepai:asia-northeast3:seedtest-staging
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              ephemeral-storage: "1Gi"
+      terminationGracePeriodSeconds: 300
+

@@ -1,0 +1,114 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cluster-segments
+  namespace: seedtest
+  labels:
+    app: cluster-segments
+    component: analytics
+spec:
+  # 매월 1일, 15일 07:00 UTC (16:00 KST)
+  schedule: "0 7 1,15 * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    metadata:
+      labels:
+        app: cluster-segments
+        component: analytics
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: cluster-segments
+            component: analytics
+        spec:
+          restartPolicy: Never
+          serviceAccountName: seedtest-api
+          
+          containers:
+          - name: cluster-segments
+            image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:latest
+            imagePullPolicy: Always
+            workingDir: /app
+            
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Cloud SQL Proxy to be ready..."
+              sleep 5
+              echo "Starting clustering..."
+              echo "PYTHONPATH: $PYTHONPATH"
+              if [ -f "/app/apps/seedtest_api/jobs/cluster_segments.py" ]; then
+                echo "Found /app/apps/seedtest_api/jobs/cluster_segments.py, using apps path"
+                cd /app
+                python3 -m apps.seedtest_api.jobs.cluster_segments
+              elif [ -f "/app/seedtest_api/jobs/cluster_segments.py" ]; then
+                echo "Found /app/seedtest_api/jobs/cluster_segments.py, using seedtest_api path"
+                cd /app
+                python3 -m seedtest_api.jobs.cluster_segments
+              else
+                echo "Error: cluster_segments.py not found"
+                exit 1
+              fi
+            
+            env:
+            # Clustering parameters
+            - name: CLUSTER_LOOKBACK_WEEKS
+              value: "12"
+            - name: CLUSTER_N_CLUSTERS
+              value: ""  # Empty for auto-select
+            - name: CLUSTER_METHOD
+              value: "kmeans"
+            - name: CLUSTER_FEATURES
+              value: "engagement,improvement,efficiency,recovery,sessions,gap,avg_rt,avg_hints,total_attempts"
+            
+            # R Cluster service
+            - name: R_FORECAST_BASE_URL
+              value: "http://r-forecast-plumber.seedtest.svc.cluster.local:80"
+            - name: R_FORECAST_TIMEOUT_SECS
+              value: "300"
+            - name: R_FORECAST_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: r-forecast-credentials
+                  key: token
+                  optional: true
+            
+            # Database connection
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-db-credentials
+                  key: DATABASE_URL
+                  optional: false
+            
+            # Python path
+            - name: PYTHONPATH
+              value: "/app:/app/apps"
+            
+            resources:
+              requests:
+                cpu: "500m"
+                memory: "1Gi"
+              limits:
+                cpu: "2000m"
+                memory: "4Gi"
+          
+          # Cloud SQL Proxy sidecar
+          - name: cloud-sql-proxy
+            image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+            imagePullPolicy: IfNotPresent
+            args:
+            - --structured-logs
+            - --port=5432
+            - univprepai:asia-northeast3:seedtest-staging
+            resources:
+              requests:
+                cpu: "50m"
+                memory: "64Mi"
+              limits:
+                ephemeral-storage: "1Gi"

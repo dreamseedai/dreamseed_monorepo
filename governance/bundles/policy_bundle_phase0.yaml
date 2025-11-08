@@ -1,0 +1,41 @@
+version: "2025-11-07"
+bundle_id: "phase0"
+phase: 0
+
+rbac:
+  roles:
+    - name: admin
+      allows: ["*"]
+    - name: teacher
+      allows: ["*"]
+    - name: student
+      allows: ["*"]
+    - name: viewer
+      allows: ["*"]
+
+safety:
+  tutor:
+    allow_during_exam: true
+    disallow_topics: []
+    response_mode: "full"
+  content:
+    safety_score_threshold: 0.0
+
+privacy:
+  pii_redaction: false
+  external_llm_send_pii: true
+
+approvals:
+  rules: []
+
+feature_flags:
+  audit_logging: true
+  rbac_enforcement: false
+  content_safety_filter: false
+  teacher_approval_workflow: false
+  risk_engine: false
+  exam_pipeline: false
+  parent_portal: false
+
+org_overrides:
+  enabled: false

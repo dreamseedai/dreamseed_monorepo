@@ -1,0 +1,423 @@
+---
+title: "IRT Parameter Drift Report"
+subtitle: "`r format(Sys.Date(), '%B %Y')`"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    colorlinks: true
+    geometry: margin=1in
+    fontsize: 11pt
+  html:
+    toc: true
+    toc-location: left
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
+params:
+  run_id: "drift_20251104_160000"
+  db_url: "postgresql://user:pass@localhost/seedtest"
+  recent_window_id: 1
+  baseline_window_id: 2
+---
+
+```{r setup}
+#| include: false
+
+library(DBI)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+
+# Connect to database
+con <- dbConnect(RPostgres::Postgres(), params$db_url)
+
+# Load data
+calibrations <- tbl(con, "item_calibration") %>%
+  filter(run_id == params$run_id) %>%
+  collect()
+
+alerts <- tbl(con, "drift_alerts") %>%
+  filter(run_id == params$run_id) %>%
+  collect()
+
+items <- tbl(con, "items") %>%
+  collect()
+
+windows <- tbl(con, "drift_windows") %>%
+  filter(id %in% c(params$recent_window_id, params$baseline_window_id)) %>%
+  collect()
+```
+
+# Executive Summary
+
+**Run ID:** `r params$run_id`  
+**Analysis Period:** `r windows$start_at[windows$id == params$recent_window_id]` to `r windows$end_at[windows$id == params$recent_window_id]`  
+**Baseline Reference:** `r windows$start_at[windows$id == params$baseline_window_id]` to `r windows$end_at[windows$id == params$baseline_window_id]`
+
+```{r summary-stats}
+baseline_calib <- calibrations %>% filter(window_id == params$baseline_window_id)
+recent_calib <- calibrations %>% filter(window_id == params$recent_window_id)
+
+n_items_analyzed <- nrow(recent_calib)
+n_alerts <- nrow(alerts)
+n_severe <- sum(alerts$severity == "severe")
+n_moderate <- sum(alerts$severity == "moderate")
+n_anchors <- sum(items$is_anchor[items$id %in% recent_calib$item_id])
+```
+
+- **Items Analyzed:** `r n_items_analyzed`  
+- **Anchor Items:** `r n_anchors`  
+- **Total Alerts:** `r n_alerts` (`r n_severe` severe, `r n_moderate` moderate)  
+- **Items with Drift:** `r length(unique(alerts$item_id))`
+
+**Key Findings:**
+
+```{r key-findings}
+#| results: asis
+
+top_alerts <- alerts %>%
+  filter(severity %in% c("severe", "moderate")) %>%
+  arrange(desc(value)) %>%
+  head(5)
+
+if (nrow(top_alerts) > 0) {
+  cat("- **Top drift items:**\n")
+  for (i in 1:min(3, nrow(top_alerts))) {
+    cat(sprintf("  - Item %s: %s = %.3f (threshold: %.3f)\n", 
+                top_alerts$item_id[i], 
+                top_alerts$metric[i],
+                top_alerts$value[i],
+                top_alerts$threshold[i]))
+  }
+} else {
+  cat("- No severe or moderate drift detected.\n")
+}
+
+anchor_stability <- recent_calib %>%
+  inner_join(items, by = c("item_id" = "id")) %>%
+  filter(is_anchor == TRUE) %>%
+  inner_join(baseline_calib, by = "item_id", suffix = c("_recent", "_baseline")) %>%
+  mutate(delta_b = abs(b_hat_recent - b_hat_baseline))
+
+if (nrow(anchor_stability) > 0) {
+  cat(sprintf("\n- **Anchor stability:** Mean |Δb| = %.3f (max = %.3f)\n",
+              mean(anchor_stability$delta_b),
+              max(anchor_stability$delta_b)))
+}
+```
+
+# Anchor Item Stability
+
+Anchor items serve as the reference scale for equating. Stable anchors are critical for maintaining score comparability over time.
+
+```{r anchor-table}
+anchor_summary <- recent_calib %>%
+  inner_join(items, by = c("item_id" = "id")) %>%
+  filter(is_anchor == TRUE) %>%
+  inner_join(baseline_calib, by = "item_id", suffix = c("_recent", "_baseline")) %>%
+  mutate(
+    delta_a = a_hat_recent - a_hat_baseline,
+    delta_b = b_hat_recent - b_hat_baseline,
+    delta_c = c_hat_recent - c_hat_baseline,
+    ci_overlap_b = !(b_hat_recent < b_l95_baseline | b_hat_recent > b_u95_baseline)
+  ) %>%
+  select(item_id, delta_a, delta_b, delta_c, ci_overlap_b, n_recent)
+
+if (nrow(anchor_summary) > 0) {
+  anchor_summary %>%
+    kable(
+      digits = 3,
+      col.names = c("Item", "Δa", "Δb", "Δc", "CI Overlap", "n"),
+      caption = "Anchor Item Parameter Changes"
+    ) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+} else {
+  cat("*No anchor items in recent window.*\n")
+}
+```
+
+```{r anchor-plot, fig.width=8, fig.height=5}
+#| fig-cap: "Anchor item difficulty drift (Δb) with 95% credible intervals"
+
+if (nrow(anchor_summary) > 0) {
+  anchor_summary %>%
+    arrange(desc(abs(delta_b))) %>%
+    head(20) %>%
+    ggplot(aes(x = reorder(item_id, delta_b), y = delta_b)) +
+    geom_hline(yintercept = c(-0.25, 0.25), linetype = "dashed", color = "red", alpha = 0.5) +
+    geom_point(size = 3, color = "steelblue") +
+    coord_flip() +
+    labs(
+      title = "Anchor Item Difficulty Drift",
+      x = "Item ID",
+      y = "Δb (recent - baseline)",
+      caption = "Red lines: ±0.25 threshold"
+    ) +
+    theme_minimal()
+}
+```
+
+# Parameter Drift Overview
+
+## Discrimination (a) Changes
+
+```{r delta-a-hist, fig.width=7, fig.height=4}
+#| fig-cap: "Distribution of discrimination parameter changes"
+
+drift_summary <- recent_calib %>%
+  inner_join(baseline_calib, by = "item_id", suffix = c("_recent", "_baseline")) %>%
+  mutate(
+    delta_a = a_hat_recent - a_hat_baseline,
+    delta_b = b_hat_recent - b_hat_baseline,
+    delta_c = c_hat_recent - c_hat_baseline
+  )
+
+ggplot(drift_summary, aes(x = delta_a)) +
+  geom_histogram(bins = 30, fill = "steelblue", alpha = 0.7) +
+  geom_vline(xintercept = c(-0.2, 0.2), linetype = "dashed", color = "red") +
+  labs(
+    title = "Discrimination Parameter Drift (Δa)",
+    x = "Δa",
+    y = "Count",
+    caption = "Red lines: ±0.2 threshold"
+  ) +
+  theme_minimal()
+```
+
+## Difficulty (b) Changes
+
+```{r delta-b-hist, fig.width=7, fig.height=4}
+#| fig-cap: "Distribution of difficulty parameter changes"
+
+ggplot(drift_summary, aes(x = delta_b)) +
+  geom_histogram(bins = 30, fill = "forestgreen", alpha = 0.7) +
+  geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "red") +
+  labs(
+    title = "Difficulty Parameter Drift (Δb)",
+    x = "Δb",
+    y = "Count",
+    caption = "Red lines: ±0.25 threshold"
+  ) +
+  theme_minimal()
+```
+
+## Guessing (c) Changes
+
+```{r delta-c-hist, fig.width=7, fig.height=4}
+#| fig-cap: "Distribution of guessing parameter changes"
+
+ggplot(drift_summary, aes(x = delta_c)) +
+  geom_histogram(bins = 30, fill = "orange", alpha = 0.7) +
+  geom_vline(xintercept = 0.03, linetype = "dashed", color = "red") +
+  labs(
+    title = "Guessing Parameter Drift (Δc)",
+    x = "Δc",
+    y = "Count",
+    caption = "Red line: +0.03 threshold"
+  ) +
+  theme_minimal()
+```
+
+# Information Function Analysis
+
+Item information at different θ levels indicates measurement precision. Monitoring changes ensures consistent test reliability.
+
+```{r info-function}
+info_data <- recent_calib %>%
+  filter(!is.na(info)) %>%
+  mutate(
+    info_mean = sapply(info, function(x) jsonlite::fromJSON(x)$mean),
+    info_max = sapply(info, function(x) jsonlite::fromJSON(x)$max),
+    theta_at_max = sapply(info, function(x) jsonlite::fromJSON(x)$theta_at_max)
+  )
+
+if (nrow(info_data) > 0) {
+  cat("**Information Function Summary (Recent Window)**\n\n")
+  
+  info_summary <- info_data %>%
+    summarise(
+      mean_info = mean(info_mean, na.rm = TRUE),
+      median_max_info = median(info_max, na.rm = TRUE),
+      mean_theta_at_max = mean(theta_at_max, na.rm = TRUE)
+    )
+  
+  cat(sprintf("- Mean information across items: %.2f\n", info_summary$mean_info))
+  cat(sprintf("- Median max information: %.2f\n", info_summary$median_max_info))
+  cat(sprintf("- Average θ at max info: %.2f\n", info_summary$mean_theta_at_max))
+}
+```
+
+```{r info-plot, fig.width=8, fig.height=5}
+#| fig-cap: "Maximum item information distribution"
+
+if (nrow(info_data) > 0) {
+  ggplot(info_data, aes(x = info_max)) +
+    geom_histogram(bins = 30, fill = "purple", alpha = 0.6) +
+    labs(
+      title = "Item Maximum Information Distribution",
+      x = "Max Information",
+      y = "Count"
+    ) +
+    theme_minimal()
+}
+```
+
+# Drift Alerts
+
+## Alert Summary by Severity
+
+```{r alert-summary}
+alert_counts <- alerts %>%
+  group_by(severity) %>%
+  summarise(count = n()) %>%
+  arrange(match(severity, c("severe", "moderate", "minor")))
+
+alert_counts %>%
+  kable(
+    col.names = c("Severity", "Count"),
+    caption = "Drift Alerts by Severity"
+  ) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## Top Drift Items
+
+Items with the largest parameter changes requiring attention:
+
+```{r top-drift}
+top_drift <- alerts %>%
+  filter(severity %in% c("severe", "moderate")) %>%
+  arrange(desc(value)) %>%
+  head(20) %>%
+  left_join(items, by = c("item_id" = "id")) %>%
+  select(item_id, metric, value, threshold, severity, is_anchor)
+
+top_drift %>%
+  kable(
+    digits = 3,
+    col.names = c("Item", "Metric", "Value", "Threshold", "Severity", "Anchor"),
+    caption = "Top 20 Drift Alerts (Severe/Moderate)"
+  ) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+# DIF Analysis
+
+Differential Item Functioning (DIF) indicates whether items perform differently across demographic groups, which may signal bias or drift in specific populations.
+
+```{r dif-analysis}
+dif_items <- recent_calib %>%
+  filter(!is.na(dif)) %>%
+  mutate(
+    dif_parsed = lapply(dif, function(x) {
+      tryCatch(jsonlite::fromJSON(x), error = function(e) NULL)
+    })
+  ) %>%
+  filter(!sapply(dif_parsed, is.null))
+
+if (nrow(dif_items) > 0) {
+  cat("**DIF detected in", nrow(dif_items), "items.**\n\n")
+  
+  # Extract DIF metrics (example: gender)
+  dif_summary <- dif_items %>%
+    mutate(
+      gender_dif = sapply(dif_parsed, function(x) {
+        if ("gender" %in% names(x)) {
+          max(sapply(x$gender, function(g) abs(g$delta_b)))
+        } else NA
+      })
+    ) %>%
+    filter(!is.na(gender_dif)) %>%
+    arrange(desc(gender_dif)) %>%
+    head(10)
+  
+  dif_summary %>%
+    select(item_id, gender_dif, n) %>%
+    kable(
+      digits = 3,
+      col.names = c("Item", "Max Gender Δb", "n"),
+      caption = "Top 10 Items with Gender DIF"
+    ) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"))
+} else {
+  cat("*No DIF analysis results available for this run.*\n")
+}
+```
+
+# Recommendations
+
+```{r recommendations}
+#| results: asis
+
+severe_items <- alerts %>%
+  filter(severity == "severe") %>%
+  pull(item_id) %>%
+  unique()
+
+moderate_items <- alerts %>%
+  filter(severity == "moderate") %>%
+  pull(item_id) %>%
+  unique()
+
+cat("## Immediate Actions\n\n")
+
+if (length(severe_items) > 0) {
+  cat("**Severe Drift (Immediate Attention Required):**\n\n")
+  cat(sprintf("- %d items flagged for severe drift.\n", length(severe_items)))
+  cat("- **Action:** Temporarily remove from CAT exposure or reduce selection weight.\n")
+  cat("- **Items:**", paste(head(severe_items, 10), collapse = ", "), "\n")
+  if (length(severe_items) > 10) {
+    cat("  *(", length(severe_items) - 10, "more items not shown)*\n")
+  }
+  cat("\n")
+} else {
+  cat("- No severe drift alerts.\n\n")
+}
+
+if (length(moderate_items) > 0) {
+  cat("**Moderate Drift (Monitor Closely):**\n\n")
+  cat(sprintf("- %d items flagged for moderate drift.\n", length(moderate_items)))
+  cat("- **Action:** Adjust exposure weights; schedule re-calibration.\n")
+  cat("- **Items:**", paste(head(moderate_items, 10), collapse = ", "), "\n\n")
+} else {
+  cat("- No moderate drift alerts.\n\n")
+}
+
+cat("## Anchor Management\n\n")
+
+unstable_anchors <- recent_calib %>%
+  inner_join(items, by = c("item_id" = "id")) %>%
+  filter(is_anchor == TRUE) %>%
+  inner_join(baseline_calib, by = "item_id", suffix = c("_recent", "_baseline")) %>%
+  mutate(delta_b = abs(b_hat_recent - b_hat_baseline)) %>%
+  filter(delta_b > 0.15)
+
+if (nrow(unstable_anchors) > 0) {
+  cat(sprintf("- %d anchor items show drift > 0.15.\n", nrow(unstable_anchors)))
+  cat("- **Action:** Review anchor set; consider replacing unstable anchors.\n")
+  cat("- **Items:**", paste(unstable_anchors$item_id, collapse = ", "), "\n\n")
+} else {
+  cat("- All anchor items are stable.\n\n")
+}
+
+cat("## Next Review\n\n")
+cat("- Schedule next drift analysis in **30 days** or sooner if deployment changes occur.\n")
+cat("- Monitor CAT exposure rates for flagged items.\n")
+cat("- Review quarterly baseline window update.\n")
+```
+
+---
+
+**Report Generated:** `r Sys.time()`  
+**Database:** `r params$db_url`  
+**Contact:** analytics@dreamseed.ai
+
+```{r cleanup}
+#| include: false
+dbDisconnect(con)
+```

@@ -1,0 +1,125 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: irt-drift-monitor
+  namespace: seedtest-prod
+  labels:
+    app: seedtest-api
+    component: drift-monitor
+    version: v1-frequentist
+spec:
+  # Monthly execution: 1st day of month at 02:00 UTC
+  schedule: "0 2 1 * *"
+  
+  # Keep last 3 successful jobs and 1 failed job for debugging
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  
+  # Don't start a new job if previous one is still running
+  concurrencyPolicy: Forbid
+  
+  # Allow 2 hours for completion before considering failed
+  startingDeadlineSeconds: 7200
+  
+  jobTemplate:
+    metadata:
+      labels:
+        app: seedtest-api
+        component: drift-monitor
+    spec:
+      # Allow 2 hours for job completion
+      activeDeadlineSeconds: 7200
+      
+      # Don't retry on failure (manual intervention required)
+      backoffLimit: 0
+      
+      template:
+        metadata:
+          labels:
+            app: seedtest-api
+            component: drift-monitor
+        spec:
+          restartPolicy: Never
+          
+          # Service account with database access
+          serviceAccountName: seedtest-api
+          
+          containers:
+          - name: drift-monitor
+            image: gcr.io/dreamseed/seedtest-api:latest
+            imagePullPolicy: Always
+            
+            command:
+              - python
+              - -m
+              - apps.seedtest_api.jobs.irt_drift_monitor
+              - --recent-days
+              - "30"
+              - --min-sample
+              - "200"
+            
+            env:
+              # Database connection
+              - name: DATABASE_URL
+                valueFrom:
+                  secretKeyRef:
+                    name: seedtest-db-credentials
+                    key: connection-url
+              
+              # R IRT service endpoint
+              - name: R_IRT_PLUMBER_URL
+                value: "http://r-irt-plumber:8000"
+              
+              # Drift thresholds
+              - name: DRIFT_THRESHOLD_DELTA_B
+                value: "0.25"
+              - name: DRIFT_THRESHOLD_DELTA_A
+                value: "0.20"
+              - name: DRIFT_THRESHOLD_DELTA_C
+                value: "0.03"
+              
+              # Logging
+              - name: LOG_LEVEL
+                value: "INFO"
+              - name: PYTHONUNBUFFERED
+                value: "1"
+            
+            resources:
+              requests:
+                memory: "2Gi"
+                cpu: "1000m"
+              limits:
+                memory: "4Gi"
+                cpu: "2000m"
+            
+            # Health check: if container exits with error, pod fails
+            livenessProbe:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - "ps aux | grep -v grep | grep -q python"
+              initialDelaySeconds: 30
+              periodSeconds: 60
+              timeoutSeconds: 5
+              failureThreshold: 3
+          
+          # Tolerate node taints for batch jobs
+          tolerations:
+          - key: "workload"
+            operator: "Equal"
+            value: "batch"
+            effect: "NoSchedule"
+          
+          # Prefer batch nodes if available
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
+                  - key: workload
+                    operator: In
+                    values:
+                    - batch
+                    - compute

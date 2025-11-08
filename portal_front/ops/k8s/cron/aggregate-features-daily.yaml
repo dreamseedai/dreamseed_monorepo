@@ -1,0 +1,63 @@
+# cSpell:ignore univprepai LOOKBACK
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: aggregate-features-daily
+  namespace: seedtest
+spec:
+  schedule: "25 2 * * *" # daily at 02:25 UTC (runs after compute-daily-kpis at ~02:10)
+  concurrencyPolicy: Forbid # prevent overlapping runs
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: seedtest-api
+          containers:
+            - name: aggregate-features-daily
+              image: gcr.io/univprepai/seedtest-api:latest
+              imagePullPolicy: Always
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "Waiting for Cloud SQL Proxy to be ready..."
+                  sleep 5
+                  python3 -m seedtest_api.jobs.aggregate_features_daily
+              env:
+                - name: AGG_LOOKBACK_DAYS
+                  value: "7"
+                - name: AGG_INCLUDE_THETA
+                  value: "true"
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-db-credentials
+                      key: DATABASE_URL
+                      optional: false
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "200m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "1000m"
+            - name: cloud-sql-proxy
+              image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+              imagePullPolicy: IfNotPresent
+              args:
+                - --structured-logs
+                - --port=5432
+                - univprepai:asia-northeast3:seedtest-staging
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  ephemeral-storage: "1Gi"
+          # Timeout after 2 hours
+          terminationGracePeriodSeconds: 300
+

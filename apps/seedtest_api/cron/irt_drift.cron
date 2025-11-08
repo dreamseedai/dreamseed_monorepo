@@ -1,0 +1,17 @@
+# IRT Drift Monitoring Cron Job Configuration
+# Schedule monthly drift detection runs
+
+# Monthly drift detection (1st of each month at 2 AM)
+0 2 1 * * cd /app && python -m apps.seedtest_api.jobs.irt_drift --recent-days 30 --backend pymc --dif-groups gender grade >> /var/log/irt_drift.log 2>&1
+
+# Weekly drift detection (for high-deployment scenarios, every Monday at 3 AM)
+# 0 3 * * 1 cd /app && python -m apps.seedtest_api.jobs.irt_drift --recent-days 7 --backend pymc >> /var/log/irt_drift_weekly.log 2>&1
+
+# Quarterly baseline window update (1st of Jan/Apr/Jul/Oct at 1 AM)
+# 0 1 1 1,4,7,10 * cd /app && python -m apps.seedtest_api.jobs.update_baseline_window >> /var/log/baseline_update.log 2>&1
+
+# Generate monthly Quarto report (1st of each month at 6 AM, after drift detection completes)
+0 6 1 * * cd /app/apps/reports && quarto render irt_drift_report.qmd --execute-params run_id=$(cat /tmp/latest_drift_run_id.txt) --output-dir /app/data/reports/drift && aws s3 sync /app/data/reports/drift s3://dreamseed-reports/irt-drift/ >> /var/log/drift_report.log 2>&1
+
+# Anchor quality check (bi-weekly, Monday at 4 AM)
+# 0 4 */14 * 1 cd /app && python -m apps.seedtest_api.jobs.check_anchor_quality >> /var/log/anchor_check.log 2>&1

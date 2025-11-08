@@ -1,0 +1,174 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: seedtest-api-alerts
+  namespace: seedtest
+  labels:
+    app: seedtest-api
+    prometheus: kube-prometheus
+spec:
+  groups:
+    - name: seedtest-api-availability
+      interval: 30s
+      rules:
+        - alert: SeedTestAPIDown
+          expr: up{job="seedtest-api"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: api
+          annotations:
+            summary: "SeedTest API is down"
+            description: "SeedTest API has been down for more than 2 minutes."
+            
+        - alert: SeedTestAPIHighLatency
+          expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="seedtest-api"}[5m])) > 1
+          for: 5m
+          labels:
+            severity: warning
+            component: api
+          annotations:
+            summary: "SeedTest API high latency"
+            description: "95th percentile latency is above 1 second for 5 minutes."
+            
+        - alert: SeedTestAPIHighErrorRate
+          expr: rate(http_requests_total{job="seedtest-api",status=~"5.."}[5m]) / rate(http_requests_total{job="seedtest-api"}[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            component: api
+          annotations:
+            summary: "SeedTest API high error rate"
+            description: "Error rate is above 5% for 5 minutes."
+
+    - name: seedtest-api-governance
+      interval: 30s
+      rules:
+        - alert: GovernanceHighDenyRate
+          expr: rate(policy_deny_total{job="seedtest-api"}[5m]) / rate(policy_evaluations_total{job="seedtest-api"}[5m]) > 0.3
+          for: 10m
+          labels:
+            severity: warning
+            component: governance
+          annotations:
+            summary: "High policy denial rate"
+            description: "Policy denial rate is above 30% for 10 minutes. Phase: {{ $labels.phase }}, Action: {{ $labels.action }}"
+            
+        - alert: GovernanceBundleReloadFailure
+          expr: rate(governance_bundle_reload_total{job="seedtest-api",status="failure"}[5m]) > 0
+          for: 2m
+          labels:
+            severity: critical
+            component: governance
+          annotations:
+            summary: "Governance bundle reload failure"
+            description: "Governance bundle reload has failed. Bundle: {{ $labels.bundle_id }}, Phase: {{ $labels.phase }}"
+            
+        - alert: GovernanceBundleNotLoaded
+          expr: governance_bundle_loaded{job="seedtest-api"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: governance
+          annotations:
+            summary: "Governance bundle not loaded"
+            description: "Governance bundle is not loaded. Bundle: {{ $labels.bundle_id }}, Phase: {{ $labels.phase }}"
+
+    - name: seedtest-api-irt-drift
+      interval: 1m
+      rules:
+        - alert: IRTDriftDetectionFailure
+          expr: rate(irt_drift_detections_total{job="seedtest-api",status="failure"}[10m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: irt-drift
+          annotations:
+            summary: "IRT drift detection failure"
+            description: "IRT drift detection has failed in the last 10 minutes."
+            
+        - alert: IRTDriftHighFlaggedItems
+          expr: irt_drift_flagged_items{job="seedtest-api"} > 100
+          for: 10m
+          labels:
+            severity: warning
+            component: irt-drift
+          annotations:
+            summary: "High number of flagged items in IRT drift"
+            description: "Number of flagged items is {{ $value }}, which is above threshold of 100."
+            
+        - alert: IRTDriftDetectionSlow
+          expr: histogram_quantile(0.95, rate(irt_drift_detection_duration_seconds_bucket{job="seedtest-api"}[10m])) > 300
+          for: 10m
+          labels:
+            severity: warning
+            component: irt-drift
+          annotations:
+            summary: "IRT drift detection is slow"
+            description: "95th percentile detection duration is {{ $value }}s, which is above 300s threshold."
+
+    - name: seedtest-api-database
+      interval: 30s
+      rules:
+        - alert: DatabaseHighErrorRate
+          expr: rate(db_errors_total{job="seedtest-api"}[5m]) > 1
+          for: 5m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "High database error rate"
+            description: "Database error rate is above 1 error/sec for 5 minutes. Error type: {{ $labels.error_type }}"
+            
+        - alert: DatabaseSlowQueries
+          expr: histogram_quantile(0.95, rate(db_query_duration_seconds_bucket{job="seedtest-api"}[5m])) > 5
+          for: 10m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "Slow database queries"
+            description: "95th percentile query duration is {{ $value }}s for query type: {{ $labels.query_type }}"
+            
+        - alert: DatabaseHighConnectionUsage
+          expr: db_connections_active{job="seedtest-api"} > 80
+          for: 10m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "High database connection usage"
+            description: "Active database connections ({{ $value }}) is above 80."
+
+    - name: seedtest-api-resources
+      interval: 30s
+      rules:
+        - alert: PodHighCPU
+          expr: rate(container_cpu_usage_seconds_total{namespace="seedtest",pod=~"seedtest-api-.*"}[5m]) > 0.8
+          for: 10m
+          labels:
+            severity: warning
+            component: resources
+          annotations:
+            summary: "Pod high CPU usage"
+            description: "Pod {{ $labels.pod }} CPU usage is above 80% for 10 minutes."
+            
+        - alert: PodHighMemory
+          expr: container_memory_working_set_bytes{namespace="seedtest",pod=~"seedtest-api-.*"} / container_spec_memory_limit_bytes{namespace="seedtest",pod=~"seedtest-api-.*"} > 0.85
+          for: 10m
+          labels:
+            severity: warning
+            component: resources
+          annotations:
+            summary: "Pod high memory usage"
+            description: "Pod {{ $labels.pod }} memory usage is above 85% for 10 minutes."
+            
+        - alert: PodRestartingFrequently
+          expr: rate(kube_pod_container_status_restarts_total{namespace="seedtest",pod=~"seedtest-api-.*"}[1h]) > 3
+          for: 5m
+          labels:
+            severity: critical
+            component: resources
+          annotations:
+            summary: "Pod restarting frequently"
+            description: "Pod {{ $labels.pod }} has restarted more than 3 times in the last hour."

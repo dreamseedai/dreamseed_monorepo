@@ -1,0 +1,116 @@
+# cSpell:ignore univprepai
+# One-time Job for weekly report generation (manual trigger)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: generate-weekly-report-now
+  namespace: seedtest
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: seedtest-api
+      containers:
+        - name: generate-weekly-report
+          image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-report-runner:latest
+          imagePullPolicy: Always
+          workingDir: /app
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Cloud SQL Proxy to be ready..."
+              sleep 5
+              echo "Starting weekly report generation..."
+              echo "PYTHONPATH: $PYTHONPATH"
+              echo "USER_ID: $USER_ID"
+              echo "WEEK_START: $WEEK_START"
+              echo "REPORT_FORMAT: $REPORT_FORMAT"
+              
+              # Find the report generation script
+              if [ -f "/app/apps/seedtest_api/jobs/generate_weekly_report.py" ]; then
+                echo "Found /app/apps/seedtest_api/jobs/generate_weekly_report.py"
+                cd /app
+                if [ -n "$USER_ID" ] && [ -n "$WEEK_START" ]; then
+                  python3 -m apps.seedtest_api.jobs.generate_weekly_report --user "$USER_ID" --week "$WEEK_START"
+                else
+                  echo "Error: USER_ID and WEEK_START must be set"
+                  exit 1
+                fi
+              elif [ -f "/app/seedtest_api/jobs/generate_weekly_report.py" ]; then
+                echo "Found /app/seedtest_api/jobs/generate_weekly_report.py"
+                cd /app
+                if [ -n "$USER_ID" ] && [ -n "$WEEK_START" ]; then
+                  python3 -m seedtest_api.jobs.generate_weekly_report --user "$USER_ID" --week "$WEEK_START"
+                else
+                  echo "Error: USER_ID and WEEK_START must be set"
+                  exit 1
+                fi
+              elif [ -f "/app/generate_weekly_report.py" ]; then
+                echo "Found /app/generate_weekly_report.py (standalone)"
+                if [ -n "$USER_ID" ] && [ -n "$WEEK_START" ]; then
+                  python3 /app/generate_weekly_report.py --user "$USER_ID" --week "$WEEK_START"
+                else
+                  echo "Error: USER_ID and WEEK_START must be set"
+                  exit 1
+                fi
+              else
+                echo "Error: generate_weekly_report.py not found"
+                find /app -name "*generate*report*" -type f | head -5
+                exit 1
+              fi
+          env:
+            - name: PYTHONPATH
+              value: "/app"
+            - name: USER_ID
+              value: ""  # Optional: Set to generate report for specific user
+            - name: WEEK_START
+              value: "2025-10-27"  # Week start date (YYYY-MM-DD format)
+            - name: REPORT_FORMAT
+              value: "pdf"  # pdf or html
+            - name: S3_BUCKET
+              value: "seedtest-reports"
+            - name: AWS_REGION
+              value: "ap-northeast-2"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-db-credentials
+                  key: DATABASE_URL
+                  optional: false
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-credentials
+                  key: AWS_ACCESS_KEY_ID
+                  optional: true
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-credentials
+                  key: AWS_SECRET_ACCESS_KEY
+                  optional: true
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1000m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+          imagePullPolicy: IfNotPresent
+          args:
+            - --structured-logs
+            - --port=5432
+            - univprepai:asia-northeast3:seedtest-staging
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              ephemeral-storage: "1Gi"
+      terminationGracePeriodSeconds: 600
+

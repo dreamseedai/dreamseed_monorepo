@@ -1,0 +1,347 @@
+---
+# ==============================================================================
+# PyMC Bayesian IRT Calibration - Monthly CronJob
+# ==============================================================================
+# Schedule: Monthly on the 3rd at 4 AM (after mirt and brms runs)
+# Resources: Moderate (1-2 CPU, 4-8Gi memory for PyMC NUTS sampler)
+#
+# Usage:
+#   kubectl apply -f irt-calibration-pymc-monthly.yaml
+#   kubectl get cronjobs irt-calibration-pymc-monthly -n seedtest
+#   kubectl create job --from=cronjob/irt-calibration-pymc-monthly pymc-test-$(date +%s) -n seedtest
+# ==============================================================================
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: irt-calibration-pymc-monthly
+  namespace: seedtest
+  labels:
+    app: irt-calibration
+    method: pymc
+    schedule: monthly
+spec:
+  # Run monthly on the 3rd at 4:00 AM KST (after mirt at 2 AM and brms at 3 AM)
+  schedule: "0 4 3 * *"
+  timeZone: "Asia/Seoul"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 7200  # 2 hour timeout (PyMC usually faster than brms)
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: irt-calibration
+            method: pymc
+        spec:
+          restartPolicy: Never
+          
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          
+          containers:
+          - name: pymc-calibration
+            image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/python-pymc-irt:latest
+            imagePullPolicy: Always
+            
+            command: ["/bin/bash"]
+            args:
+              - -c
+              - |
+                set -euo pipefail
+                
+                echo "=================================================="
+                echo "PyMC Bayesian IRT Calibration - Monthly"
+                echo "Start time: $(date -Iseconds)"
+                echo "=================================================="
+                
+                # Parse DATABASE_URL
+                DB_HOST=$(echo $DATABASE_URL | sed -E 's|.*@([^:/]+).*|\1|')
+                DB_PORT=$(echo $DATABASE_URL | sed -E 's|.*:([0-9]+)/.*|\1|')
+                DB_NAME=$(echo $DATABASE_URL | sed -E 's|.*/([^?]+).*|\1|')
+                DB_USER=$(echo $DATABASE_URL | sed -E 's|.*://([^:]+):.*|\1|')
+                DB_PASS=$(echo $DATABASE_URL | sed -E 's|.*://[^:]+:([^@]+)@.*|\1|')
+                
+                # Run PyMC calibration
+                python -m shared.irt.calibrate_monthly_pymc \
+                  --database-url "$DATABASE_URL" \
+                  --window-label "${WINDOW_LABEL}" \
+                  --min-responses ${MIN_RESPONSES} \
+                  --samples ${MCMC_SAMPLES} \
+                  --tune ${MCMC_TUNE} \
+                  --chains ${MCMC_CHAINS} \
+                  --target-accept ${TARGET_ACCEPT} \
+                  --drift-threshold-b ${DRIFT_THRESHOLD_B} \
+                  --drift-threshold-a ${DRIFT_THRESHOLD_A}
+                
+                echo ""
+                echo "=================================================="
+                echo "PyMC calibration completed successfully"
+                echo "End time: $(date -Iseconds)"
+                echo "=================================================="
+            
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-db-credentials
+                  key: url
+            
+            - name: WINDOW_LABEL
+              value: ""  # Empty = auto-generate for previous month
+            
+            - name: MIN_RESPONSES
+              value: "200"
+            
+            - name: MCMC_SAMPLES
+              value: "1000"  # Post-warmup samples
+            
+            - name: MCMC_TUNE
+              value: "1000"  # Warmup/tuning samples
+            
+            - name: MCMC_CHAINS
+              value: "4"
+            
+            - name: TARGET_ACCEPT
+              value: "0.9"  # NUTS target acceptance (higher = more accurate but slower)
+            
+            - name: DRIFT_THRESHOLD_B
+              value: "0.25"
+            
+            - name: DRIFT_THRESHOLD_A
+              value: "0.2"
+            
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            
+            resources:
+              requests:
+                memory: "4Gi"
+                cpu: "1000m"
+              limits:
+                memory: "8Gi"
+                cpu: "2000m"
+            
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false  # PyMC needs temp cache
+              capabilities:
+                drop:
+                - ALL
+            
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: pymc-cache
+              mountPath: /home/nonroot/.pymc
+          
+          volumes:
+          - name: tmp
+            emptyDir:
+              sizeLimit: 2Gi
+          - name: pymc-cache
+            emptyDir:
+              sizeLimit: 1Gi
+
+---
+# ==============================================================================
+# Manual Job Template (for testing or re-running specific months)
+# ==============================================================================
+# Usage:
+#   kubectl apply -f irt-calibration-pymc-manual.yaml
+#   kubectl logs -f -l app=irt-calibration,method=pymc,run=manual -n seedtest
+# ==============================================================================
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: irt-calibration-pymc-manual
+  namespace: seedtest
+  labels:
+    app: irt-calibration
+    method: pymc
+    run: manual
+spec:
+  activeDeadlineSeconds: 7200
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: irt-calibration
+        method: pymc
+        run: manual
+    spec:
+      restartPolicy: Never
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      
+      containers:
+      - name: pymc-calibration
+        image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/python-pymc-irt:latest
+        imagePullPolicy: Always
+        
+        command: ["/bin/bash"]
+        args:
+          - -c
+          - |
+            set -euo pipefail
+            
+            echo "Manual PyMC Calibration"
+            echo "Window: ${WINDOW_LABEL}"
+            echo "Min responses: ${MIN_RESPONSES}"
+            echo "MCMC config: samples=${MCMC_SAMPLES}, tune=${MCMC_TUNE}, chains=${MCMC_CHAINS}"
+            
+            CMD="python -m shared.irt.calibrate_monthly_pymc \
+              --database-url \"$DATABASE_URL\" \
+              --min-responses ${MIN_RESPONSES} \
+              --samples ${MCMC_SAMPLES} \
+              --tune ${MCMC_TUNE} \
+              --chains ${MCMC_CHAINS} \
+              --target-accept ${TARGET_ACCEPT} \
+              --drift-threshold-b ${DRIFT_THRESHOLD_B} \
+              --drift-threshold-a ${DRIFT_THRESHOLD_A}"
+            
+            if [ -n "${WINDOW_LABEL}" ]; then
+              CMD="$CMD --window-label \"${WINDOW_LABEL}\""
+            fi
+            
+            eval $CMD
+        
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: seedtest-db-credentials
+              key: url
+        
+        # Customize these for manual runs
+        - name: WINDOW_LABEL
+          value: "2025-10 monthly"  # Set specific month or empty for auto
+        
+        - name: MIN_RESPONSES
+          value: "200"
+        
+        - name: MCMC_SAMPLES
+          value: "2000"  # Increase for final production runs
+        
+        - name: MCMC_TUNE
+          value: "1000"
+        
+        - name: MCMC_CHAINS
+          value: "4"
+        
+        - name: TARGET_ACCEPT
+          value: "0.95"  # Higher for better accuracy
+        
+        - name: DRIFT_THRESHOLD_B
+          value: "0.25"
+        
+        - name: DRIFT_THRESHOLD_A
+          value: "0.2"
+        
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        
+        resources:
+          requests:
+            memory: "6Gi"
+            cpu: "2000m"
+          limits:
+            memory: "12Gi"
+            cpu: "4000m"
+        
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+        
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: pymc-cache
+          mountPath: /home/nonroot/.pymc
+      
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 2Gi
+      - name: pymc-cache
+        emptyDir:
+          sizeLimit: 1Gi
+
+---
+# ==============================================================================
+# Dockerfile Template for python-pymc-irt Image
+# ==============================================================================
+# Build with:
+#   docker build -t asia-northeast3-docker.pkg.dev/univprepai/seedtest/python-pymc-irt:latest -f Dockerfile.python-pymc .
+#   docker push asia-northeast3-docker.pkg.dev/univprepai/seedtest/python-pymc-irt:latest
+#
+# Test locally:
+#   docker run --rm -e DATABASE_URL=... python-pymc-irt:latest python -m shared.irt.calibrate_monthly_pymc --help
+# ==============================================================================
+# FROM python:3.11-slim
+# 
+# # Install system dependencies
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     libpq-dev \
+#     gcc \
+#     g++ \
+#     && rm -rf /var/lib/apt/lists/*
+# 
+# # Create non-root user
+# RUN useradd -m -u 10001 -s /bin/bash nonroot
+# 
+# # Set working directory
+# WORKDIR /app
+# 
+# # Copy requirements first (for caching)
+# COPY requirements-pymc.txt .
+# 
+# # Install Python dependencies
+# RUN pip install --no-cache-dir -r requirements-pymc.txt
+# 
+# # Copy application code
+# COPY shared/ shared/
+# 
+# # Set ownership
+# RUN chown -R nonroot:nonroot /app
+# 
+# # Create cache directories
+# RUN mkdir -p /home/nonroot/.pymc && chown -R nonroot:nonroot /home/nonroot
+# 
+# # Switch to non-root user
+# USER nonroot
+# 
+# # Python path
+# ENV PYTHONPATH=/app
+# ENV PYTHONUNBUFFERED=1
+# 
+# # Default command
+# CMD ["python", "-m", "shared.irt.calibrate_monthly_pymc", "--help"]
+# ==============================================================================
+
+---
+# ==============================================================================
+# requirements-pymc.txt
+# ==============================================================================
+# pymc>=5.10.0
+# arviz>=0.18.0
+# numpy>=1.24.0
+# pandas>=2.0.0
+# sqlalchemy>=2.0.0
+# psycopg2-binary>=2.9.0
+# click>=8.1.0
+# ==============================================================================

@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 const APP_VERSION = (globalThis as any)?.process?.env?.APP_VERSION || Date.now().toString();
 
@@ -7,6 +8,12 @@ export default defineConfig({
   plugins: [react()],
   define: {
     __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@/shared': path.resolve(__dirname, '../shared'),
+    },
   },
   server: {
     host: '0.0.0.0',
@@ -25,5 +32,3 @@ export default defineConfig({
     port: 5172
   }
 });
-
-

@@ -1,0 +1,57 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: seedtest-api-netpol
+  namespace: seedtest
+  labels:
+    app: seedtest-api
+    governance: enabled
+spec:
+  podSelector:
+    matchLabels:
+      app: seedtest-api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # 1) 같은 네임스페이스 내에서 접근 허용 (기본 내부 통신)
+    - from:
+        - podSelector: {}     # same-namespace pods
+      ports:
+        - protocol: TCP
+          port: 8000
+    # 2) monitoring 네임스페이스의 Prometheus 스크레이핑 허용
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    # 1) 같은 네임스페이스 내부 통신 허용
+    - to:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8000
+    # 2) DNS 허용 (CoreDNS가 kube-system 네임스페이스에 있는 경우)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # 3) (필요 시) 외부 API 호출/인터넷 통신이 필요하다면 아래를 열어주세요
+    # - to:
+    #     - ipBlock:
+    #         cidr: 0.0.0.0/0
+    #   ports:
+    #     - protocol: TCP
+    #       port: 443

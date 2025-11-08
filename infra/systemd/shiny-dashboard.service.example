@@ -1,0 +1,39 @@
+[Unit]
+Description=Shiny Admin Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=shiny
+Group=shiny
+WorkingDirectory=/srv/dreamseed/portal_front/dashboard
+
+# Environment configuration
+Environment="DATASET_ROOT=/data/analytics"
+Environment="R_LIBS_USER=/srv/dreamseed/R/library"
+
+# Production: bind to localhost only (nginx reverse proxy required)
+ExecStart=/usr/bin/Rscript -e "shiny::runApp('.', host='127.0.0.1', port=8080)"
+
+# Restart policy
+Restart=always
+RestartSec=10s
+
+# Resource limits (adjust based on data volume)
+MemoryMax=4G
+CPUQuota=200%
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data/analytics /tmp
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=shiny-dashboard
+
+[Install]
+WantedBy=multi-user.target

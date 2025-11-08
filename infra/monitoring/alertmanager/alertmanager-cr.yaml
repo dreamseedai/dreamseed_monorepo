@@ -1,0 +1,51 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Alertmanager
+metadata:
+  name: main
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  replicas: 1
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Secret 마운트: Slack Webhook
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Prometheus Operator가 자동으로 /etc/alertmanager/secrets/<secret-name>/에 마운트
+  secrets:
+    - alertmanager-secrets       # Slack webhook URL
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 리소스 설정 (선택 사항)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  resources:
+    requests:
+      memory: "200Mi"
+      cpu: "100m"
+    limits:
+      memory: "500Mi"
+      cpu: "200m"
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 스토리지 (선택 사항)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 외부 접근 (선택 사항)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # externalUrl: https://alertmanager.example.com
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 로그 설정 (선택 사항)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  logLevel: info
+  logFormat: logfmt
