@@ -185,6 +185,7 @@ run*.sh
 !backend/risk_pipeline/scripts/*.sh
 # Allow documentation files
 !docs/*.md
+!docs/**/*.md
 
 # System files
 systemd-*.service
