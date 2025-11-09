@@ -157,7 +157,7 @@ admin/lib/
 # API files
 api/
 portal_api/
-backend/
+# backend/ - governance 관련 코드 추적 필요
 apps/
 
 # Allow tracking SeedTest API app (override ignores)
@@ -203,6 +203,10 @@ requirements*.txt
 !mock_api.py
 # Allow tracking shared library Python files
 !shared/**/*.py
+# Allow tracking ops scripts
+!ops/scripts/**/*.py
+# Allow tracking backend (governance) Python files
+!backend/**/*.py
 
 # HTML test files
 *test*.html
@@ -367,6 +371,8 @@ index*.html
 # Test files
 *test*
 *_test.*
+# Allow tracking ops test scripts
+!ops/scripts/test_*.py
 
 # HTML files (except main ones)
 *.html
