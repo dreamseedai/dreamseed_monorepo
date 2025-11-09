@@ -18,6 +18,7 @@
 ## Overview
 
 This guide covers building production-ready FastAPI microservices with:
+
 - **Clean Architecture**: Domain-driven design with clear layers
 - **Dependency Injection**: Using FastAPI's DI system
 - **Type Safety**: Pydantic models for validation
@@ -141,12 +142,12 @@ async def lifespan(app: FastAPI):
         "service": "assessment",
         "version": settings.VERSION
     })
-    
+
     # Initialize metrics
     setup_metrics(app)
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Assessment Service")
 
@@ -181,13 +182,13 @@ async def add_organization_context(request: Request, call_next):
     """Set organization context for RLS"""
     # Extract organization from JWT token
     org_id = request.state.organization_id if hasattr(request.state, "organization_id") else None
-    
+
     if org_id:
         # Set PostgreSQL session variable for RLS
         db = next(get_db())
         db.execute(f"SET app.current_organization_id = '{org_id}'")
         db.commit()
-    
+
     response = await call_next(request)
     return response
 
@@ -227,36 +228,36 @@ from typing import List
 
 class Settings(BaseSettings):
     """Application settings (from environment variables)"""
-    
+
     # App
     APP_NAME: str = "assessment-service"
     VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"  # development, staging, production
     DEBUG: bool = False
-    
+
     # Database
     DATABASE_URL: str
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 40
-    
+
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     CACHE_TTL: int = 3600  # 1 hour
-    
+
     # Security
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
-    
+
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
-    
+
     # Kafka
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
-    
+
     # OPA (Policy Engine)
     OPA_URL: str = "http://opa:8181"
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -314,7 +315,7 @@ import uuid
 class BaseModel(Base):
     """Base model with common fields"""
     __abstract__ = True
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -333,21 +334,21 @@ from app.models.base import BaseModel
 class Assessment(BaseModel):
     """Assessment (test session) model"""
     __tablename__ = "assessments"
-    
+
     organization_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    
+
     # CAT configuration
     model_type = Column(String(10), nullable=False)  # '1PL', '2PL', '3PL'
     max_items = Column(Integer, default=30)
     target_se = Column(Numeric(4, 3), default=0.3)
-    
+
     # Results
     ability_estimate = Column(Numeric(5, 3))
     standard_error = Column(Numeric(5, 3))
     items_administered = Column(Integer, default=0)
     status = Column(String(20), default="in_progress")  # in_progress, completed, abandoned
-    
+
     # Relationships
     student = relationship("User", back_populates="assessments")
     responses = relationship("Response", back_populates="assessment", cascade="all, delete-orphan")
@@ -356,16 +357,16 @@ class Assessment(BaseModel):
 class Response(BaseModel):
     """Student response to an item"""
     __tablename__ = "responses"
-    
+
     organization_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     assessment_id = Column(UUID(as_uuid=True), ForeignKey("assessments.id"), nullable=False)
     item_id = Column(UUID(as_uuid=True), ForeignKey("items.id"), nullable=False)
-    
+
     response_value = Column(String(255))  # Student's answer
     is_correct = Column(Boolean)
     response_time_ms = Column(Integer)    # Time to answer (milliseconds)
     ability_estimate = Column(Numeric(5, 3))  # Ability after this item
-    
+
     # Relationships
     assessment = relationship("Assessment", back_populates="responses")
     item = relationship("Item")
@@ -400,7 +401,7 @@ class AssessmentResponse(BaseModel):
     items_administered: int
     status: str
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -434,24 +435,24 @@ from app.repositories.base import BaseRepository
 
 class AssessmentRepository(BaseRepository[Assessment]):
     """Repository for Assessment operations"""
-    
+
     def __init__(self, db: Session):
         super().__init__(Assessment, db)
-    
+
     def get_by_student(self, student_id: UUID, status: Optional[str] = None) -> List[Assessment]:
         """Get assessments by student"""
         query = self.db.query(Assessment).filter(Assessment.student_id == student_id)
         if status:
             query = query.filter(Assessment.status == status)
         return query.order_by(Assessment.created_at.desc()).all()
-    
+
     def get_active_assessment(self, student_id: UUID) -> Optional[Assessment]:
         """Get active (in-progress) assessment for student"""
         return self.db.query(Assessment).filter(
             Assessment.student_id == student_id,
             Assessment.status == "in_progress"
         ).first()
-    
+
     def update_ability_estimate(self, assessment_id: UUID, ability: float, se: float) -> Assessment:
         """Update ability estimate and standard error"""
         assessment = self.get(assessment_id)
@@ -465,10 +466,10 @@ class AssessmentRepository(BaseRepository[Assessment]):
 
 class ResponseRepository(BaseRepository[Response]):
     """Repository for Response operations"""
-    
+
     def __init__(self, db: Session):
         super().__init__(Response, db)
-    
+
     def get_by_assessment(self, assessment_id: UUID) -> List[Response]:
         """Get all responses for an assessment"""
         return self.db.query(Response).filter(
@@ -494,20 +495,20 @@ from app.schemas.assessment import AssessmentCreate, ItemResponse
 
 class AssessmentService:
     """Business logic for assessments"""
-    
+
     def __init__(self, db: Session):
         self.db = db
         self.assessment_repo = AssessmentRepository(db)
         self.response_repo = ResponseRepository(db)
         self.cat_engine = CATEngine()
-    
+
     def create_assessment(self, data: AssessmentCreate, organization_id: UUID) -> Assessment:
         """Create new assessment"""
         # Check if student has active assessment
         active = self.assessment_repo.get_active_assessment(data.student_id)
         if active:
             raise ValueError(f"Student {data.student_id} already has an active assessment")
-        
+
         assessment = Assessment(
             organization_id=organization_id,
             student_id=data.student_id,
@@ -517,31 +518,31 @@ class AssessmentService:
             status="in_progress"
         )
         return self.assessment_repo.create(assessment)
-    
+
     def get_next_item(self, assessment_id: UUID) -> Tuple[UUID, float]:
         """Get next item using CAT algorithm"""
         assessment = self.assessment_repo.get(assessment_id)
         responses = self.response_repo.get_by_assessment(assessment_id)
-        
+
         # Get current ability estimate
         if not responses:
             # Initial ability estimate (neutral)
             current_ability = 0.0
         else:
             current_ability = assessment.ability_estimate
-        
+
         # Get administered item IDs
         administered_ids = [r.item_id for r in responses]
-        
+
         # Select next item using CAT engine
         next_item_id, information = self.cat_engine.select_next_item(
             current_ability=current_ability,
             administered_items=administered_ids,
             organization_id=assessment.organization_id
         )
-        
+
         return next_item_id, information
-    
+
     def submit_response(
         self,
         assessment_id: UUID,
@@ -550,14 +551,14 @@ class AssessmentService:
     ) -> Tuple[float, float, bool]:
         """Submit item response and update ability estimate"""
         assessment = self.assessment_repo.get(assessment_id)
-        
+
         # Score the response
         is_correct = self._score_response(data.item_id, data.response_value)
-        
+
         # Get all responses including this one
         responses = self.response_repo.get_by_assessment(assessment_id)
         response_pattern = [r.is_correct for r in responses] + [is_correct]
-        
+
         # Estimate ability using IRT
         irt_model = IRTModel(model_type=assessment.model_type)
         ability, se = irt_model.estimate_ability(
@@ -565,7 +566,7 @@ class AssessmentService:
             item_ids=[r.item_id for r in responses] + [data.item_id],
             organization_id=organization_id
         )
-        
+
         # Save response
         response = Response(
             organization_id=organization_id,
@@ -577,18 +578,18 @@ class AssessmentService:
             ability_estimate=ability
         )
         self.response_repo.create(response)
-        
+
         # Update assessment
         assessment = self.assessment_repo.update_ability_estimate(assessment_id, ability, se)
-        
+
         # Check stopping criteria
         is_finished = self._check_stopping_criteria(assessment)
         if is_finished:
             assessment.status = "completed"
             self.db.commit()
-        
+
         return ability, se, is_finished
-    
+
     def _score_response(self, item_id: UUID, response_value: str) -> bool:
         """Score a response (check if correct)"""
         # TODO: Implement actual scoring logic
@@ -597,17 +598,17 @@ class AssessmentService:
         item_repo = ItemRepository(self.db)
         item = item_repo.get(item_id)
         return response_value == item.correct_answer
-    
+
     def _check_stopping_criteria(self, assessment: Assessment) -> bool:
         """Check if assessment should stop"""
         # Stop if max items reached
         if assessment.items_administered >= assessment.max_items:
             return True
-        
+
         # Stop if standard error below target
         if assessment.standard_error and assessment.standard_error <= assessment.target_se:
             return True
-        
+
         return False
 ```
 
@@ -643,7 +644,7 @@ def create_assessment(
 ):
     """Create a new assessment"""
     service = AssessmentService(db)
-    
+
     try:
         assessment = service.create_assessment(data, organization_id)
         return assessment
@@ -660,10 +661,10 @@ def get_assessment(
     """Get assessment by ID"""
     service = AssessmentService(db)
     assessment = service.assessment_repo.get(assessment_id)
-    
+
     if not assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
-    
+
     return assessment
 
 
@@ -675,15 +676,15 @@ def get_next_item(
 ):
     """Get next item for assessment (CAT algorithm)"""
     service = AssessmentService(db)
-    
+
     try:
         item_id, information = service.get_next_item(assessment_id)
-        
+
         # Fetch item details
         from app.repositories.item import ItemRepository
         item_repo = ItemRepository(db)
         item = item_repo.get(item_id)
-        
+
         return NextItemResponse(
             item_id=item.id,
             content=item.content,
@@ -704,10 +705,10 @@ def submit_response(
 ):
     """Submit response to an item"""
     service = AssessmentService(db)
-    
+
     try:
         ability, se, is_finished = service.submit_response(assessment_id, data, organization_id)
-        
+
         return {
             "ability_estimate": ability,
             "standard_error": se,
@@ -738,7 +739,7 @@ def get_current_user(
 ) -> dict:
     """Validate JWT token and return user info"""
     token = credentials.credentials
-    
+
     try:
         payload = jwt.decode(
             token,
@@ -751,7 +752,7 @@ def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials"
             )
-        
+
         return {
             "user_id": UUID(user_id),
             "organization_id": UUID(payload.get("org_id")),
@@ -811,7 +812,7 @@ def client(db):
             yield db
         finally:
             db.close()
-    
+
     app.dependency_overrides[get_db] = override_get_db
     yield TestClient(app)
     app.dependency_overrides.clear()
@@ -822,7 +823,7 @@ def test_user(db):
     """Create test user"""
     from app.models.user import User
     import uuid
-    
+
     user = User(
         id=uuid.uuid4(),
         organization_id=uuid.uuid4(),
@@ -845,11 +846,11 @@ from app.core.irt.models import IRTModel
 def test_1pl_probability():
     """Test 1PL IRT probability calculation"""
     model = IRTModel(model_type="1PL")
-    
+
     # Test at theta = 0, difficulty = 0 (should be 0.5)
     prob = model.probability(theta=0.0, difficulty=0.0)
     assert abs(prob - 0.5) < 0.01
-    
+
     # Test at theta = 1, difficulty = 0 (should be > 0.5)
     prob = model.probability(theta=1.0, difficulty=0.0)
     assert prob > 0.5
@@ -858,12 +859,12 @@ def test_1pl_probability():
 def test_ability_estimation():
     """Test MLE ability estimation"""
     model = IRTModel(model_type="2PL")
-    
+
     # Perfect score should give high ability
     responses = [True] * 10
     difficulties = [0.0] * 10
     discriminations = [1.0] * 10
-    
+
     ability, se = model.estimate_ability_mle(responses, difficulties, discriminations)
     assert ability > 2.0
     assert se < 0.5
@@ -884,7 +885,7 @@ def test_create_assessment(client, test_user):
         },
         headers={"Authorization": f"Bearer {generate_test_token(test_user)}"}
     )
-    
+
     assert response.status_code == 201
     data = response.json()
     assert data["student_id"] == str(test_user.id)
@@ -937,4 +938,4 @@ CMD alembic upgrade head && \
 
 ---
 
-*Last Updated: November 9, 2025*
+_Last Updated: November 9, 2025_

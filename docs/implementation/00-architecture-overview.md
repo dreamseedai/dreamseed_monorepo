@@ -146,16 +146,16 @@ graph TB
 
 ### Service Breakdown
 
-| Service | Responsibility | Technology | Database | Cache |
-|---------|---------------|------------|----------|-------|
-| **Auth Service** | JWT tokens, OAuth 2.0, OIDC, social login | FastAPI | PostgreSQL | Redis |
-| **User Service** | User profiles, class assignments, roles | FastAPI | PostgreSQL | Redis |
-| **Content Service** | Item bank, standards, versioning | FastAPI | PostgreSQL + pgvector | Redis |
-| **Assessment Service** | IRT models, CAT algorithm, scoring | FastAPI | PostgreSQL | Redis |
-| **AI Tutor Service** | LLM integration, RAG, conversations | FastAPI | PostgreSQL + pgvector | Redis |
-| **Analytics Service** | Learning analytics, reports (Quarto) | FastAPI | PostgreSQL | Redis |
-| **Payment Service** | Stripe subscriptions, licenses | FastAPI | PostgreSQL | Redis |
-| **Integration Service** | LTI 1.3, LMS connectivity | FastAPI | PostgreSQL | Redis |
+| Service                 | Responsibility                            | Technology | Database              | Cache |
+| ----------------------- | ----------------------------------------- | ---------- | --------------------- | ----- |
+| **Auth Service**        | JWT tokens, OAuth 2.0, OIDC, social login | FastAPI    | PostgreSQL            | Redis |
+| **User Service**        | User profiles, class assignments, roles   | FastAPI    | PostgreSQL            | Redis |
+| **Content Service**     | Item bank, standards, versioning          | FastAPI    | PostgreSQL + pgvector | Redis |
+| **Assessment Service**  | IRT models, CAT algorithm, scoring        | FastAPI    | PostgreSQL            | Redis |
+| **AI Tutor Service**    | LLM integration, RAG, conversations       | FastAPI    | PostgreSQL + pgvector | Redis |
+| **Analytics Service**   | Learning analytics, reports (Quarto)      | FastAPI    | PostgreSQL            | Redis |
+| **Payment Service**     | Stripe subscriptions, licenses            | FastAPI    | PostgreSQL            | Redis |
+| **Integration Service** | LTI 1.3, LMS connectivity                 | FastAPI    | PostgreSQL            | Redis |
 
 ---
 
@@ -269,6 +269,7 @@ Jaeger: v1.52
 **Decision**: Use FastAPI for all backend services.
 
 **Rationale**:
+
 - **Performance**: ASGI-based, 3-5x faster than Flask
 - **Async/Await**: Native async support for I/O-bound operations (DB, Redis, OpenAI API)
 - **Type Safety**: Pydantic models provide runtime validation
@@ -276,10 +277,12 @@ Jaeger: v1.52
 - **Modern**: Python 3.11+ with latest features
 
 **Alternatives Considered**:
+
 - **Django**: Too heavy, sync-first, ORM lock-in
 - **Flask**: Sync-only, lacks native validation
 
 **Consequences**:
+
 - ✅ Better performance for real-time CAT
 - ✅ Type-safe API contracts
 - ⚠️ Team learning curve (async programming)
@@ -295,6 +298,7 @@ Jaeger: v1.52
 **Decision**: Single PostgreSQL instance with Row-Level Security (RLS) policies per organization.
 
 **Rationale**:
+
 - **Security**: Database-enforced isolation (cannot be bypassed by application bugs)
 - **Cost**: One database instance vs hundreds
 - **Maintenance**: Single schema migration
@@ -302,17 +306,20 @@ Jaeger: v1.52
 - **Compliance**: FERPA/GDPR compliant by design
 
 **Alternatives Considered**:
+
 - **Schema-per-tenant**: Complex migrations, connection pooling issues
 - **Database-per-tenant**: Expensive, hard to maintain
 - **Application-level filtering**: Error-prone, not truly secure
 
 **Consequences**:
+
 - ✅ Strong security guarantees
 - ✅ Lower infrastructure costs
 - ⚠️ Must set `app.current_organization_id` on every request
 - ⚠️ Cross-tenant analytics require special handling
 
 **Implementation**:
+
 ```sql
 -- Enable RLS on all tenant tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -333,6 +340,7 @@ CREATE POLICY org_isolation ON users
 **Decision**: Use Apache Kafka for event streaming, Celery with RabbitMQ for task queue.
 
 **Rationale**:
+
 - **Durability**: Kafka retains events (configurable retention)
 - **Audit Log**: Immutable event log for compliance
 - **Replay**: Can replay events for debugging or data recovery
@@ -340,17 +348,20 @@ CREATE POLICY org_isolation ON users
 - **Ecosystem**: Strong Python support (kafka-python, confluent-kafka)
 
 **Alternatives Considered**:
+
 - **RabbitMQ**: Better for task queue, but messages are ephemeral
 - **Redis Streams**: Simpler, but less mature ecosystem
 - **AWS SQS**: Vendor lock-in, higher latency
 
 **Consequences**:
+
 - ✅ Complete audit trail
 - ✅ Event sourcing capabilities
 - ⚠️ Additional operational complexity (Kafka cluster)
 - ⚠️ Higher memory usage
 
 **Usage Pattern**:
+
 - **Kafka**: Audit logs, user events, data changes (immutable)
 - **Celery + RabbitMQ**: Background tasks (report generation, emails)
 
@@ -365,6 +376,7 @@ CREATE POLICY org_isolation ON users
 **Decision**: Use pgvector extension in PostgreSQL.
 
 **Rationale**:
+
 - **Simplicity**: Single database (PostgreSQL) for both structured and vector data
 - **Cost**: No external SaaS fees
 - **Performance**: HNSW index provides fast approximate nearest neighbor search
@@ -372,17 +384,20 @@ CREATE POLICY org_isolation ON users
 - **Open Source**: No vendor lock-in
 
 **Alternatives Considered**:
+
 - **Pinecone**: SaaS, expensive at scale ($70-$700/month)
 - **Weaviate**: Separate database to maintain
 - **FAISS**: In-memory only, no persistence
 
 **Consequences**:
+
 - ✅ Lower operational costs
 - ✅ Simplified architecture
 - ⚠️ Limited to ~1M vectors (for now, can scale with read replicas)
 - ⚠️ Must manage PostgreSQL extensions
 
 **Implementation**:
+
 ```sql
 -- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -417,6 +432,7 @@ LIMIT 10;
 **Decision**: Use Quarto (with R/Python support) for report generation.
 
 **Rationale**:
+
 - **Flexibility**: Mix R, Python, SQL in one document
 - **Templates**: Reusable templates with parameters
 - **Output Formats**: PDF, HTML, Word, PowerPoint
@@ -424,18 +440,21 @@ LIMIT 10;
 - **Modern**: Actively developed (successor to R Markdown)
 
 **Alternatives Considered**:
+
 - **LaTeX**: Steep learning curve, hard to maintain
 - **ReportLab (Python)**: Programmatic, but less flexible for complex layouts
 - **WeasyPrint**: HTML to PDF, but limited statistical support
 
 **Consequences**:
+
 - ✅ Beautiful statistical reports
 - ✅ Reproducible research
 - ⚠️ Requires R installation (Docker image: `quarto/quarto:latest`)
 - ⚠️ Slower rendering (5-30 seconds per report)
 
 **Example Quarto Template**:
-```qmd
+
+````qmd
 ---
 title: "Student Learning Report"
 format: pdf
@@ -459,7 +478,7 @@ query = f"""
     AND created_at BETWEEN '{params['start_date']}' AND '{params['end_date']}'
 """
 df = pd.read_sql(query, engine)
-```
+````
 
 ```{python}
 import matplotlib.pyplot as plt
@@ -469,7 +488,8 @@ plt.ylabel('Ability Estimate')
 plt.title('Learning Trajectory')
 plt.show()
 ```
-```
+
+````
 
 ---
 
@@ -554,7 +574,7 @@ def create_refresh_token(user_id: str) -> str:
         "type": "refresh"
     }
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-```
+````
 
 ---
 
@@ -567,22 +587,26 @@ def create_refresh_token(user_id: str) -> str:
 **Decision**: Use monorepo with pnpm workspaces (frontend) and Python namespace packages (backend).
 
 **Rationale**:
+
 - **Code Sharing**: Shared libraries (Pydantic models, utilities) across services
 - **Atomic Changes**: Cross-service changes in one PR
 - **Consistent Tooling**: Single CI/CD, linting, formatting
 - **Developer Experience**: Clone once, see everything
 
 **Alternatives Considered**:
+
 - **Multi-Repo**: Harder to share code, versioning hell
 - **Microrepo per service**: Too many repositories
 
 **Consequences**:
+
 - ✅ Easier refactoring
 - ✅ Single source of truth
 - ⚠️ Larger repository size
 - ⚠️ Need sparse checkout for CI/CD (only build changed services)
 
 **Structure**:
+
 ```
 dreamseed_monorepo/
 ├── services/
@@ -698,13 +722,13 @@ def get_item_parameters(item_id: str):
     cached = redis.get(f"item:{item_id}")
     if cached:
         return json.loads(cached)
-    
+
     # Fetch from DB
     params = _fetch_from_db(item_id)
-    
+
     # Store in L2 cache (1 hour TTL)
     redis.setex(f"item:{item_id}", 3600, json.dumps(params))
-    
+
     return params
 ```
 
@@ -781,12 +805,12 @@ WHERE organization_id = current_setting('app.current_organization_id')::uuid;
 ```yaml
 # Namespace organization
 namespaces:
-  - production          # Production services
-  - staging             # Staging environment
-  - monitoring          # Prometheus, Grafana
-  - logging             # ELK stack
-  - kafka               # Kafka cluster
-  - databases           # PostgreSQL, Redis
+  - production # Production services
+  - staging # Staging environment
+  - monitoring # Prometheus, Grafana
+  - logging # ELK stack
+  - kafka # Kafka cluster
+  - databases # PostgreSQL, Redis
 ```
 
 ### Service Deployment Pattern
@@ -810,37 +834,37 @@ spec:
         version: v1.2.3
     spec:
       containers:
-      - name: assessment
-        image: gcr.io/dreamseed/assessment:v1.2.3
-        ports:
-        - containerPort: 8000
-        env:
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: postgres-credentials
-              key: url
-        - name: REDIS_URL
-          value: "redis://redis:6379/0"
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "100m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 10
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8000
-          initialDelaySeconds: 5
-          periodSeconds: 10
+        - name: assessment
+          image: gcr.io/dreamseed/assessment:v1.2.3
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: url
+            - name: REDIS_URL
+              value: "redis://redis:6379/0"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
@@ -851,8 +875,8 @@ spec:
   selector:
     app: assessment-service
   ports:
-  - port: 80
-    targetPort: 8000
+    - port: 80
+      targetPort: 8000
   type: ClusterIP
 ---
 apiVersion: autoscaling/v2
@@ -868,18 +892,18 @@ spec:
   minReplicas: 3
   maxReplicas: 20
   metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
 ```
 
 ### CI/CD Pipeline
@@ -892,38 +916,38 @@ on:
   push:
     branches: [main]
     paths:
-      - 'services/assessment/**'
+      - "services/assessment/**"
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Run tests
         run: |
           cd services/assessment
           python -m pytest
-      
+
       - name: Build Docker image
         run: |
           docker build -t gcr.io/dreamseed/assessment:${{ github.sha }} \
             -f services/assessment/Dockerfile .
-      
+
       - name: Push to registry
         run: |
           docker push gcr.io/dreamseed/assessment:${{ github.sha }}
-      
+
       - name: Deploy to staging
         run: |
           kubectl set image deployment/assessment-service \
             assessment=gcr.io/dreamseed/assessment:${{ github.sha }} \
             -n staging
-      
+
       - name: Run smoke tests
         run: |
           ./scripts/smoke-test.sh staging
-      
+
       - name: Deploy to production (manual approval)
         if: github.event.review.state == 'approved'
         run: |
@@ -970,7 +994,7 @@ uvicorn main:app --reload --port 8001
 
 ```yaml
 # docker-compose.yml
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -1023,5 +1047,5 @@ volumes:
 
 ---
 
-*Last Updated: November 9, 2025*
-*Version: 1.0.0*
+_Last Updated: November 9, 2025_
+_Version: 1.0.0_

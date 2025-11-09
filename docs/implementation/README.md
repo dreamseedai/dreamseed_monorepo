@@ -72,6 +72,7 @@ uvicorn main:app --reload
 ### First Service (30 minutes)
 
 Follow the [**FastAPI Microservices Guide**](./01-fastapi-microservices.md) to:
+
 1. Create your first service skeleton
 2. Implement health checks and basic endpoints
 3. Add database models and migrations
@@ -86,16 +87,17 @@ Follow the [**FastAPI Microservices Guide**](./01-fastapi-microservices.md) to:
 
 **Goal**: Core platform functionality with basic adaptive testing
 
-| Week | Component | Status | Guide |
-|------|-----------|--------|-------|
-| 1-2 | Infrastructure setup | 🚧 In Progress | [09-kubernetes-cicd.md](./09-kubernetes-cicd.md) |
-| 3-4 | User management & auth | ⏳ Planned | [01-fastapi-microservices.md](./01-fastapi-microservices.md) |
-| 5-6 | Content management (CRUD) | ⏳ Planned | [01-fastapi-microservices.md](./01-fastapi-microservices.md) |
-| 7-9 | Assessment engine (IRT/CAT) | ⏳ Planned | [02-irt-cat-implementation.md](./02-irt-cat-implementation.md) |
-| 10-11 | Multi-tenancy & RLS | ⏳ Planned | [05-multi-tenancy-rls.md](./05-multi-tenancy-rls.md) |
-| 12 | API Gateway & monitoring | ⏳ Planned | [09-kubernetes-cicd.md](./09-kubernetes-cicd.md) |
+| Week  | Component                   | Status         | Guide                                                          |
+| ----- | --------------------------- | -------------- | -------------------------------------------------------------- |
+| 1-2   | Infrastructure setup        | 🚧 In Progress | [09-kubernetes-cicd.md](./09-kubernetes-cicd.md)               |
+| 3-4   | User management & auth      | ⏳ Planned     | [01-fastapi-microservices.md](./01-fastapi-microservices.md)   |
+| 5-6   | Content management (CRUD)   | ⏳ Planned     | [01-fastapi-microservices.md](./01-fastapi-microservices.md)   |
+| 7-9   | Assessment engine (IRT/CAT) | ⏳ Planned     | [02-irt-cat-implementation.md](./02-irt-cat-implementation.md) |
+| 10-11 | Multi-tenancy & RLS         | ⏳ Planned     | [05-multi-tenancy-rls.md](./05-multi-tenancy-rls.md)           |
+| 12    | API Gateway & monitoring    | ⏳ Planned     | [09-kubernetes-cicd.md](./09-kubernetes-cicd.md)               |
 
 **Deliverables**:
+
 - ✅ Working authentication system (JWT + OAuth 2.0)
 - ✅ Basic item bank with CRUD operations
 - ✅ Functional CAT engine (1PL/2PL IRT models)
@@ -104,6 +106,7 @@ Follow the [**FastAPI Microservices Guide**](./01-fastapi-microservices.md) to:
 - ✅ Basic Prometheus/Grafana monitoring
 
 **Success Metrics**:
+
 - 50+ test items in item bank
 - 100+ concurrent test sessions supported
 - <300ms p95 API latency
@@ -115,15 +118,16 @@ Follow the [**FastAPI Microservices Guide**](./01-fastapi-microservices.md) to:
 
 **Goal**: Advanced features and production readiness
 
-| Week | Component | Status | Guide |
-|------|-----------|--------|-------|
-| 13-15 | AI Tutor (LLM + RAG) | ⏳ Planned | [04-ai-tutor-llm.md](./04-ai-tutor-llm.md) |
-| 16-18 | Analytics engine + Quarto | ⏳ Planned | [06-async-task-processing.md](./06-async-task-processing.md) |
-| 19-20 | Stripe payment integration | ⏳ Planned | [07-stripe-payment.md](./07-stripe-payment.md) |
-| 21-22 | LTI 1.3 for LMS | ⏳ Planned | [08-lti-integration.md](./08-lti-integration.md) |
-| 23-24 | Advanced monitoring | ⏳ Planned | [09-kubernetes-cicd.md](./09-kubernetes-cicd.md) |
+| Week  | Component                  | Status     | Guide                                                        |
+| ----- | -------------------------- | ---------- | ------------------------------------------------------------ |
+| 13-15 | AI Tutor (LLM + RAG)       | ⏳ Planned | [04-ai-tutor-llm.md](./04-ai-tutor-llm.md)                   |
+| 16-18 | Analytics engine + Quarto  | ⏳ Planned | [06-async-task-processing.md](./06-async-task-processing.md) |
+| 19-20 | Stripe payment integration | ⏳ Planned | [07-stripe-payment.md](./07-stripe-payment.md)               |
+| 21-22 | LTI 1.3 for LMS            | ⏳ Planned | [08-lti-integration.md](./08-lti-integration.md)             |
+| 23-24 | Advanced monitoring        | ⏳ Planned | [09-kubernetes-cicd.md](./09-kubernetes-cicd.md)             |
 
 **Deliverables**:
+
 - ✅ AI tutor with GPT-4 and RAG
 - ✅ Automated PDF report generation
 - ✅ Subscription and school license management
@@ -132,6 +136,7 @@ Follow the [**FastAPI Microservices Guide**](./01-fastapi-microservices.md) to:
 - ✅ ELK stack for log aggregation
 
 **Success Metrics**:
+
 - 1,000+ active users
 - 5,000+ AI tutor conversations
 - 500+ generated reports
@@ -143,15 +148,16 @@ Follow the [**FastAPI Microservices Guide**](./01-fastapi-microservices.md) to:
 
 **Goal**: Scale, optimize, and enhance
 
-| Week | Component | Status | Guide |
-|------|-----------|--------|-------|
-| 25-27 | Advanced IRT (MIRT, testlets) | ⏳ Planned | [02-irt-cat-implementation.md](./02-irt-cat-implementation.md) |
-| 28-30 | Knowledge graph + semantic search | ⏳ Planned | [03-knowledge-graph.md](./03-knowledge-graph.md) |
-| 31-32 | Anomaly detection | ⏳ Planned | [02-irt-cat-implementation.md](./02-irt-cat-implementation.md) |
-| 33-34 | Multi-language support | ⏳ Planned | [01-fastapi-microservices.md](./01-fastapi-microservices.md) |
-| 35-36 | Performance optimization | ⏳ Planned | [09-kubernetes-cicd.md](./09-kubernetes-cicd.md) |
+| Week  | Component                         | Status     | Guide                                                          |
+| ----- | --------------------------------- | ---------- | -------------------------------------------------------------- |
+| 25-27 | Advanced IRT (MIRT, testlets)     | ⏳ Planned | [02-irt-cat-implementation.md](./02-irt-cat-implementation.md) |
+| 28-30 | Knowledge graph + semantic search | ⏳ Planned | [03-knowledge-graph.md](./03-knowledge-graph.md)               |
+| 31-32 | Anomaly detection                 | ⏳ Planned | [02-irt-cat-implementation.md](./02-irt-cat-implementation.md) |
+| 33-34 | Multi-language support            | ⏳ Planned | [01-fastapi-microservices.md](./01-fastapi-microservices.md)   |
+| 35-36 | Performance optimization          | ⏳ Planned | [09-kubernetes-cicd.md](./09-kubernetes-cicd.md)               |
 
 **Deliverables**:
+
 - ✅ Multi-dimensional IRT models
 - ✅ pgvector-based semantic search
 - ✅ Real-time anomaly detection (cheating, struggling students)
@@ -159,6 +165,7 @@ Follow the [**FastAPI Microservices Guide**](./01-fastapi-microservices.md) to:
 - ✅ Optimized for 100K+ users
 
 **Success Metrics**:
+
 - 10,000+ concurrent test sessions
 - <200ms p95 API latency
 - <5s IRT ability estimation
@@ -239,6 +246,7 @@ graph TB
 ```
 
 **Key Design Principles**:
+
 - **Microservices**: Independent services with clear boundaries
 - **Multi-Tenancy**: Organization-level data isolation via PostgreSQL RLS
 - **Event-Driven**: Kafka for async communication and audit logs
@@ -254,6 +262,7 @@ graph TB
 ### Implementation Guides (Step-by-Step)
 
 Each guide contains:
+
 - **Overview**: What you'll build and why
 - **Prerequisites**: Required knowledge and dependencies
 - **Architecture**: Component design and data flow
@@ -266,6 +275,7 @@ Each guide contains:
 ### Templates (Copy & Paste)
 
 Ready-to-use code:
+
 - FastAPI service skeleton with DI
 - Kubernetes manifests (Deployment, Service, Ingress)
 - GitHub Actions CI/CD workflows
@@ -276,6 +286,7 @@ Ready-to-use code:
 ### Examples (Running Code)
 
 Minimal working projects:
+
 - `minimal-cat-engine/`: Standalone IRT/CAT implementation
 - `simple-ai-tutor/`: Basic LLM chatbot with RAG
 - `stripe-webhook-handler/`: Subscription management demo
@@ -286,62 +297,62 @@ Minimal working projects:
 
 ### Backend
 
-| Component | Technology | Version | Purpose |
-|-----------|------------|---------|---------|
-| **API Framework** | FastAPI | 0.104+ | High-performance async APIs |
-| **Language** | Python | 3.11+ | Primary backend language |
-| **Database** | PostgreSQL | 15+ | Primary data store with RLS |
-| **Cache** | Redis | 7+ | Session store, caching |
-| **Message Queue** | Apache Kafka | 3.5+ | Event streaming, audit logs |
-| **Task Queue** | Celery | 5.3+ | Async task processing |
-| **ORM** | SQLAlchemy | 2.0+ | Database abstraction |
-| **Migrations** | Alembic | 1.12+ | Schema versioning |
-| **Validation** | Pydantic | 2.5+ | Data validation |
+| Component         | Technology   | Version | Purpose                     |
+| ----------------- | ------------ | ------- | --------------------------- |
+| **API Framework** | FastAPI      | 0.104+  | High-performance async APIs |
+| **Language**      | Python       | 3.11+   | Primary backend language    |
+| **Database**      | PostgreSQL   | 15+     | Primary data store with RLS |
+| **Cache**         | Redis        | 7+      | Session store, caching      |
+| **Message Queue** | Apache Kafka | 3.5+    | Event streaming, audit logs |
+| **Task Queue**    | Celery       | 5.3+    | Async task processing       |
+| **ORM**           | SQLAlchemy   | 2.0+    | Database abstraction        |
+| **Migrations**    | Alembic      | 1.12+   | Schema versioning           |
+| **Validation**    | Pydantic     | 2.5+    | Data validation             |
 
 ### Frontend
 
-| Component | Technology | Version | Purpose |
-|-----------|------------|---------|---------|
-| **Framework** | React | 18+ | UI library |
-| **Meta-Framework** | Next.js | 14+ | SSR, routing, API routes |
-| **Language** | TypeScript | 5+ | Type-safe JavaScript |
-| **State** | Zustand | 4+ | Global state management |
-| **UI Components** | shadcn/ui | - | Tailwind-based components |
-| **Forms** | React Hook Form | 7+ | Form handling |
-| **Rich Text** | TipTap | 2.5+ | Math editor |
+| Component          | Technology      | Version | Purpose                   |
+| ------------------ | --------------- | ------- | ------------------------- |
+| **Framework**      | React           | 18+     | UI library                |
+| **Meta-Framework** | Next.js         | 14+     | SSR, routing, API routes  |
+| **Language**       | TypeScript      | 5+      | Type-safe JavaScript      |
+| **State**          | Zustand         | 4+      | Global state management   |
+| **UI Components**  | shadcn/ui       | -       | Tailwind-based components |
+| **Forms**          | React Hook Form | 7+      | Form handling             |
+| **Rich Text**      | TipTap          | 2.5+    | Math editor               |
 
 ### AI/ML
 
-| Component | Technology | Version | Purpose |
-|-----------|------------|---------|---------|
-| **IRT Models** | scipy, statsmodels | - | Statistical modeling |
-| **LLM** | OpenAI API | - | GPT-4 for tutoring |
-| **Embeddings** | OpenAI Embeddings | - | Vector representations |
-| **Vector DB** | pgvector | 0.5+ | Similarity search |
-| **Reporting** | Quarto | 1.4+ | PDF report generation |
-| **Forecasting** | ARIMA (statsmodels) | - | Time series prediction |
+| Component       | Technology          | Version | Purpose                |
+| --------------- | ------------------- | ------- | ---------------------- |
+| **IRT Models**  | scipy, statsmodels  | -       | Statistical modeling   |
+| **LLM**         | OpenAI API          | -       | GPT-4 for tutoring     |
+| **Embeddings**  | OpenAI Embeddings   | -       | Vector representations |
+| **Vector DB**   | pgvector            | 0.5+    | Similarity search      |
+| **Reporting**   | Quarto              | 1.4+    | PDF report generation  |
+| **Forecasting** | ARIMA (statsmodels) | -       | Time series prediction |
 
 ### Infrastructure
 
-| Component | Technology | Version | Purpose |
-|-----------|------------|---------|---------|
-| **Orchestration** | Kubernetes | 1.28+ | Container orchestration |
-| **Container** | Docker | 24+ | Application packaging |
-| **Ingress** | Nginx Ingress | - | API Gateway, SSL termination |
-| **Monitoring** | Prometheus | 2.48+ | Metrics collection |
-| **Dashboards** | Grafana | 10+ | Visualization |
-| **Logging** | ELK Stack | 8+ | Log aggregation |
-| **Tracing** | Jaeger | 1.51+ | Distributed tracing |
-| **CI/CD** | GitHub Actions | - | Automated deployment |
+| Component         | Technology     | Version | Purpose                      |
+| ----------------- | -------------- | ------- | ---------------------------- |
+| **Orchestration** | Kubernetes     | 1.28+   | Container orchestration      |
+| **Container**     | Docker         | 24+     | Application packaging        |
+| **Ingress**       | Nginx Ingress  | -       | API Gateway, SSL termination |
+| **Monitoring**    | Prometheus     | 2.48+   | Metrics collection           |
+| **Dashboards**    | Grafana        | 10+     | Visualization                |
+| **Logging**       | ELK Stack      | 8+      | Log aggregation              |
+| **Tracing**       | Jaeger         | 1.51+   | Distributed tracing          |
+| **CI/CD**         | GitHub Actions | -       | Automated deployment         |
 
 ### Security & Compliance
 
-| Component | Technology | Version | Purpose |
-|-----------|------------|---------|---------|
-| **Policy Engine** | OPA | 0.59+ | Authorization policies |
-| **Secrets** | Sealed Secrets | - | Encrypted K8s secrets |
-| **TLS** | cert-manager | 1.13+ | Automated certificates |
-| **Vulnerability Scanning** | Snyk, Trivy | - | Security audits |
+| Component                  | Technology     | Version | Purpose                |
+| -------------------------- | -------------- | ------- | ---------------------- |
+| **Policy Engine**          | OPA            | 0.59+   | Authorization policies |
+| **Secrets**                | Sealed Secrets | -       | Encrypted K8s secrets  |
+| **TLS**                    | cert-manager   | 1.13+   | Automated certificates |
+| **Vulnerability Scanning** | Snyk, Trivy    | -       | Security audits        |
 
 ---
 
@@ -349,39 +360,39 @@ Minimal working projects:
 
 ### Performance Targets
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| API Latency (p95) | <200ms | Prometheus + Grafana |
-| IRT Ability Estimation | <5s | Application metrics |
-| Report Generation | <30s | Celery task duration |
-| Database Query Time | <100ms | pgAdmin, slow query log |
-| Cache Hit Rate | >80% | Redis INFO stats |
+| Metric                 | Target | Measurement             |
+| ---------------------- | ------ | ----------------------- |
+| API Latency (p95)      | <200ms | Prometheus + Grafana    |
+| IRT Ability Estimation | <5s    | Application metrics     |
+| Report Generation      | <30s   | Celery task duration    |
+| Database Query Time    | <100ms | pgAdmin, slow query log |
+| Cache Hit Rate         | >80%   | Redis INFO stats        |
 
 ### Reliability Targets
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Uptime | 99.9% | Prometheus blackbox exporter |
-| Error Rate | <1% | Application logs, Sentry |
-| Failed Tasks | <2% | Celery Flower dashboard |
-| Data Loss | 0% | Backup verification, DR tests |
+| Metric       | Target | Measurement                   |
+| ------------ | ------ | ----------------------------- |
+| Uptime       | 99.9%  | Prometheus blackbox exporter  |
+| Error Rate   | <1%    | Application logs, Sentry      |
+| Failed Tasks | <2%    | Celery Flower dashboard       |
+| Data Loss    | 0%     | Backup verification, DR tests |
 
 ### Scalability Targets
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
+| Metric           | Target  | Measurement               |
+| ---------------- | ------- | ------------------------- |
 | Concurrent Users | 10,000+ | Load testing (Locust, k6) |
-| Test Sessions | 10,000+ | Database row counts |
-| API Requests | 1M+/day | Nginx access logs |
-| Data Storage | 1TB+ | PostgreSQL disk usage |
+| Test Sessions    | 10,000+ | Database row counts       |
+| API Requests     | 1M+/day | Nginx access logs         |
+| Data Storage     | 1TB+    | PostgreSQL disk usage     |
 
 ### Cost Efficiency
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Infrastructure Cost | <$5/user/month | Cloud billing dashboard |
-| LLM API Cost | <$0.50/user/month | OpenAI usage tracking |
-| Storage Cost | <$0.10/user/month | S3/MinIO billing |
+| Metric              | Target            | Measurement             |
+| ------------------- | ----------------- | ----------------------- |
+| Infrastructure Cost | <$5/user/month    | Cloud billing dashboard |
+| LLM API Cost        | <$0.50/user/month | OpenAI usage tracking   |
+| Storage Cost        | <$0.10/user/month | S3/MinIO billing        |
 
 ---
 
@@ -530,6 +541,7 @@ Copyright © 2025 DreamSeedAI. All rights reserved.
 👉 **Option 1 (Recommended)**: Follow the [Phase 1 Roadmap](#phase-1-mvp-months-1-3) step-by-step
 
 👉 **Option 2**: Deep dive into a specific component:
+
 - [FastAPI Microservices](./01-fastapi-microservices.md) - Service architecture
 - [IRT/CAT Engine](./02-irt-cat-implementation.md) - Adaptive testing
 - [Multi-Tenancy](./05-multi-tenancy-rls.md) - Data isolation
@@ -540,6 +552,6 @@ Copyright © 2025 DreamSeedAI. All rights reserved.
 
 ---
 
-*Last Updated: November 9, 2025*
-*Version: 1.0.0*
-*Status: Phase 1 In Progress 🚧*
+_Last Updated: November 9, 2025_
+_Version: 1.0.0_
+_Status: Phase 1 In Progress 🚧_
