@@ -449,3 +449,7 @@ apps/seedtest_api/**/*.pyc
 !assets/branding/**
 !assets/branding/**/*.md
 !assets/branding/**/*.svg
+.env.prod
+.env.production
+**/.env.prod
+**/.env.production
