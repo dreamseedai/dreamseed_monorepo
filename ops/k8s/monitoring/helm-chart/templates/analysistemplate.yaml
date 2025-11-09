@@ -1,0 +1,50 @@
+{{- if .Values.analysis.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ include "api-observability-rollout.analysisName" . }}
+  labels:
+    {{- include "api-observability-rollout.labels" . | nindent 4 }}
+spec:
+  metrics:
+    - name: p95-latency
+      interval: {{ printf "%ds" .Values.analysis.intervalSeconds }}
+      count: {{ .Values.analysis.count }}
+      successCondition: result < {{ .Values.analysis.successP95Seconds }}
+      failureLimit: {{ .Values.analysis.failureLimit }}
+      provider:
+        prometheus:
+          address: {{ .Values.prometheus.address | quote }}
+          query: |
+            histogram_quantile(0.95,
+              sum by (le) (
+                rate(http_request_duration_seconds_bucket{
+                  {{ $.Values.labelKeys.service }}="{{ $.Values.service.name }}",
+                  {{ $.Values.labelKeys.version }}="canary"
+                }[1m])
+              )
+            )
+    - name: error-rate
+      interval: {{ printf "%ds" .Values.analysis.intervalSeconds }}
+      count: {{ .Values.analysis.count }}
+      successCondition: result < {{ .Values.analysis.successErrorRate }}
+      failureLimit: {{ .Values.analysis.failureLimit }}
+      provider:
+        prometheus:
+          address: {{ .Values.prometheus.address | quote }}
+          query: |
+            sum(
+              rate(http_requests_total{
+                {{ $.Values.labelKeys.service }}="{{ $.Values.service.name }}",
+                {{ $.Values.labelKeys.version }}="canary",
+                status=~"5.."
+              }[1m])
+            )
+            /
+            sum(
+              rate(http_requests_total{
+                {{ $.Values.labelKeys.service }}="{{ $.Values.service.name }}",
+                {{ $.Values.labelKeys.version }}="canary"
+              }[1m])
+            )
+{{- end }}

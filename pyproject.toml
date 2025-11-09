@@ -13,21 +13,34 @@ requires-python = ">=3.11"
 dependencies = [
     "Flask>=2.3.0",
     "Flask-CORS>=4.0.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
     "gunicorn>=21.0.0",
     "redis>=4.5.0",
     "requests>=2.31.0",
     "psycopg2-binary>=2.9.9",
     "cryptography>=41.0.0",
     "prometheus-client>=0.17.0",
+    "structlog>=23.1.0",
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.11.0",
     "locust>=2.17.0",
     "weasyprint>=61.0.0",
+    "jsonschema>=4.0.0",
 ]
 
 [tool.setuptools]
-packages = ["shared", "shared.auth", "shared.irt", "shared.irt.reports"]
+packages = [
+    "shared",
+    "shared.auth",
+    "shared.irt",
+    "shared.irt.reports",
+    "shared.monitoring",
+    "shared.llm",
+    "shared.analytics",
+    "shared.config",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -144,4 +157,17 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
+
+[tool.pyright]
+extraPaths = ["backend"]
+reportMissingImports = "warning"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["**/.venv", "**/node_modules", "**/dist", "**/__pycache__", "**/build"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
 

@@ -19,6 +19,66 @@
         "isDefault": false
       },
       "detail": "Run GCP environment audit (validates GCP ↔ Repo Vars ↔ GKE/WIF alignment)"
+    },
+    {
+      "label": "TypeScript Check",
+      "type": "shell",
+      "command": "pnpm run check:ts",
+      "problemMatcher": "$tsc",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "ESLint Check",
+      "type": "shell",
+      "command": "pnpm run check:lint",
+      "problemMatcher": "$eslint-stylish",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Pyright Check",
+      "type": "shell",
+      "command": "pnpm run check:py",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Ruff Check",
+      "type": "shell",
+      "command": "pnpm run check:ruff",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Format All",
+      "type": "shell",
+      "command": "pnpm run format",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Check All (Lint + Type)",
+      "type": "shell",
+      "command": "pnpm run check",
+      "problemMatcher": ["$tsc", "$eslint-stylish"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
     }
   ]
 }

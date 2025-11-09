@@ -1,0 +1,89 @@
+# Argo Rollout 예시
+# ==================
+# 카나리 배포 + Prometheus 기반 자동 승격/중단
+
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: univprepai-api
+  namespace: default
+spec:
+  replicas: 3
+  
+  strategy:
+    canary:
+      # 카나리 단계
+      steps:
+        # 10% 트래픽
+        - setWeight: 10
+        - pause: {duration: 60s}
+        - analysis:
+            templates:
+              - templateName: api-canary-check
+            args:
+              - name: service-name
+                value: univprepai-api
+        
+        # 50% 트래픽
+        - setWeight: 50
+        - pause: {duration: 60s}
+        - analysis:
+            templates:
+              - templateName: api-canary-check
+            args:
+              - name: service-name
+                value: univprepai-api
+        
+        # 100% 트래픽 (자동 승격)
+  
+  selector:
+    matchLabels:
+      app: univprepai-api
+  
+  template:
+    metadata:
+      labels:
+        app: univprepai-api
+        version: canary  # ← 카나리/스테이블 전환
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    
+    spec:
+      containers:
+        - name: api
+          image: your.registry/univprepai-api:latest
+          ports:
+            - name: http
+              containerPort: 8000
+          
+          env:
+            - name: SERVICE_NAME
+              value: univprepai-api
+            - name: SERVICE_VERSION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['version']
+          
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

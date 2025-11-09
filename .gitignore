@@ -181,6 +181,8 @@ run*.sh
 # Allow runbook samples to be tracked (no sensitive values)
 !docs/runbooks/*.sh.sample
 !docs/runbooks/README.md
+# Allow risk pipeline scripts
+!backend/risk_pipeline/scripts/*.sh
 # Allow documentation files
 !docs/*.md
 
@@ -216,7 +218,18 @@ requirements*.txt
 # JSON files
 *.json
 !package.json
+!package-lock.json
 !tsconfig.json
+!tsconfig*.json
+!.vscode/*.json
+!.github/**/*.json
+!shared/analytics/grafana/**/*.json
+!ops/k8s/monitoring/grafana-dashboards/*.json
+# Allow lint/format config files
+!prettier.config.json
+!.prettierrc.json
+!pyrightconfig.json
+!.eslintrc.json
 
 # Lua files
 *.lua
@@ -226,6 +239,10 @@ requirements*.txt
 schema.sql
 # Allow RLS SQL
 !db/rls/*.sql
+# Allow risk pipeline SQL
+!backend/risk_pipeline/jobs/*.sql
+# Allow analytics SQL
+!shared/analytics/sql/*.sql
 
 # YAML files
 *.yml
@@ -238,6 +255,14 @@ schema.sql
 !ops/k8s/**/*.yaml
 !portal_front/ops/k8s/**/*.yml
 !portal_front/ops/k8s/**/*.yaml
+# Allow Helm chart files
+!ops/k8s/monitoring/helm-chart/**/*.yaml
+!ops/k8s/monitoring/helm-chart/**/*.yml
+!ops/helm/charts/**/*.yaml
+!ops/helm/charts/**/*.yml
+# Allow Grafana provisioning
+!shared/analytics/grafana/**/*.yaml
+!shared/analytics/grafana/**/*.yml
 
 # TypeScript files
 *.ts
@@ -373,6 +398,10 @@ index*.html
 *_test.*
 # Allow tracking ops test scripts
 !ops/scripts/test_*.py
+# Allow Helm values files with service names containing 'test'
+!ops/k8s/monitoring/helm-chart/values-*test*.yaml
+# Allow monitoring documentation
+!ops/k8s/monitoring/*.md
 
 # HTML files (except main ones)
 *.html

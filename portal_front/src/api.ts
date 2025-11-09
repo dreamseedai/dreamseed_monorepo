@@ -1,3 +1,5 @@
+import { resolveLanguage } from "./lib/langDetect";
+
 export const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8012";
 
 export function getToken() {
@@ -10,6 +12,13 @@ export function setToken(t: string) {
 async function raw(path: string, opts: RequestInit = {}) {
   const headers = new Headers(opts.headers || {});
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  
+  // 언어 헤더 추가 (X-Lang)
+  if (!headers.has("X-Lang")) {
+    const lang = resolveLanguage();
+    headers.set("X-Lang", lang);
+  }
+  
   return fetch(`${API_BASE}${path}`, {
     ...opts,
     headers,

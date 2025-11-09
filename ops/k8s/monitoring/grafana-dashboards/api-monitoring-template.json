@@ -1,0 +1,191 @@
+{
+  "title": "API Monitoring (Template)",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "editable": true,
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": "Prometheus",
+        "refresh": 2,
+        "query": "label_values(http_requests_total, service)",
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "version",
+        "type": "query",
+        "datasource": "Prometheus",
+        "refresh": 2,
+        "query": "label_values(http_requests_total{service=\"$service\"}, version)",
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Request Rate (rps)",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum by (service, version) (rate(http_requests_total{service=\"$service\", version=\"$version\"}[5m]))",
+          "legendFormat": "{{service}}-{{version}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Error Rate (5xx)",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{service=\"$service\", version=\"$version\", status=~\"5..\"}[5m])) / sum(rate(http_requests_total{service=\"$service\", version=\"$version\"}[5m]))",
+          "legendFormat": "Error Rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 0.01, "color": "yellow" },
+              { "value": 0.05, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "p95 Latency (s)",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"$service\", version=\"$version\"}[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 0.3, "color": "yellow" },
+              { "value": 1.0, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "p99 Latency (s)",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"$service\", version=\"$version\"}[5m])))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 0.5, "color": "yellow" },
+              { "value": 2.0, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "graph",
+      "title": "Latency p95 over time",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "lines": true,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"$service\", version=\"$version\"}[1m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "s",
+          "label": "Latency"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Request Rate by Method",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (method) (rate(http_requests_total{service=\"$service\", version=\"$version\"}[5m]))",
+          "legendFormat": "{{method}}"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Requests/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Top Endpoints (p95 Latency)",
+      "gridPos": { "x": 0, "y": 12, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "topk(10, histogram_quantile(0.95, sum by (le, path) (rate(http_request_duration_seconds_bucket{service=\"$service\", version=\"$version\"}[5m]))))",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "le": true
+            },
+            "renameByName": {
+              "path": "Endpoint",
+              "Value": "p95 Latency (s)"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

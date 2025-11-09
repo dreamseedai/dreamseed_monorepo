@@ -1,0 +1,13 @@
+fullnameOverride: "skillprepai-api"
+service:
+  name: "skillprepai-api"
+  version: "canary"
+  port: 8005
+image:
+  repository: "registry.example.com/skillprepai-api"
+  tag: "2025.11.09"
+prometheus:
+  address: "http://prometheus-server.monitoring.svc.cluster.local"
+servicemonitor:
+  labels:
+    release: kube-prometheus-stack

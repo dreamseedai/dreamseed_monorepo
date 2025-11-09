@@ -1,0 +1,73 @@
+service:
+  name: "my-api"                 # 서비스 식별용 라벨(service)
+  version: "stable"              # Rollout의 Pod 라벨(version)
+  labels: {}                     # 추가 라벨
+  annotations: {}                # 추가 어노테이션
+  port: 8000
+  metricsPath: /metrics
+  healthPath: /healthz
+  selectorLabels: {}             # ServiceMonitor가 잡을 셀렉터(기본: app=<fullname>)
+
+image:
+  repository: "registry.example.com/my-api"
+  tag: "main"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+resources: {}  # 필요 시 오버라이드
+
+env:
+  - name: SERVICE_NAME
+    valueFromMeta: label:service      # metadata.labels['service'] 값을 주입
+  - name: SERVICE_VERSION
+    valueFromMeta: label:version      # metadata.labels['version'] 값을 주입
+
+prometheus:
+  enabled: true
+  operator: true                      # kube-prometheus-stack 사용 시 true
+  address: "http://prometheus-server.monitoring.svc.cluster.local"  # Argo Analysis에서 사용
+  scrape:
+    interval: 15s
+
+servicemonitor:
+  labels:
+    release: kube-prometheus-stack
+
+rollouts:
+  enabled: true
+  # canary 단계
+  steps:
+    - setWeight: 10
+    - pause: { duration: 60 }
+    - analysis: true
+    - setWeight: 50
+    - pause: { duration: 60 }
+    - analysis: true
+
+analysis:
+  enabled: true
+  nameSuffix: canary-check
+  intervalSeconds: 60
+  count: 5
+  failureLimit: 1
+  successP95Seconds: 0.30     # p95 < 300ms
+  successErrorRate: 0.02      # 오류율 < 2%
+
+pod:
+  labels: {}
+  annotations: {}
+
+# 템플릿 고정 라벨 키 (라벨 키 이름 드리프트 방지)
+labelKeys:
+  service: "service"
+  version: "version"
+  app: "app"
+
+# Service 이름 규칙
+fullnameOverride: ""
+
+# Kubernetes Service (metrics scrape를 위해 필요)
+k8sService:
+  enabled: true
+  type: ClusterIP

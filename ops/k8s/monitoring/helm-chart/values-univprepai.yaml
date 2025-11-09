@@ -1,0 +1,13 @@
+fullnameOverride: "univprepai-api"
+service:
+  name: "univprepai-api"
+  version: "canary"         # 카나리 배포 시작 시 canary로 지정, 안정화 시 stable로 교체
+  port: 8006                # 사용중인 백엔드 포트 참고 (univprepai_project: 8006)
+image:
+  repository: "registry.example.com/univprepai-api"
+  tag: "2025.11.09"
+prometheus:
+  address: "http://prometheus-server.monitoring.svc.cluster.local"
+servicemonitor:
+  labels:
+    release: kube-prometheus-stack

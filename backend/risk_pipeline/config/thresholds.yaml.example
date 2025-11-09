@@ -1,0 +1,25 @@
+# 리스크 임계치 설정
+theta:
+  delta_7d_warn: -0.15      # 7일 능력치 하락 경고
+  delta_7d_crit: -0.30      # 7일 능력치 하락 위험
+  delta_14d_warn: -0.25     # 14일 능력치 하락 경고
+  delta_14d_crit: -0.50     # 14일 능력치 하락 위험
+
+attendance:
+  miss_rate_week_warn: 0.10   # 주간 결석률 10% 경고
+  miss_rate_week_crit: 0.20   # 주간 결석률 20% 위험
+  miss_rate_2week_warn: 0.15  # 2주 결석률 15% 경고
+  miss_rate_2week_crit: 0.30  # 2주 결석률 30% 위험
+
+omit:
+  rate_warn: 0.08           # 무응답률 8% 경고
+  rate_crit: 0.15           # 무응답률 15% 위험
+
+guess:
+  c_hat_warn: 0.30          # 추측률 30% 경고 (80th percentile 기준)
+  c_hat_crit: 0.40          # 추측률 40% 위험
+
+# 연속 기간 플래그
+consecutive:
+  theta_decline_weeks: 3    # 3주 연속 하락 시 플래그
+  absence_days: 5           # 5일 연속 결석 시 플래그

@@ -1,0 +1,28 @@
+# DreamSeedAI Gateway - Staging Environment
+
+host: app-staging.dreamseedai.com
+
+tls:
+  enabled: true
+  useCertManager: true
+  secretName: dreamseedai-staging-tls
+  clusterIssuer: letsencrypt-staging
+
+paths:
+  portal:
+    enabled: false
+  api:
+    serviceName: dreamseedai-backend
+    servicePort: 8000
+    path: /api
+  shiny:
+    serviceName: risk-shiny
+    servicePort: 80
+    path: /shiny/risk
+
+ingressClassName: nginx
+
+annotations:
+  nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+  nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  nginx.ingress.kubernetes.io/ssl-redirect: "false"  # Staging에서는 HTTP 허용

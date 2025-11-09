@@ -1,0 +1,13 @@
+fullnameOverride: "my-ktube-api"
+service:
+  name: "my-ktube-api"
+  version: "canary"
+  port: 8001  # 단일화 기준 포트
+image:
+  repository: "registry.example.com/my-ktube-api"
+  tag: "2025.11.09"
+prometheus:
+  address: "http://prometheus-server.monitoring.svc.cluster.local"
+servicemonitor:
+  labels:
+    release: kube-prometheus-stack

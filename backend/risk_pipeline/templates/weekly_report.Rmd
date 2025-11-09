@@ -1,0 +1,286 @@
+---
+title: "Weekly Risk Report"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    code_folding: hide
+params:
+  org_id: "default"
+  org_name: "Organization"
+  metrics_csv: "metrics.csv"
+  primary_color: "#0f6fff"
+  logo_path: NULL
+  report_date: !r Sys.Date()
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(knitr)
+library(DT)
+
+# 데이터 로드
+metrics <- readr::read_csv(params$metrics_csv)
+org_metrics <- metrics %>% filter(org_id == params$org_id)
+
+# 테마 색상
+primary_color <- params$primary_color
+```
+
+<style>
+h1, h2, h3 {
+  color: `r primary_color`;
+}
+.risk-crit {
+  background-color: #e74c3c;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+.risk-warn {
+  background-color: #f39c12;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+.risk-ok {
+  background-color: #27ae60;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+</style>
+
+# `r params$org_name` - Weekly Risk Report
+
+**Report Date:** `r format(params$report_date, '%Y-%m-%d')`  
+**Period:** Last 14 days  
+**Total Students:** `r nrow(org_metrics)`
+
+---
+
+## Executive Summary
+
+```{r summary}
+summary_stats <- org_metrics %>%
+  summarise(
+    total = n(),
+    crit = sum(risk_overall == "CRIT"),
+    warn = sum(risk_overall == "WARN"),
+    ok = sum(risk_overall == "OK"),
+    crit_pct = 100 * mean(risk_overall == "CRIT"),
+    warn_pct = 100 * mean(risk_overall == "WARN")
+  )
+
+kable(data.frame(
+  Level = c("CRITICAL", "WARNING", "OK"),
+  Count = c(summary_stats$crit, summary_stats$warn, summary_stats$ok),
+  Percentage = sprintf("%.1f%%", c(summary_stats$crit_pct, summary_stats$warn_pct, 100 - summary_stats$crit_pct - summary_stats$warn_pct))
+), align = c("l", "r", "r"))
+```
+
+### Risk Distribution
+
+```{r risk_distribution, fig.width=10, fig.height=6}
+risk_counts <- org_metrics %>%
+  tidyr::pivot_longer(
+    cols = c(risk_theta, risk_omit, risk_guess, risk_attendance),
+    names_to = "risk_type",
+    values_to = "level"
+  ) %>%
+  count(risk_type, level) %>%
+  mutate(
+    risk_type = recode(risk_type,
+      risk_theta = "Ability (θ)",
+      risk_omit = "Omit Rate",
+      risk_guess = "Guessing",
+      risk_attendance = "Attendance"
+    )
+  )
+
+ggplot(risk_counts, aes(x = risk_type, y = n, fill = level)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("CRIT" = "#e74c3c", "WARN" = "#f39c12", "OK" = "#27ae60")) +
+  labs(title = "Risk Distribution by Category", x = NULL, y = "Student Count", fill = "Level") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+---
+
+## Top 20 At-Risk Students
+
+```{r top_risks}
+top_risks <- org_metrics %>%
+  filter(risk_overall %in% c("CRIT", "WARN")) %>%
+  mutate(
+    risk_score = -delta_theta_7d * 2 + omit_rate * 1 + (1 - attendance_rate_7d) * 1.5
+  ) %>%
+  arrange(desc(risk_score)) %>%
+  head(20) %>%
+  select(
+    user_id,
+    risk_overall,
+    delta_theta_7d,
+    omit_rate,
+    attendance_rate_7d,
+    consecutive_absences,
+    consecutive_decline_weeks
+  ) %>%
+  mutate(
+    delta_theta_7d = round(delta_theta_7d, 3),
+    omit_rate = sprintf("%.1f%%", omit_rate * 100),
+    attendance_rate_7d = sprintf("%.1f%%", attendance_rate_7d * 100)
+  )
+
+datatable(
+  top_risks,
+  colnames = c(
+    "Student ID", "Risk Level", "Δθ (7d)", "Omit Rate", 
+    "Attendance (7d)", "Consecutive Absences", "Decline Weeks"
+  ),
+  options = list(pageLength = 20, dom = 't'),
+  rownames = FALSE
+) %>%
+  formatStyle(
+    'risk_overall',
+    backgroundColor = styleEqual(c('CRIT', 'WARN'), c('#e74c3c', '#f39c12')),
+    color = 'white',
+    fontWeight = 'bold'
+  )
+```
+
+---
+
+## Ability (θ) Decline Analysis
+
+### Students with Significant θ Decline
+
+```{r theta_decline}
+theta_decline <- org_metrics %>%
+  filter(delta_theta_7d < -0.15) %>%
+  arrange(delta_theta_7d) %>%
+  head(15) %>%
+  select(user_id, theta_current, delta_theta_7d, delta_theta_14d, consecutive_decline_weeks) %>%
+  mutate(
+    theta_current = round(theta_current, 3),
+    delta_theta_7d = round(delta_theta_7d, 3),
+    delta_theta_14d = round(delta_theta_14d, 3)
+  )
+
+kable(theta_decline, col.names = c(
+  "Student ID", "Current θ", "Δθ (7d)", "Δθ (14d)", "Decline Weeks"
+))
+```
+
+### θ Trend Distribution
+
+```{r theta_trend, fig.width=10, fig.height=6}
+ggplot(org_metrics, aes(x = delta_theta_7d)) +
+  geom_histogram(bins = 30, fill = primary_color, alpha = 0.7) +
+  geom_vline(xintercept = -0.15, linetype = "dashed", color = "#f39c12", size = 1) +
+  geom_vline(xintercept = -0.30, linetype = "dashed", color = "#e74c3c", size = 1) +
+  labs(
+    title = "7-Day θ Change Distribution",
+    x = "Δθ (7 days)",
+    y = "Student Count"
+  ) +
+  theme_minimal()
+```
+
+---
+
+## Omit & Guessing Patterns
+
+### High Omit Rate Students
+
+```{r omit_analysis}
+high_omit <- org_metrics %>%
+  filter(omit_rate > 0.08) %>%
+  arrange(desc(omit_rate)) %>%
+  head(15) %>%
+  select(user_id, omit_rate, c_hat_avg, risk_omit, risk_guess) %>%
+  mutate(
+    omit_rate = sprintf("%.1f%%", omit_rate * 100),
+    c_hat_avg = round(c_hat_avg, 3)
+  )
+
+kable(high_omit, col.names = c(
+  "Student ID", "Omit Rate", "Avg c_hat", "Omit Risk", "Guess Risk"
+))
+```
+
+---
+
+## Attendance Issues
+
+### Students with Attendance Problems
+
+```{r attendance_analysis}
+attendance_issues <- org_metrics %>%
+  filter(risk_attendance %in% c("CRIT", "WARN")) %>%
+  arrange(attendance_rate_7d) %>%
+  head(15) %>%
+  select(user_id, attendance_rate_7d, attendance_rate_14d, consecutive_absences, risk_attendance) %>%
+  mutate(
+    attendance_rate_7d = sprintf("%.1f%%", attendance_rate_7d * 100),
+    attendance_rate_14d = sprintf("%.1f%%", attendance_rate_14d * 100)
+  )
+
+kable(attendance_issues, col.names = c(
+  "Student ID", "Attendance (7d)", "Attendance (14d)", "Consecutive Absences", "Risk Level"
+))
+```
+
+---
+
+## Action Items
+
+### Immediate Actions Required (CRITICAL)
+
+```{r action_crit}
+crit_students <- org_metrics %>%
+  filter(risk_overall == "CRIT") %>%
+  select(user_id, risk_theta, risk_omit, risk_guess, risk_attendance) %>%
+  mutate(
+    recommended_action = case_when(
+      risk_theta == "CRIT" & risk_attendance == "CRIT" ~ "1-on-1 counseling + attendance intervention",
+      risk_theta == "CRIT" ~ "Immediate academic support",
+      risk_attendance == "CRIT" ~ "Contact guardian + attendance plan",
+      risk_omit == "CRIT" | risk_guess == "CRIT" ~ "Test-taking strategy session",
+      TRUE ~ "General intervention"
+    )
+  )
+
+kable(crit_students, col.names = c(
+  "Student ID", "θ Risk", "Omit Risk", "Guess Risk", "Attendance Risk", "Recommended Action"
+))
+```
+
+### Monitor Closely (WARNING)
+
+```{r action_warn}
+warn_count <- sum(org_metrics$risk_overall == "WARN")
+```
+
+**`r warn_count` students** require close monitoring. Review detailed metrics in the attached CSV file.
+
+---
+
+## Report Metadata
+
+- **Generated:** `r Sys.time()`
+- **Pipeline Version:** 1.0.0
+- **Data Cutoff:** `r params$report_date`
+- **Thresholds:** θ decline < -0.15 (WARN), < -0.30 (CRIT); Omit > 8% (WARN), > 15% (CRIT)
+
+---
+
+*This report is automatically generated by the DreamSeed Risk Pipeline.*

@@ -1,0 +1,45 @@
+{{- if .Values.cronjob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: risk-weekly
+  labels:
+    app: dreamseedai-risk
+    component: pipeline
+spec:
+  schedule: {{ .Values.cronjob.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.cronjob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronjob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: dreamseedai-risk
+            component: pipeline
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: pipeline
+            image: {{ .Values.image.pipeline }}
+            imagePullPolicy: {{ .Values.image.pullPolicy }}
+            envFrom:
+              - configMapRef:
+                  name: risk-config
+              - secretRef:
+                  name: risk-secret
+            volumeMounts:
+              - name: reports
+                mountPath: {{ .Values.env.RISK_REPORTS_DIR }}
+            resources:
+              requests:
+                memory: "1Gi"
+                cpu: "500m"
+              limits:
+                memory: "2Gi"
+                cpu: "1000m"
+          volumes:
+            - name: reports
+              persistentVolumeClaim:
+                claimName: {{ .Values.pvc.name }}
+{{- end }}

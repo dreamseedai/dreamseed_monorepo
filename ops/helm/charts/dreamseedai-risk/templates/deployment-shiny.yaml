@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: risk-shiny
+  labels:
+    app: dreamseedai-risk
+    component: shiny
+spec:
+  replicas: {{ .Values.shiny.replicas }}
+  selector:
+    matchLabels:
+      app: dreamseedai-risk
+      component: shiny
+  template:
+    metadata:
+      labels:
+        app: dreamseedai-risk
+        component: shiny
+    spec:
+      containers:
+      - name: shiny
+        image: {{ .Values.image.shiny }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        envFrom:
+          - configMapRef:
+              name: risk-config
+        ports:
+          - name: http
+            containerPort: 3838
+            protocol: TCP
+        volumeMounts:
+          - name: reports
+            mountPath: {{ .Values.env.RISK_REPORTS_DIR }}
+            readOnly: true
+        resources:
+          {{- toYaml .Values.shiny.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+        - name: reports
+          persistentVolumeClaim:
+            claimName: {{ .Values.pvc.name }}

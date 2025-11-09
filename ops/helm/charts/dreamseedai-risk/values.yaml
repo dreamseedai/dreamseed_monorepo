@@ -1,0 +1,49 @@
+# DreamSeedAI Risk Pipeline Helm Values
+
+image:
+  pipeline: ghcr.io/dreamseedai/risk-pipeline:latest
+  shiny: ghcr.io/dreamseedai/risk-shiny:latest
+  pullPolicy: IfNotPresent
+
+env:
+  DSN: postgresql://user:pass@postgres:5432/dreamseedai
+  SMTP_HOST: mail
+  SMTP_PORT: "25"
+  SMTP_STARTTLS: "0"
+  SMTP_USER: ""
+  SMTP_PASS: ""
+  RISK_EMAIL_FROM: reports@dreamseedai.com
+  RISK_REPORTS_DIR: /data/reports
+  RISK_SIGN_SECRET: "change-me"
+
+pvc:
+  name: risk-reports-pvc
+  size: 5Gi
+  storageClassName: standard
+
+cronjob:
+  enabled: true
+  schedule: "0 6 * * 1"  # Monday 06:00
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+
+shiny:
+  replicas: 1
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+ingress:
+  enabled: true
+  className: nginx
+  host: your.domain.com
+  shinyPath: /shiny/risk
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
+    enabled: false
+    secretName: dreamseedai-tls

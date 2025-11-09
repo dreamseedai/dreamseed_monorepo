@@ -1,0 +1,12 @@
+apiVersion: v2
+name: dreamseedai-backend
+version: 0.1.0
+description: DreamSeedAI FastAPI backend service
+appVersion: "1.0.0"
+keywords:
+  - dreamseedai
+  - fastapi
+  - backend
+maintainers:
+  - name: DreamSeedAI Team
+    email: ops@dreamseedai.com

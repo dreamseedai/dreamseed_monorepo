@@ -1,13 +1,21 @@
 {
-  "exclude": ["portal_front", "**/node_modules", "**/__pycache__"],
-  "venvPath": "/home/won/projects/dreamseed_monorepo",
+  "venvPath": ".",
   "venv": ".venv",
+  "typeCheckingMode": "basic",
+  "pythonVersion": "3.11",
+  "reportMissingImports": true,
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/.venv",
+    "**/__pycache__",
+    "**/.mypy_cache",
+    "portal_front"
+  ],
   "executionEnvironments": [
-    {
-      "root": ".",
-      "extraPaths": ["."]
-    }
+    { "root": "./backend" },
+    { "root": "./shared" },
+    { "root": "./apps/seedtest_api" },
+    { "root": "." }
   ]
 }
-
-

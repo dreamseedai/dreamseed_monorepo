@@ -1,0 +1,17 @@
+{{- if and .Values.prometheus.enabled .Values.prometheus.operator }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "api-observability-rollout.fullname" . }}
+  labels:
+    {{- include "api-observability-rollout.labels" . | nindent 4 }}
+    {{- toYaml .Values.servicemonitor.labels | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{ .Values.labelKeys.app }}: {{ include "api-observability-rollout.fullname" . }}
+  endpoints:
+    - port: http
+      path: {{ .Values.service.metricsPath }}
+      interval: {{ .Values.prometheus.scrape.interval }}
+{{- end }}
