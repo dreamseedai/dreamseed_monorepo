@@ -33,6 +33,7 @@ from .policy_client import PolicyEngineClient, get_policy_client
 from .decorators import require_policy
 from .middleware import PolicyEnforcementMiddleware
 from . import metrics
+from . import audit_logger
 
 __all__ = [
     # Policy Client
@@ -47,6 +48,9 @@ __all__ = [
     
     # Metrics
     "metrics",
+    
+    # Audit Logger
+    "audit_logger",
 ]
 
 __version__ = "1.0.0"
