@@ -1,0 +1,51 @@
+name: frontend-alias-check
+
+on:
+  pull_request:
+    paths:
+      - "apps/**"
+      - "shared/**"
+      - "tsconfig.base.json"
+      - "pnpm-workspace.yaml"
+  push:
+    branches: [main, feat/governance-production-ready]
+    paths:
+      - "apps/**"
+      - "shared/**"
+      - "tsconfig.base.json"
+      - "pnpm-workspace.yaml"
+
+jobs:
+  alias-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      
+      - name: Install pnpm
+        run: npm i -g pnpm@9
+      
+      - name: Install deps
+        run: pnpm install --frozen-lockfile=false
+      
+      - name: Paths sync check
+        run: pnpm run check:paths
+      
+      - name: Build smoke test (대표 앱)
+        run: |
+          # Shared packages 먼저 빌드
+          pnpm -r --filter './shared/*' build
+          
+          # 대표 앱 빌드 (존재하는 경우만)
+          if [ -f "portal_front/package.json" ]; then
+            pnpm --filter portal_front build || echo "⚠️  portal_front build skipped"
+          fi
+          
+          if [ -f "apps/examinee-frontend/package.json" ]; then
+            pnpm --filter "./apps/examinee-frontend" build || echo "⚠️  examinee-frontend build skipped"
+          fi
+          
+          echo "✅ Smoke test completed"

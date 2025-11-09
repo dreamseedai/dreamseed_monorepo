@@ -1,0 +1,16 @@
+{
+  "name": "dreamseed-math-snapshots",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "MathJax v3 + SRE 스냅샷 생성/검증",
+  "dependencies": {
+    "mathjax-full": "^3.2.2",
+    "speech-rule-engine": "^4.0.7",
+    "fs-extra": "^11.2.0"
+  },
+  "scripts": {
+    "snapshot:write": "node snapshot.mjs --write ../goldenset/goldenset.sample.jsonl",
+    "snapshot:check": "node snapshot.mjs --check ../goldenset/goldenset.sample.jsonl"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "nested_sqrt_001": {
+    "original_mathml": "<math><msqrt><mrow><mi>a</mi><mo>+</mo><msqrt><mi>b</mi></msqrt></mrow></msqrt></math>",
+    "converted_tex": "\\sqrt{a+\\sqrt{b}}",
+    "svg_hash": "placeholder",
+    "mathspeak": "square root of a plus square root of b"
+  }
+}

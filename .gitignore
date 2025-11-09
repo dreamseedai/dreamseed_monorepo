@@ -453,3 +453,28 @@ apps/seedtest_api/**/*.pyc
 .env.production
 **/.env.prod
 **/.env.production
+
+# MathML 변환 시스템 예외
+!shared/mathml/**/*.json
+!shared/mathml/**/*.jsonl
+!shared/mathml/**/*.py
+!shared/mathml/**/*.ts
+!shared/mathml/**/*.mjs
+
+# ETL 및 에디터 모듈 예외
+!shared/etl/**/*.py
+!shared/editor/**/*.ts
+!shared/editor/**/*.tsx
+!shared/editor/**/*.json
+!shared/editor/**/*.vue
+!shared/schemas/**/*.ts
+!shared/schemas/**/*.json
+
+# pnpm 워크스페이스
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!.npmrc
+
+# 검증 스크립트
+!tools/**/*.mjs
+!tools/**/*.js

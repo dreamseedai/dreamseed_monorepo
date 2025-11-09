@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DreamSeedAI Math/Chem GoldenSet",
+  "type": "object",
+  "required": ["id", "domain", "source_format", "payload", "tags"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9_\\-]+$" },
+    "domain": { "type": "string", "enum": ["math", "chem"] },
+    "locale": { "type": "string", "enum": ["en", "ko", "zh-Hans", "zh-Hant"], "default": "ko" },
+    "source_format": { "type": "string", "enum": ["wiris-mathml", "latex-tex", "image-ocr"] },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "mathml": { "type": ["string", "null"] },
+        "tex": { "type": ["string", "null"] },
+        "image_path": { "type": ["string", "null"] }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "properties": {
+        "tex": { "type": "string" },
+        "svg_hash": { "type": "string" },
+        "speech": { "type": "string" }
+      },
+      "required": ["tex"]
+    },
+    "notes": { "type": "string" },
+    "tags": { "type": "array", "items": { "type": "string" } }
+  }
+}
