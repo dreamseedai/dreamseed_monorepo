@@ -28,17 +28,17 @@ Async task processing handles long-running operations outside the request-respon
 
 ### Decision Matrix
 
-| Factor | Celery | RQ | Dramatiq | Cloud Tasks |
-|--------|--------|----|-----------| ------------|
-| Maturity | Excellent (2009) | Good | Good | Excellent |
-| Priority queues | ✅ Yes | ❌ No | ✅ Yes | ✅ Yes |
-| Scheduled tasks | ✅ Beat | ❌ Scheduler | ✅ Yes | ✅ Yes |
-| Result backend | ✅ Redis/DB | ✅ Redis | ✅ Redis/DB | ✅ Built-in |
-| Retries | ✅ Advanced | ✅ Basic | ✅ Advanced | ✅ Advanced |
-| Monitoring | ✅ Flower | ✅ Dashboard | ❌ Limited | ✅ Cloud Console |
-| Learning curve | Steep | Gentle | Moderate | Moderate |
-| Kubernetes | Good | Excellent | Good | N/A (managed) |
-| Cost | Free | Free | Free | Pay per task |
+| Factor          | Celery           | RQ           | Dramatiq    | Cloud Tasks      |
+| --------------- | ---------------- | ------------ | ----------- | ---------------- |
+| Maturity        | Excellent (2009) | Good         | Good        | Excellent        |
+| Priority queues | ✅ Yes           | ❌ No        | ✅ Yes      | ✅ Yes           |
+| Scheduled tasks | ✅ Beat          | ❌ Scheduler | ✅ Yes      | ✅ Yes           |
+| Result backend  | ✅ Redis/DB      | ✅ Redis     | ✅ Redis/DB | ✅ Built-in      |
+| Retries         | ✅ Advanced      | ✅ Basic     | ✅ Advanced | ✅ Advanced      |
+| Monitoring      | ✅ Flower        | ✅ Dashboard | ❌ Limited  | ✅ Cloud Console |
+| Learning curve  | Steep            | Gentle       | Moderate    | Moderate         |
+| Kubernetes      | Good             | Excellent    | Good        | N/A (managed)    |
+| Cost            | Free             | Free         | Free        | Pay per task     |
 
 **Decision**: Celery for feature completeness and ecosystem maturity
 
@@ -65,7 +65,7 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-    
+
     # Task routing
     task_routes={
         "app.tasks.reports.*": {"queue": "reports"},
@@ -73,21 +73,21 @@ celery_app.conf.update(
         "app.tasks.email.*": {"queue": "emails"},
         "app.tasks.exports.*": {"queue": "exports"}
     },
-    
+
     # Task priorities (0-9, higher = more urgent)
     task_default_priority=5,
-    
+
     # Result expiration
     result_expires=86400,  # 24 hours
-    
+
     # Worker configuration
     worker_prefetch_multiplier=1,  # Disable prefetching for long tasks
     worker_max_tasks_per_child=100,  # Restart worker after 100 tasks
-    
+
     # Retry configuration
     task_acks_late=True,
     task_reject_on_worker_lost=True,
-    
+
     # Beat schedule (periodic tasks)
     beat_schedule={
         "nightly-analytics": {
@@ -122,16 +122,16 @@ logger = get_task_logger(__name__)
 
 class DatabaseTask(Task):
     """Base task with database session."""
-    
+
     _db_session = None
-    
+
     @property
     def db_session(self) -> AsyncSession:
         if self._db_session is None:
             engine = create_async_engine(settings.DATABASE_URL)
             self._db_session = AsyncSession(engine)
         return self._db_session
-    
+
     def after_return(self, *args, **kwargs):
         """Clean up after task completion."""
         if self._db_session is not None:
@@ -140,7 +140,7 @@ class DatabaseTask(Task):
 
 class RetryableTask(DatabaseTask):
     """Task with automatic retry on failure."""
-    
+
     autoretry_for = (Exception,)
     retry_kwargs = {"max_retries": 3}
     retry_backoff = True  # Exponential backoff
@@ -175,37 +175,37 @@ async def generate_student_report(
 ):
     """Generate Quarto PDF report for student assessment."""
     logger.info(f"Generating {report_type} report for student {student_id}")
-    
+
     try:
         # Update task state
         self.update_state(state="PROGRESS", meta={"step": "fetching_data", "progress": 10})
-        
+
         # 1. Fetch data from database
         data = await fetch_assessment_data(
             self.db_session,
             UUID(student_id),
             UUID(assessment_id)
         )
-        
+
         self.update_state(state="PROGRESS", meta={"step": "preparing_template", "progress": 30})
-        
+
         # 2. Prepare Quarto template
         template_path = Path(f"templates/reports/{report_type}.qmd")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             # 3. Write data files
             data_file = Path(tmpdir) / "data.json"
             with open(data_file, "w") as f:
                 import json
                 json.dump(data, f)
-            
+
             # Copy template
             report_file = Path(tmpdir) / "report.qmd"
             import shutil
             shutil.copy(template_path, report_file)
-            
+
             self.update_state(state="PROGRESS", meta={"step": "rendering_quarto", "progress": 50})
-            
+
             # 4. Render with Quarto
             result = subprocess.run(
                 [
@@ -218,20 +218,20 @@ async def generate_student_report(
                 text=True,
                 timeout=1500  # 25 min for R/Python execution
             )
-            
+
             if result.returncode != 0:
                 logger.error(f"Quarto render failed: {result.stderr}")
                 raise Exception(f"Quarto render failed: {result.stderr}")
-            
+
             self.update_state(state="PROGRESS", meta={"step": "uploading", "progress": 90})
-            
+
             # 5. Upload to storage
             pdf_path = Path(tmpdir) / "report.pdf"
             storage_url = await upload_to_storage(
                 pdf_path,
                 f"reports/{student_id}/{assessment_id}.pdf"
             )
-            
+
             # 6. Update database
             await save_report_metadata(
                 self.db_session,
@@ -239,16 +239,16 @@ async def generate_student_report(
                 UUID(assessment_id),
                 storage_url
             )
-            
+
             logger.info(f"Report generated successfully: {storage_url}")
-            
+
             return {
                 "status": "success",
                 "student_id": student_id,
                 "assessment_id": assessment_id,
                 "storage_url": storage_url
             }
-    
+
     except subprocess.TimeoutExpired:
         logger.error("Quarto rendering timed out")
         raise
@@ -271,12 +271,12 @@ async def fetch_assessment_data(db, student_id: UUID, assessment_id: UUID):
 async def save_report_metadata(db, student_id, assessment_id, storage_url):
     """Save report metadata to database."""
     from sqlalchemy import text
-    
+
     query = text("""
         INSERT INTO reports (student_id, assessment_id, storage_url, generated_at)
         VALUES (:student_id, :assessment_id, :storage_url, CURRENT_TIMESTAMP)
     """)
-    
+
     await db.execute(query, {
         "student_id": str(student_id),
         "assessment_id": str(assessment_id),
@@ -287,10 +287,10 @@ async def save_report_metadata(db, student_id, assessment_id, storage_url):
 
 ### Quarto Template Example
 
-```markdown
+````markdown
 ---
 title: "Student Assessment Report"
-format: 
+format:
   pdf:
     toc: true
     number-sections: true
@@ -310,6 +310,7 @@ with open(params['data_file']) as f:
 student = data['student']
 assessment = data['assessment']
 ```
+````
 
 # Assessment Summary
 
@@ -346,7 +347,8 @@ Based on the assessment results, we recommend:
 1. Focus on skills where performance was below 70%
 2. Review prerequisite concepts for items answered incorrectly
 3. Practice with similar difficulty items (θ = `{python} f"{data['ability_estimate']:.2f}"`)
-```
+
+````
 
 ## IRT Calibration
 
@@ -366,24 +368,24 @@ logger = get_task_logger(__name__)
 async def calibrate_item_bank(self, organization_id: str):
     """Calibrate IRT parameters for entire item bank."""
     logger.info(f"Starting IRT calibration for organization {organization_id}")
-    
+
     try:
         # 1. Fetch response data
         self.update_state(state="PROGRESS", meta={"step": "fetching_responses", "progress": 5})
-        
+
         responses = await fetch_response_matrix(self.db_session, organization_id)
         logger.info(f"Fetched {len(responses)} response records")
-        
+
         # 2. Prepare data matrix
         self.update_state(state="PROGRESS", meta={"step": "preparing_matrix", "progress": 10})
-        
+
         item_ids, student_ids, response_matrix = prepare_matrix(responses)
         n_students, n_items = response_matrix.shape
         logger.info(f"Matrix shape: {n_students} students × {n_items} items")
-        
+
         # 3. Joint Maximum Likelihood Estimation (JMLE)
         self.update_state(state="PROGRESS", meta={"step": "estimating_parameters", "progress": 20})
-        
+
         item_params, ability_params = await jmle_estimation(
             response_matrix,
             callback=lambda progress: self.update_state(
@@ -391,15 +393,15 @@ async def calibrate_item_bank(self, organization_id: str):
                 meta={"step": "estimating_parameters", "progress": 20 + int(progress * 60)}
             )
         )
-        
+
         # 4. Save to database
         self.update_state(state="PROGRESS", meta={"step": "saving_results", "progress": 90})
-        
+
         await save_item_parameters(self.db_session, item_ids, item_params)
         await save_ability_estimates(self.db_session, student_ids, ability_params)
-        
+
         logger.info("IRT calibration completed successfully")
-        
+
         return {
             "status": "success",
             "organization_id": organization_id,
@@ -408,7 +410,7 @@ async def calibrate_item_bank(self, organization_id: str):
             "mean_difficulty": float(np.mean(item_params[:, 1])),  # b parameters
             "mean_ability": float(np.mean(ability_params))
         }
-    
+
     except Exception as e:
         logger.error(f"IRT calibration failed: {str(e)}")
         raise
@@ -416,30 +418,30 @@ async def calibrate_item_bank(self, organization_id: str):
 async def jmle_estimation(response_matrix, callback=None, max_iter=100):
     """Joint Maximum Likelihood Estimation for 2PL model."""
     n_students, n_items = response_matrix.shape
-    
+
     # Initialize parameters
     a_params = np.ones(n_items)  # Discrimination
     b_params = np.zeros(n_items)  # Difficulty
     theta = np.zeros(n_students)  # Ability
-    
+
     for iteration in range(max_iter):
         if callback:
             callback(iteration / max_iter)
-        
+
         # E-step: Estimate abilities given item parameters
         for i in range(n_students):
             responses = response_matrix[i, :]
             theta[i] = estimate_ability_mle(responses, a_params, b_params)
-        
+
         # M-step: Estimate item parameters given abilities
         for j in range(n_items):
             responses = response_matrix[:, j]
             a_params[j], b_params[j] = estimate_item_params(responses, theta)
-        
+
         # Check convergence (simplified)
         if iteration > 10:
             break
-    
+
     item_params = np.column_stack([a_params, b_params, np.zeros(n_items)])  # c=0 for 2PL
     return item_params, theta
 
@@ -450,7 +452,7 @@ def estimate_ability_mle(responses, a_params, b_params):
         p = np.clip(p, 1e-10, 1 - 1e-10)
         ll = np.sum(responses * np.log(p) + (1 - responses) * np.log(1 - p))
         return -ll
-    
+
     result = minimize(neg_log_likelihood, x0=0.0, bounds=[(-4, 4)])
     return result.x[0]
 
@@ -462,14 +464,14 @@ def estimate_item_params(responses, theta):
         p = np.clip(p, 1e-10, 1 - 1e-10)
         ll = np.sum(responses * np.log(p) + (1 - responses) * np.log(1 - p))
         return -ll
-    
+
     result = minimize(
         neg_log_likelihood,
         x0=[1.0, 0.0],
         bounds=[(0.1, 3.0), (-4, 4)]
     )
     return result.x
-```
+````
 
 ## Task Prioritization
 
@@ -492,10 +494,10 @@ async def create_report_task(
     notify_email: bool = True
 ):
     """Submit report generation task with priority."""
-    
+
     # High priority for individual student reports (teachers waiting)
     # Low priority for bulk batch reports (nightly processing)
-    
+
     if notify_email:
         # Chain: generate report → send email
         workflow = chain(
@@ -508,7 +510,7 @@ async def create_report_task(
             args=[student_id, assessment_id],
             priority=priority
         )
-    
+
     return {
         "task_id": result.id,
         "status": "submitted",
@@ -518,14 +520,14 @@ async def create_report_task(
 @router.post("/reports/batch")
 async def create_batch_reports(student_ids: list[str], assessment_id: str):
     """Generate reports for multiple students in parallel."""
-    
+
     # Group: run tasks in parallel
     job = group(
         generate_student_report.si(student_id, assessment_id).set(priority=3)
         for student_id in student_ids
     )
     result = job.apply_async()
-    
+
     return {
         "group_id": result.id,
         "status": "submitted",
@@ -536,19 +538,19 @@ async def create_batch_reports(student_ids: list[str], assessment_id: str):
 async def get_task_status(task_id: str):
     """Get task status and result."""
     from celery.result import AsyncResult
-    
+
     result = AsyncResult(task_id)
-    
+
     response = {
         "task_id": task_id,
         "status": result.state,
         "result": result.result if result.successful() else None
     }
-    
+
     # Include progress for running tasks
     if result.state == "PROGRESS":
         response["meta"] = result.info
-    
+
     return response
 ```
 
@@ -592,16 +594,16 @@ queue_length = Gauge("celery_queue_length", "Queue length", ["queue_name"])
 def monitored_task(self):
     """Example task with monitoring."""
     task_name = self.name
-    
+
     task_started.labels(task_name=task_name).inc()
-    
+
     import time
     start_time = time.time()
-    
+
     try:
         # Do work
         time.sleep(2)
-        
+
         task_succeeded.labels(task_name=task_name).inc()
     except Exception as e:
         task_failed.labels(task_name=task_name).inc()
@@ -622,20 +624,20 @@ from app.tasks.reports import generate_student_report
 @pytest.mark.asyncio
 async def test_report_generation(db_session):
     """Test report generation task."""
-    
+
     # Mock Quarto subprocess
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0)
-        
+
         # Mock storage upload
         with patch("app.core.storage.upload_to_storage") as mock_upload:
             mock_upload.return_value = "https://storage.example.com/report.pdf"
-            
+
             result = await generate_student_report(
                 student_id="123",
                 assessment_id="456"
             )
-            
+
             assert result["status"] == "success"
             assert "storage_url" in result
             mock_run.assert_called_once()
@@ -643,28 +645,28 @@ async def test_report_generation(db_session):
 def test_celery_task_routing():
     """Test that tasks are routed to correct queues."""
     from app.core.celery_app import celery_app
-    
+
     routes = celery_app.conf.task_routes
-    
+
     assert routes["app.tasks.reports.*"]["queue"] == "reports"
     assert routes["app.tasks.irt.*"]["queue"] == "irt"
 
 @pytest.mark.asyncio
 async def test_task_retry_on_failure():
     """Test automatic retry on transient failures."""
-    
+
     with patch("subprocess.run") as mock_run:
         # First call fails, second succeeds
         mock_run.side_effect = [
             MagicMock(returncode=1, stderr="Timeout"),
             MagicMock(returncode=0)
         ]
-        
+
         # Task should retry and eventually succeed
         result = await generate_student_report.apply_async(
             args=["123", "456"]
         ).get()
-        
+
         assert result["status"] == "success"
         assert mock_run.call_count == 2
 ```
@@ -680,12 +682,14 @@ Async task processing provides:
 5. **Reliability**: Automatic retries, dead letter queues, idempotency
 
 **Key Metrics**:
+
 - Report generation: 5-30 minutes
 - IRT calibration: 2-24 hours (depending on data size)
 - Task throughput: 100+ tasks/second
 - Retry backoff: Exponential with jitter
 
 **Next Steps**:
+
 - Implement task result webhooks for real-time notifications
 - Add dead letter queue handling
 - Optimize Quarto rendering with caching

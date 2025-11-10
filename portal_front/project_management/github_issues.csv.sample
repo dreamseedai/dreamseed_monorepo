@@ -1,0 +1,2 @@
+id,title,assignees,labels,story_points,branch,body
+PR-TEST-1,Sample Issue for Dry Run,,implementation;triage;sp:5;p1;iter:2025w01,5,feature/sample-branch-PR-TEST-1,Auto body line 1\nAuto body line 2

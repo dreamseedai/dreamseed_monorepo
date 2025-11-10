@@ -15,7 +15,10 @@
     "build:all": "pnpm -r run build",
     "test:all": "pnpm -r run test",
     "clean": "pnpm -r run clean || true",
-    "check:paths": "node tools/check-paths.mjs"
+    "clean:cache": "rm -rf .pytest_cache .mypy_cache .ruff_cache node_modules/.cache",
+    "check:paths": "node tools/check-paths.mjs",
+    "maintenance:weekly": "bash scripts/weekly-cleanup.sh",
+    "maintenance:organize": "bash scripts/organize-root-files.sh"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

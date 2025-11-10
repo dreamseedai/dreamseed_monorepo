@@ -1,0 +1,3 @@
+id,title,assignees,labels,story_points,branch,body,reviewers,priority_label,iteration_title
+PR-1A,R IRT Plumber microservice (mirt): calibrate/score,mpcstudy,"roadmap,implementation,backend,r,irt,service,sp:8,p1,iter:2025w45",8,feature/r/mirt-plumber-PR-1A,"Auto-generated body can be overridden here.\n\n- [ ] Calibrate endpoint returns item params/abilities/metrics\n- [ ] Score endpoint returns expected schema","reviewer1,reviewer2",P1,2025w45
+PR-2A,Quarto report project + templates (ggplot2/gt),mpcstudy,"roadmap,implementation,reports,quarto,sp:5,p2,iter:2025w46",5,feature/reports/quarto-templates-PR-2A,"Reports scope:\n- [ ] Weekly report includes trend/targets/reco Top-N\n- [ ] Branding and i18n via _quarto.yml",reviewer3;reviewer4,P2,2025w46

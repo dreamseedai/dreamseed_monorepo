@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-host-namespaces
+  annotations:
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/description: Disallow hostNetwork, hostPID, and hostIPC
+    policies.kyverno.io/severity: medium
+spec:
+  validationFailureAction: Audit
+  background: false
+  rules:
+    - name: deny-host-namespaces
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+      validate:
+        message: "hostNetwork/hostPID/hostIPC must not be enabled"
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.hostNetwork }}"
+                operator: Equals
+                value: true
+              - key: "{{ request.object.spec.hostPID }}"
+                operator: Equals
+                value: true
+              - key: "{{ request.object.spec.hostIPC }}"
+                operator: Equals
+                value: true

@@ -1,0 +1,68 @@
+name: K8s Kustomize & Kubeconform Validate
+
+on:
+  push:
+    paths:
+      - 'ops/k8s/**'
+      - '.github/workflows/k8s-validate.yml'
+  pull_request:
+    paths:
+      - 'ops/k8s/**'
+      - '.github/workflows/k8s-validate.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      KUSTOMIZE_VERSION: '5.4.1'
+      KUBECONFORM_VERSION: '0.6.7'
+      # Kubernetes schema version used by kubeconform
+      K8S_VERSION: 'v1.28.0'
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - ops/k8s/r-plumber
+          - ops/k8s/r-plumber/overlays/internal
+          - ops/k8s/r-irt-plumber
+          - ops/k8s/r-irt-plumber/overlays/internal
+          - ops/k8s/cron
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -sSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz -o /tmp/kustomize.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/kustomize.tgz kustomize
+          kustomize version
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz -o /tmp/kubeconform.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/kubeconform.tgz kubeconform
+          kubeconform -v
+
+      - name: Kustomize build ${{ matrix.target }}
+        run: |
+          echo "Building ${{ matrix.target }}"
+          kustomize build ${{ matrix.target }} > /tmp/rendered.yaml
+          test -s /tmp/rendered.yaml
+
+      - name: Kubeconform validate ${{ matrix.target }}
+        run: |
+          echo "Validating ${{ matrix.target }}"
+          # Note: ignore-missing-schemas to allow CRDs like ServiceMonitor/ArgoCD/ExternalSecret
+          kubeconform \
+            -summary \
+            -ignore-missing-schemas \
+            -kubernetes-version ${K8S_VERSION} \
+            -schema-location default \
+            -output tap < /tmp/rendered.yaml
+
+      - name: Archive rendered manifests (artifact)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-${{ matrix.target##*/ }}
+          path: /tmp/rendered.yaml

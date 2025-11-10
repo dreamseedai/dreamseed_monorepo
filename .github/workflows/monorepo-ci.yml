@@ -1,0 +1,55 @@
+name: monorepo-ci
+
+on:
+  pull_request:
+    paths:
+      - "shared/**"
+      - "shared/mathml/**"
+  push:
+    branches: [main, feat/governance-production-ready]
+    paths:
+      - "shared/**"
+      - "shared/mathml/**"
+
+jobs:
+  ts-schemas-editor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      
+      - name: Build & Test shared/schemas
+        working-directory: shared/schemas
+        run: |
+          npm ci || npm i
+          npm run build
+          npm test
+      
+      - name: Build & Test shared/editor
+        working-directory: shared/editor
+        run: |
+          npm ci || npm i
+          npm run build
+          npm test
+
+  py-shared-etl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install shared/etl
+        working-directory: shared/etl
+        run: |
+          pip install -e .
+          pip install -U pytest
+      
+      - name: Run PyTests
+        working-directory: shared/etl
+        run: pytest

@@ -1,9 +1,14 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
+    "ignoreDeprecations": "6.0",
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
@@ -14,13 +19,28 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@/shared/*": ["../shared/*"],
-      "@shared/editor/*": ["../shared/editor/src/*"],
-      "@shared/schemas/*": ["../shared/schemas/src/*"],
-      "@dreamseed/shared-editor": ["../shared/editor/src/index.ts"],
-      "@dreamseed/shared-schemas": ["../shared/schemas/src/index.ts"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@/shared/*": [
+        "../shared/*"
+      ],
+      "@shared/editor/*": [
+        "../shared/editor/src/*"
+      ],
+      "@shared/schemas/*": [
+        "../shared/schemas/src/*"
+      ],
+      "@dreamseed/shared-editor": [
+        "../shared/editor/src/index.ts"
+      ],
+      "@dreamseed/shared-schemas": [
+        "../shared/schemas/src/index.ts"
+      ]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": [
+    "src",
+    "vite.config.ts"
+  ]
 }

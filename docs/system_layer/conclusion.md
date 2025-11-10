@@ -55,6 +55,7 @@ class DataManagementPrinciples:
 ```
 
 **주요 특징**:
+
 - **멀티 테넌시**: 기관별 데이터 격리 (`org_id` 기반)
 - **ACID 트랜잭션**: PostgreSQL을 통한 데이터 일관성 보장
 - **확장성**: 읽기 복제본, 샤딩을 통한 수평 확장
@@ -119,7 +120,7 @@ graph LR
     D --> E[다음 문항 선택]
     E --> F[AI 튜터]
     F --> G[맞춤형 피드백]
-    
+
     B --> H[분석 엔진]
     H --> I[학습 궤적]
     I --> J[리스크 탐지]
@@ -180,6 +181,7 @@ class APILayer:
 ```
 
 **API 설계 원칙**:
+
 - **RESTful**: 리소스 기반 URL 설계
 - **Versioning**: `/api/v1`, `/api/v2` 버전 관리
 - **Documentation**: OpenAPI 3.0 자동 문서화
@@ -206,22 +208,22 @@ async def generate_report(user_id: int, report_type: str):
     """
     # 1. 데이터 수집
     learning_data = await fetch_user_learning_data(user_id)
-    
+
     # 2. 통계 분석
     analysis = await perform_statistical_analysis(learning_data)
-    
+
     # 3. Quarto 렌더링
     report_html = await render_quarto_report(analysis, report_type)
-    
+
     # 4. PDF 변환
     pdf_path = await convert_to_pdf(report_html)
-    
+
     # 5. S3 업로드
     report_url = await upload_to_s3(pdf_path)
-    
+
     # 6. 사용자 알림
     await notify_user(user_id, report_url)
-    
+
     return report_url
 
 # Kafka 이벤트 스트리밍
@@ -236,7 +238,7 @@ async def publish_learning_event(event_type: str, data: dict):
         "timestamp": datetime.utcnow().isoformat(),
         "data": data
     }
-    
+
     producer.send('learning-events', json.dumps(message).encode('utf-8'))
     producer.flush()
 
@@ -253,21 +255,22 @@ async def consume_learning_events():
     """
     for message in consumer:
         event = json.loads(message.value.decode('utf-8'))
-        
+
         if event['event_type'] == 'item_response':
             # IRT 파라미터 업데이트
             await update_irt_parameters(event['data'])
-        
+
         elif event['event_type'] == 'session_complete':
             # 학습 세션 분석
             await analyze_session(event['data'])
-        
+
         elif event['event_type'] == 'risk_detected':
             # 교사 알림
             await notify_teacher(event['data'])
 ```
 
 **비동기 처리 사용 사례**:
+
 - **리포트 생성**: Quarto 기반 통계 리포트 (5-30분 소요)
 - **IRT 캘리브레이션**: 대량 응답 데이터 분석 (수시간 소요)
 - **이메일 발송**: 배치 이메일 전송
@@ -329,6 +332,7 @@ class ExternalIntegrations:
 ```
 
 **연동 보안 원칙**:
+
 - **OAuth 2.0**: 토큰 기반 인증
 - **HMAC 서명**: Webhook 무결성 검증
 - **TLS 1.3**: 전송 계층 암호화
@@ -368,7 +372,7 @@ CREATE POLICY org_isolation_policy ON users
 SET app.current_org_id = 123;
 
 -- 이제 모든 쿼리는 자동으로 org_id 필터링됨
-SELECT * FROM users;  
+SELECT * FROM users;
 -- 실제 실행: SELECT * FROM users WHERE org_id = 123;
 ```
 
@@ -428,7 +432,7 @@ async def get_hint(
         {"session_id": session_id}
     )
     session = session.fetchone()
-    
+
     # 정책 검사: 시험 모드에서는 힌트 금지
     if session.exam_mode in [ExamMode.ASSESSMENT, ExamMode.FINAL_EXAM]:
         # OPA 정책 평가
@@ -440,16 +444,16 @@ async def get_hint(
                 "exam_mode": session.exam_mode
             }
         )
-        
+
         if not policy_result.get("allow", False):
             raise HTTPException(
                 status_code=403,
                 detail="Hints are not allowed during assessments"
             )
-    
+
     # 힌트 생성
     hint = await ai_tutor_engine.generate_hint(item_id, current_user.ability_estimate)
-    
+
     # 감사 로그
     await audit_log("ai_tutor_hint_requested", {
         "user_id": current_user.user_id,
@@ -457,7 +461,7 @@ async def get_hint(
         "item_id": item_id,
         "exam_mode": session.exam_mode
     })
-    
+
     return {"hint": hint}
 ```
 
@@ -480,7 +484,7 @@ def require_role(allowed_roles: List[str]):
         async def wrapper(*args, current_user = None, **kwargs):
             if current_user is None:
                 raise HTTPException(status_code=401, detail="Not authenticated")
-            
+
             if current_user.role not in allowed_roles:
                 # 감사 로그: 권한 거부
                 await audit_log("access_denied", {
@@ -489,12 +493,12 @@ def require_role(allowed_roles: List[str]):
                     "required_roles": allowed_roles,
                     "endpoint": func.__name__
                 })
-                
+
                 raise HTTPException(
                     status_code=403,
                     detail=f"Role '{current_user.role}' not authorized. Required: {allowed_roles}"
                 )
-            
+
             return await func(*args, current_user=current_user, **kwargs)
         return wrapper
     return decorator
@@ -516,14 +520,14 @@ async def update_grade(
         {"assignment_id": assignment_id}
     )
     existing_grade = existing_grade.fetchone()
-    
+
     if not existing_grade:
         raise HTTPException(status_code=404, detail="Grade not found")
-    
+
     # 업데이트
     await db.execute(
         """
-        UPDATE grades 
+        UPDATE grades
         SET score = :score, feedback = :feedback, updated_by = :user_id, updated_at = NOW()
         WHERE assignment_id = :assignment_id
         """,
@@ -534,7 +538,7 @@ async def update_grade(
             "assignment_id": assignment_id
         }
     )
-    
+
     # 감사 로그
     await audit_log("grade_updated", {
         "updated_by": current_user.user_id,
@@ -542,7 +546,7 @@ async def update_grade(
         "old_score": existing_grade.score,
         "new_score": grade_update.score
     })
-    
+
     return {"message": "Grade updated successfully"}
 ```
 
@@ -566,7 +570,7 @@ class UserCreate(BaseModel):
     full_name: str = Field(..., max_length=200)
     grade_level: int = Field(..., ge=1, le=12)
     birth_date: datetime
-    
+
     @validator('password')
     def password_strength(cls, v):
         """
@@ -579,7 +583,7 @@ class UserCreate(BaseModel):
         if not any(char.islower() for char in v):
             raise ValueError('Password must contain at least one lowercase letter')
         return v
-    
+
     @validator('birth_date')
     def age_validation(cls, v):
         """
@@ -587,10 +591,10 @@ class UserCreate(BaseModel):
         """
         today = datetime.utcnow()
         age = (today - v).days / 365.25
-        
+
         if age < 13:
             raise ValueError('Users must be at least 13 years old')
-        
+
         return v
 
 # XSS, SQL Injection 방어
@@ -603,10 +607,10 @@ async def sanitize_user_input(text: str) -> str:
     """
     # HTML 태그 제거
     cleaned = clean(text, tags=[], strip=True)
-    
+
     # HTML 엔티티 인코딩
     encoded = html.escape(cleaned)
-    
+
     return encoded
 
 @router.post("/comments")
@@ -619,13 +623,13 @@ async def create_comment(
     """
     # 입력 새니타이징
     safe_comment = await sanitize_user_input(comment_text)
-    
+
     # DB 저장 (Parameterized Query로 SQL Injection 방어)
     await db.execute(
         "INSERT INTO comments (user_id, text, created_at) VALUES (:user_id, :text, NOW())",
         {"user_id": current_user.user_id, "text": safe_comment}
     )
-    
+
     return {"message": "Comment created successfully"}
 ```
 
@@ -659,10 +663,10 @@ async def audit_log(event_type: str, data: Dict[str, Any]):
         "ip_address": data.get("ip_address"),
         "user_agent": data.get("user_agent")
     }
-    
+
     # 로그 파일에 기록
     logger.info(json.dumps(log_entry))
-    
+
     # PostgreSQL 감사 테이블에 저장
     await db.execute(
         """
@@ -675,7 +679,7 @@ async def audit_log(event_type: str, data: Dict[str, Any]):
             "data": json.dumps(data)
         }
     )
-    
+
     # Kafka로 실시간 스트리밍 (SIEM 연동)
     await publish_to_kafka("audit-events", log_entry)
 
@@ -738,35 +742,35 @@ spec:
         app: user-service
     spec:
       containers:
-      - name: user-service
-        image: dreamseedai/user-service:v1.2.0
-        ports:
-        - containerPort: 8001
-        env:
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: db-credentials
-              key: connection-string
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8001
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8001
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        - name: user-service
+          image: dreamseedai/user-service:v1.2.0
+          ports:
+            - containerPort: 8001
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: connection-string
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
@@ -776,12 +780,13 @@ spec:
   selector:
     app: user-service
   ports:
-  - port: 80
-    targetPort: 8001
+    - port: 80
+      targetPort: 8001
   type: ClusterIP
 ```
 
 **마이크로서비스 이점**:
+
 - **독립 배포**: 각 서비스를 독립적으로 업데이트
 - **기술 스택 다양성**: Python, Node.js, Go 등 최적 기술 선택
 - **장애 격리**: 한 서비스 장애가 전체 시스템에 영향 최소화
@@ -808,14 +813,14 @@ upstream assessment_service {
 server {
     listen 80;
     server_name api.dreamseedai.com;
-    
+
     # Rate Limiting
     limit_req_zone $binary_remote_addr zone=api_limit:10m rate=100r/m;
-    
+
     # CORS
     add_header 'Access-Control-Allow-Origin' 'https://app.dreamseedai.com';
     add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS';
-    
+
     # API 라우팅
     location /api/users/ {
         limit_req zone=api_limit burst=20;
@@ -823,15 +828,15 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
-    
+
     location /api/content/ {
         proxy_pass http://content_service/;
     }
-    
+
     location /api/assessments/ {
         proxy_pass http://assessment_service/;
     }
-    
+
     # Health Check
     location /health {
         access_log off;
@@ -841,6 +846,7 @@ server {
 ```
 
 **API Gateway 기능**:
+
 - **라우팅**: URL 패턴 기반 서비스 라우팅
 - **인증**: JWT 토큰 검증
 - **Rate Limiting**: DDoS 방어 및 공정 사용
@@ -905,52 +911,53 @@ CELERY_QUEUES = {
 ```yaml
 # AWS 인프라 예시 (Terraform)
 resource "aws_eks_cluster" "dreamseed" {
-  name     = "dreamseed-production"
-  role_arn = aws_iam_role.eks_cluster.arn
-  version  = "1.27"
-  
-  vpc_config {
-    subnet_ids = [
-      aws_subnet.private_a.id,
-      aws_subnet.private_b.id,
-      aws_subnet.private_c.id
-    ]
-    endpoint_public_access = false
-    endpoint_private_access = true
-  }
+name     = "dreamseed-production"
+role_arn = aws_iam_role.eks_cluster.arn
+version  = "1.27"
+
+vpc_config {
+subnet_ids = [
+aws_subnet.private_a.id,
+aws_subnet.private_b.id,
+aws_subnet.private_c.id
+]
+endpoint_public_access = false
+endpoint_private_access = true
+}
 }
 
 resource "aws_rds_cluster" "postgres" {
-  cluster_identifier      = "dreamseed-postgres"
-  engine                  = "aurora-postgresql"
-  engine_version          = "15.3"
-  database_name           = "dreamseed_prod"
-  master_username         = "admin"
-  master_password         = var.db_password
-  backup_retention_period = 7
-  preferred_backup_window = "03:00-04:00"
-  
-  vpc_security_group_ids = [aws_security_group.database.id]
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  
-  serverlessv2_scaling_configuration {
-    max_capacity = 64.0
-    min_capacity = 2.0
-  }
+cluster_identifier      = "dreamseed-postgres"
+engine                  = "aurora-postgresql"
+engine_version          = "15.3"
+database_name           = "dreamseed_prod"
+master_username         = "admin"
+master_password         = var.db_password
+backup_retention_period = 7
+preferred_backup_window = "03:00-04:00"
+
+vpc_security_group_ids = [aws_security_group.database.id]
+db_subnet_group_name   = aws_db_subnet_group.main.name
+
+serverlessv2_scaling_configuration {
+max_capacity = 64.0
+min_capacity = 2.0
+}
 }
 
 resource "aws_elasticache_cluster" "redis" {
-  cluster_id           = "dreamseed-redis"
-  engine               = "redis"
-  node_type            = "cache.r6g.large"
-  num_cache_nodes      = 3
-  parameter_group_name = "default.redis7"
-  port                 = 6379
-  subnet_group_name    = aws_elasticache_subnet_group.main.name
+cluster_id           = "dreamseed-redis"
+engine               = "redis"
+node_type            = "cache.r6g.large"
+num_cache_nodes      = 3
+parameter_group_name = "default.redis7"
+port                 = 6379
+subnet_group_name    = aws_elasticache_subnet_group.main.name
 }
 ```
 
 **클라우드 이점**:
+
 - **Auto Scaling**: 트래픽에 따른 자동 확장
 - **High Availability**: 다중 가용 영역 배포
 - **Managed Services**: RDS, ElastiCache 등 관리형 서비스
@@ -984,8 +991,8 @@ const FRONTEND_STACK = {
   styling: "Tailwind CSS",
   ui: "shadcn/ui",
   editor: "TipTap (with MathJax)",
-  testing: "Jest, React Testing Library"
-}
+  testing: "Jest, React Testing Library",
+};
 ```
 
 ### 4.3 데이터베이스
@@ -1043,12 +1050,12 @@ graph TB
     B -->|AI 추론| C
     B -->|API 서비스| C
     B -->|감사 로그| A
-    
+
     B --> D[데이터 격리]
     B --> E[기능 제한]
     B --> F[권한 검사]
     B --> G[유효성 검증]
-    
+
     D --> H[정책 준수]
     E --> H
     F --> H

@@ -1,0 +1,20 @@
+{
+  "irt": {
+    "drift": {
+      "title": "월별 IRT 드리프트 모니터링",
+      "alerts_for_window": "윈도우 경고",
+      "download_pdf": "PDF 보고서 다운로드",
+      "loading": "로딩 중...",
+      "no_alerts": "드리프트 경고가 없습니다.",
+      "col": {
+        "item": "문항 ID",
+        "metric": "지표",
+        "value": "값",
+        "threshold": "임계값",
+        "severity": "심각도",
+        "message": "메시지",
+        "created": "생성일시"
+      }
+    }
+  }
+}

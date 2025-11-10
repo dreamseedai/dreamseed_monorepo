@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dreamseedai.com/schemas/project-config.schema.json",
+  "title": "Project Bulk Config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "statusLabelMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Map of issue label to Projects Status value"
+    },
+    "storyPointsLabelPrefix": {
+      "type": "string",
+      "default": "sp:",
+      "description": "Label prefix to parse story points from labels (e.g., sp:3)"
+    },
+    "projectUrl": {
+      "type": "string",
+      "pattern": "^https://github.com/orgs/[^/]+/projects/[0-9]+$",
+      "description": "Canonical Projects V2 URL (org-level)"
+    }
+  },
+  "required": ["statusLabelMap"]
+}

@@ -1,0 +1,33 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-namespaces
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: disallow-hostnetwork-hostpid-on-controllers
+      match:
+        any:
+          - resources:
+              kinds: [Deployment,StatefulSet,DaemonSet,Job,CronJob]
+      validate:
+        message: hostNetwork and hostPID must not be enabled.
+        pattern:
+          spec:
+            template:
+              spec:
+                # explicitly false or unset
+                =(hostNetwork): false
+                =(hostPID): false
+    - name: disallow-hostnetwork-hostpid-on-pod
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: hostNetwork and hostPID must not be enabled.
+        pattern:
+          spec:
+            =(hostNetwork): false
+            =(hostPID): false

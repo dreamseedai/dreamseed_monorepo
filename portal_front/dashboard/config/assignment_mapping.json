@@ -1,0 +1,7 @@
+{
+  "very_low": "remedial_basics",
+  "low": "supplementary_review",
+  "mid": "core_practice",
+  "high": "challenge_advanced",
+  "very_high": "enrichment_extension"
+}

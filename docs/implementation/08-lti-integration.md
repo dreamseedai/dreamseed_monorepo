@@ -113,10 +113,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 class LTIService:
     """LTI 1.3 integration service."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
     async def register_platform(
         self,
         organization_id: UUID,
@@ -129,25 +129,25 @@ class LTIService:
         deployment_id: str = None
     ) -> UUID:
         """Register an LTI platform (LMS)."""
-        
+
         # Fetch public key from JWKS endpoint
         async with httpx.AsyncClient() as client:
             response = await client.get(jwks_endpoint)
             jwks = response.json()
-        
+
         # Store first key (simplified - should store all keys)
         public_key_jwk = jwks["keys"][0]
-        
+
         query = text("""
-            INSERT INTO lti_platforms 
-                (organization_id, platform_name, issuer, auth_endpoint, 
+            INSERT INTO lti_platforms
+                (organization_id, platform_name, issuer, auth_endpoint,
                  token_endpoint, jwks_endpoint, client_id, deployment_id, public_key)
-            VALUES 
+            VALUES
                 (:org_id, :platform_name, :issuer, :auth_endpoint,
                  :token_endpoint, :jwks_endpoint, :client_id, :deployment_id, :public_key)
             RETURNING platform_id
         """)
-        
+
         result = await self.db.execute(query, {
             "org_id": str(organization_id),
             "platform_name": platform_name,
@@ -159,9 +159,9 @@ class LTIService:
             "deployment_id": deployment_id,
             "public_key": str(public_key_jwk)
         })
-        
+
         await self.db.commit()
-        
+
         row = result.fetchone()
         return row.platform_id
 ```
@@ -191,22 +191,22 @@ async def lti_login(
     db: AsyncSession = Depends(get_db)
 ):
     """OIDC login initiation (step 1)."""
-    
+
     # Get platform configuration
     lti_service = LTIService(db)
     platform = await lti_service.get_platform_by_issuer(iss)
-    
+
     if not platform:
         raise HTTPException(status_code=404, detail="Platform not registered")
-    
+
     # Generate state and nonce
     import secrets
     state = secrets.token_urlsafe(32)
     nonce = secrets.token_urlsafe(32)
-    
+
     # Store state/nonce in session/cache
     # (In production, use Redis with expiration)
-    
+
     # Build OIDC auth request
     auth_params = {
         "response_type": "id_token",
@@ -219,14 +219,14 @@ async def lti_login(
         "nonce": nonce,
         "prompt": "none"
     }
-    
+
     if lti_message_hint:
         auth_params["lti_message_hint"] = lti_message_hint
-    
+
     # Redirect to platform's auth endpoint
     from urllib.parse import urlencode
     auth_url = f"{platform.auth_endpoint}?{urlencode(auth_params)}"
-    
+
     return RedirectResponse(url=auth_url, status_code=302)
 
 @router.post("/launch")
@@ -237,21 +237,21 @@ async def lti_launch(
     db: AsyncSession = Depends(get_db)
 ):
     """LTI launch (step 2) - validate JWT and create session."""
-    
+
     lti_service = LTIService(db)
-    
+
     # Decode JWT header to get issuer
     import json
     import base64
-    
+
     header = json.loads(base64.urlsafe_b64decode(id_token.split('.')[0] + '=='))
-    
+
     # Get platform by kid (key ID)
     platform = await lti_service.get_platform_by_kid(header.get('kid'))
-    
+
     if not platform:
         raise HTTPException(status_code=401, detail="Invalid platform")
-    
+
     # Validate JWT
     try:
         claims = jwt.decode(
@@ -262,17 +262,17 @@ async def lti_launch(
         )
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid JWT: {str(e)}")
-    
+
     # Validate LTI claims
     if claims.get("https://purl.imsglobal.org/spec/lti/claim/message_type") != "LtiResourceLinkRequest":
         raise HTTPException(status_code=400, detail="Invalid message type")
-    
+
     # Extract user info
     lti_user_id = claims["sub"]
     email = claims.get("email")
     name = claims.get("name", "")
     roles = claims.get("https://purl.imsglobal.org/spec/lti/claim/roles", [])
-    
+
     # Get or create user
     user = await lti_service.get_or_create_user(
         platform_id=platform.platform_id,
@@ -281,7 +281,7 @@ async def lti_launch(
         name=name,
         roles=roles
     )
-    
+
     # Create LTI session
     session_id = await lti_service.create_session(
         platform_id=platform.platform_id,
@@ -292,14 +292,14 @@ async def lti_launch(
         roles=roles,
         launch_data=claims
     )
-    
+
     # Generate auth token for user
     from app.core.auth import create_access_token
     access_token = create_access_token(user.user_id)
-    
+
     # Redirect to frontend with token
     target_url = f"{settings.FRONTEND_URL}/lti/session?token={access_token}&session_id={session_id}"
-    
+
     return RedirectResponse(url=target_url, status_code=302)
 ```
 
@@ -314,19 +314,19 @@ async def content_select(
     db: AsyncSession = Depends(get_db)
 ):
     """Present content selection UI for deep linking."""
-    
+
     # Get LTI session
     session = await get_lti_session(db, session_id)
-    
+
     # Verify this is a deep linking request
     launch_data = session.launch_data
     if launch_data.get("https://purl.imsglobal.org/spec/lti/claim/message_type") != "LtiDeepLinkingRequest":
         raise HTTPException(status_code=400, detail="Not a deep linking request")
-    
+
     # Return available content
     # (Frontend will render selection UI)
     assessments = await get_available_assessments(db, session.user_id)
-    
+
     return {
         "session_id": str(session_id),
         "deep_link_return_url": launch_data.get("https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings", {}).get("deep_link_return_url"),
@@ -340,18 +340,18 @@ async def deep_link_return(
     db: AsyncSession = Depends(get_db)
 ):
     """Return selected content to LMS via deep linking."""
-    
+
     lti_service = LTIService(db)
     session = await get_lti_session(db, session_id)
-    
+
     # Build deep linking response JWT
     launch_data = session.launch_data
     deep_link_settings = launch_data.get("https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings", {})
-    
+
     content_items = []
     for content_id in selected_content_ids:
         content = await get_content(db, content_id)
-        
+
         content_items.append({
             "type": "ltiResourceLink",
             "title": content.title,
@@ -360,7 +360,7 @@ async def deep_link_return(
                 "content_id": str(content_id)
             }
         })
-    
+
     # Create JWT
     deep_link_jwt = jwt.encode(
         {
@@ -378,10 +378,10 @@ async def deep_link_return(
         settings.LTI_PRIVATE_KEY,
         algorithm="RS256"
     )
-    
+
     # Return form that auto-submits to LMS
     return_url = deep_link_settings["deep_link_return_url"]
-    
+
     return f"""
     <html>
     <body onload="document.forms[0].submit()">
@@ -406,14 +406,14 @@ from sqlalchemy import text
 
 class LTIGradeService:
     """LTI Advantage Grade Service."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
     async def get_access_token(self, platform_id: UUID) -> str:
         """Get OAuth 2.0 access token for AGS."""
         platform = await self.get_platform(platform_id)
-        
+
         # Request token from platform
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -425,14 +425,14 @@ class LTIGradeService:
                     "scope": "https://purl.imsglobal.org/spec/lti-ags/scope/score"
                 }
             )
-            
+
             data = response.json()
             return data["access_token"]
-    
+
     def _build_client_assertion(self, platform) -> str:
         """Build JWT client assertion for OAuth."""
         import time
-        
+
         return jwt.encode(
             {
                 "iss": platform.client_id,
@@ -445,7 +445,7 @@ class LTIGradeService:
             settings.LTI_PRIVATE_KEY,
             algorithm="RS256"
         )
-    
+
     async def send_score(
         self,
         session_id: UUID,
@@ -454,24 +454,24 @@ class LTIGradeService:
         comment: str = None
     ):
         """Send score to LMS gradebook."""
-        
+
         # Get session and line item URL
         session = await self.get_session(session_id)
         launch_data = session.launch_data
-        
+
         ags_claim = launch_data.get("https://purl.imsglobal.org/spec/lti-ags/claim/endpoint", {})
         line_item_url = ags_claim.get("lineitem")
-        
+
         if not line_item_url:
             # No gradebook integration
             return False
-        
+
         # Get access token
         access_token = await self.get_access_token(session.platform_id)
-        
+
         # Send score
         score_url = f"{line_item_url}/scores"
-        
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 score_url,
@@ -489,7 +489,7 @@ class LTIGradeService:
                     "userId": session.lti_user_id
                 }
             )
-            
+
             return response.status_code == 200
 ```
 
@@ -501,32 +501,32 @@ class LTIGradeService:
 # app/services/lti_nrps_service.py
 class LTINRPSService:
     """LTI Names and Roles Provisioning Service."""
-    
+
     async def sync_roster(self, session_id: UUID):
         """Sync class roster from LMS."""
-        
+
         session = await self.get_session(session_id)
         launch_data = session.launch_data
-        
+
         nrps_claim = launch_data.get("https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice", {})
         context_memberships_url = nrps_claim.get("context_memberships_url")
-        
+
         if not context_memberships_url:
             return []
-        
+
         # Get access token
         access_token = await self.get_access_token(session.platform_id, scope="https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly")
-        
+
         # Fetch roster
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 context_memberships_url,
                 headers={"Authorization": f"Bearer {access_token}"}
             )
-            
+
             data = response.json()
             members = data.get("members", [])
-        
+
         # Create/update users
         for member in members:
             await self.get_or_create_user(
@@ -536,7 +536,7 @@ class LTINRPSService:
                 name=member.get("name"),
                 roles=member.get("roles", [])
             )
-        
+
         return members
 ```
 
@@ -552,7 +552,7 @@ from app.services.lti_service import LTIService
 async def test_lti_launch_validation(db_session):
     """Test LTI launch JWT validation."""
     service = LTIService(db_session)
-    
+
     # Create test JWT
     # Validate claims
     # Verify user creation
@@ -562,18 +562,18 @@ async def test_lti_launch_validation(db_session):
 async def test_grade_passback(db_session):
     """Test AGS grade passback."""
     from app.services.lti_grade_service import LTIGradeService
-    
+
     grade_service = LTIGradeService(db_session)
-    
+
     with patch("httpx.AsyncClient.post") as mock_post:
         mock_post.return_value = MagicMock(status_code=200)
-        
+
         success = await grade_service.send_score(
             session_id=uuid4(),
             score=0.85,
             max_score=1.0
         )
-        
+
         assert success
         mock_post.assert_called()
 ```
@@ -589,11 +589,13 @@ LTI 1.3 integration provides:
 5. **Multi-platform**: Supports Canvas, Moodle, Blackboard, etc.
 
 **Key Standards**:
+
 - LTI 1.3 Core
 - LTI Advantage (AGS, NRPS, Deep Linking)
 - OAuth 2.0 / OIDC
 
 **Next Steps**:
+
 - Implement automated platform registration
 - Add assignment creation via AGS
 - Support LTI resource selection

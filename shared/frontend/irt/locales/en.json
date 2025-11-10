@@ -1,0 +1,20 @@
+{
+  "irt": {
+    "drift": {
+      "title": "Monthly IRT Drift Monitoring",
+      "alerts_for_window": "Alerts for window",
+      "download_pdf": "Download PDF Report",
+      "loading": "Loading...",
+      "no_alerts": "No drift alerts detected.",
+      "col": {
+        "item": "Item ID",
+        "metric": "Metric",
+        "value": "Value",
+        "threshold": "Threshold",
+        "severity": "Severity",
+        "message": "Message",
+        "created": "Created At"
+      }
+    }
+  }
+}

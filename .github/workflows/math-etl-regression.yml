@@ -1,0 +1,48 @@
+name: math-etl-regression
+
+on:
+  pull_request:
+    paths:
+      - "shared/mathml/**"
+  push:
+    branches: [main, feat/governance-production-ready]
+    paths:
+      - "shared/mathml/**"
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shared/mathml
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      
+      - name: Install Node deps
+        run: |
+          cd node
+          npm ci
+      
+      - name: Run snapshot check
+        run: |
+          cd node
+          npm run snapshot:check
+      
+      - name: Install Python deps
+        run: |
+          pip install -U pytest lxml
+      
+      - name: Run PyTests
+        run: |
+          pytest -v tests/

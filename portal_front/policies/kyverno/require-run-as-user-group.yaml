@@ -1,0 +1,34 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-run-as-user-group
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: require-run-as-user-group-controllers
+      match:
+        any:
+          - resources:
+              kinds: [Deployment,StatefulSet,DaemonSet,Job,CronJob]
+      validate:
+        message: Pod template must set runAsUser and runAsGroup at pod securityContext.
+        pattern:
+          spec:
+            template:
+              spec:
+                securityContext:
+                  runAsUser: ">=10000"
+                  runAsGroup: ">=10000"
+    - name: require-run-as-user-group-pod
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: Pod must set runAsUser and runAsGroup at securityContext.
+        pattern:
+          spec:
+            securityContext:
+              runAsUser: ">=10000"
+              runAsGroup: ">=10000"

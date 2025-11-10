@@ -1,0 +1,21 @@
+{
+  "owner": "dreamseedai",
+  "repo": "dreamseed_monorepo",
+  "required_checks": [
+    "ci/build",
+    "ci/test",
+    "ci/deploy"
+  ],
+  "patterns": [
+    "default",
+    "release/",
+    "feature/"
+  ],
+  "exclude": [
+    "feature/wip-.*"
+  ],
+  "parallel": 2,
+  "reviews": 1,
+  "enforce_admins": true,
+  "strict": true
+}

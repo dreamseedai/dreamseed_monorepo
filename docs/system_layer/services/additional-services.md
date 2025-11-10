@@ -44,10 +44,10 @@ async def register_user(user: UserCreate):
     existing = await db.users.find_one({"email": user.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
     # 비밀번호 해싱
     hashed_password = pwd_context.hash(user.password)
-    
+
     # 사용자 생성
     new_user = {
         "email": user.email,
@@ -57,7 +57,7 @@ async def register_user(user: UserCreate):
         "created_at": datetime.utcnow(),
         "is_active": True
     }
-    
+
     result = await db.users.insert_one(new_user)
     return {"user_id": str(result.inserted_id), "message": "User created successfully"}
 ```
@@ -117,14 +117,14 @@ async def update_profile(user_id: int, update: UserUpdate, current_user = Depend
     # 권한 확인 (본인 또는 관리자만)
     if current_user.user_id != user_id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     # 업데이트할 필드만 추출
     update_data = {k: v for k, v in update.dict().items() if v is not None}
     update_data["updated_at"] = datetime.utcnow()
-    
+
     result = await db.execute(
         """
-        UPDATE users 
+        UPDATE users
         SET full_name = COALESCE(:full_name, full_name),
             grade_level = COALESCE(:grade_level, grade_level),
             profile_image_url = COALESCE(:profile_image_url, profile_image_url),
@@ -135,7 +135,7 @@ async def update_profile(user_id: int, update: UserUpdate, current_user = Depend
         """,
         {**update_data, "user_id": user_id}
     )
-    
+
     return result.fetchone()
 ```
 
@@ -145,8 +145,8 @@ async def update_profile(user_id: int, update: UserUpdate, current_user = Depend
 @router.post("/classes/{class_id}/assign")
 @require_policy("user_management", "assign_class")
 async def assign_user_to_class(
-    class_id: int, 
-    user_id: int, 
+    class_id: int,
+    user_id: int,
     role: str = "student",
     current_user = Depends(get_current_user)
 ):
@@ -154,20 +154,20 @@ async def assign_user_to_class(
     # 교사 또는 관리자만 가능
     if current_user.role not in ["teacher", "admin"]:
         raise HTTPException(status_code=403, detail="Only teachers or admins can assign users")
-    
+
     # 학급 존재 확인
     class_exists = await db.classes.find_one({"class_id": class_id})
     if not class_exists:
         raise HTTPException(status_code=404, detail="Class not found")
-    
+
     # 중복 배정 확인
     existing = await db.user_classes.find_one({
-        "user_id": user_id, 
+        "user_id": user_id,
         "class_id": class_id
     })
     if existing:
         raise HTTPException(status_code=400, detail="User already assigned to this class")
-    
+
     # 배정
     assignment = {
         "user_id": user_id,
@@ -175,9 +175,9 @@ async def assign_user_to_class(
         "role": role,
         "joined_at": datetime.utcnow()
     }
-    
+
     result = await db.user_classes.insert_one(assignment)
-    
+
     # 감사 로그
     await audit_log("user_class_assignment", {
         "assigned_by": current_user.user_id,
@@ -185,7 +185,7 @@ async def assign_user_to_class(
         "class_id": class_id,
         "role": role
     })
-    
+
     return {"message": "User assigned to class successfully"}
 ```
 
@@ -230,12 +230,12 @@ class TokenData(BaseModel):
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """액세스 토큰 생성"""
     to_encode = data.copy()
-    
+
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
+
     to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -255,10 +255,10 @@ async def verify_token(token: str) -> TokenData:
         user_id: int = payload.get("user_id")
         email: str = payload.get("email")
         role: str = payload.get("role")
-        
+
         if user_id is None or email is None:
             raise HTTPException(status_code=401, detail="Invalid token")
-        
+
         return TokenData(
             user_id=user_id,
             email=email,
@@ -285,36 +285,36 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         {"email": form_data.username}
     )
     user = user.fetchone()
-    
+
     if not user or not pwd_context.verify(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
-    
+
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
-    
+
     # 토큰 생성
     token_data = {
         "user_id": user.user_id,
         "email": user.email,
         "role": user.role
     }
-    
+
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
-    
+
     # 마지막 로그인 시간 업데이트
     await db.execute(
         "UPDATE users SET last_login = :now WHERE user_id = :user_id",
         {"now": datetime.utcnow(), "user_id": user.user_id}
     )
-    
+
     # 감사 로그
     await audit_log("user_login", {
         "user_id": user.user_id,
         "email": user.email,
         "ip_address": request.client.host
     })
-    
+
     return Token(
         access_token=access_token,
         refresh_token=refresh_token
@@ -348,10 +348,10 @@ async def google_callback(request: Request):
     """Google OAuth 콜백"""
     token = await oauth.google.authorize_access_token(request)
     user_info = token.get('userinfo')
-    
+
     # 사용자 조회 또는 생성
     user = await db.users.find_one({"email": user_info['email']})
-    
+
     if not user:
         # 신규 사용자 생성
         user = {
@@ -366,17 +366,17 @@ async def google_callback(request: Request):
         }
         result = await db.users.insert_one(user)
         user['user_id'] = result.inserted_id
-    
+
     # JWT 토큰 생성
     token_data = {
         "user_id": user['user_id'],
         "email": user['email'],
         "role": user.get('role', 'student')
     }
-    
+
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
-    
+
     # 프론트엔드로 리다이렉트 (토큰 전달)
     return RedirectResponse(
         url=f"{FRONTEND_URL}/auth/callback?access_token={access_token}&refresh_token={refresh_token}"
@@ -389,17 +389,17 @@ async def google_callback(request: Request):
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:
     """현재 인증된 사용자 조회"""
     token_data = await verify_token(token)
-    
+
     # 사용자 활성 상태 확인
     user = await db.execute(
         "SELECT is_active FROM users WHERE user_id = :user_id",
         {"user_id": token_data.user_id}
     )
     user = user.fetchone()
-    
+
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User is inactive")
-    
+
     return token_data
 
 def require_role(allowed_roles: List[str]):
@@ -407,7 +407,7 @@ def require_role(allowed_roles: List[str]):
     def role_checker(current_user: TokenData = Depends(get_current_user)):
         if current_user.role not in allowed_roles:
             raise HTTPException(
-                status_code=403, 
+                status_code=403,
                 detail=f"Role '{current_user.role}' not authorized. Required: {allowed_roles}"
             )
         return current_user
@@ -460,10 +460,10 @@ async def create_checkout_session(
         {"plan_id": plan_id}
     )
     plan = plan.fetchone()
-    
+
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
-    
+
     # Stripe Checkout Session 생성
     try:
         checkout_session = stripe.checkout.Session.create(
@@ -491,9 +491,9 @@ async def create_checkout_session(
                 'plan_id': plan_id
             }
         )
-        
+
         return {"checkout_url": checkout_session.url}
-    
+
     except stripe.error.StripeError as e:
         raise HTTPException(status_code=400, detail=str(e))
 ```
@@ -555,7 +555,7 @@ async def stripe_webhook(request: Request):
     """Stripe 웹훅 이벤트 처리"""
     payload = await request.body()
     sig_header = request.headers.get('stripe-signature')
-    
+
     try:
         event = stripe.Webhook.construct_event(
             payload, sig_header, os.getenv("STRIPE_WEBHOOK_SECRET")
@@ -564,35 +564,35 @@ async def stripe_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Invalid payload")
     except stripe.error.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid signature")
-    
+
     # 이벤트 타입별 처리
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
         await handle_checkout_completed(session)
-    
+
     elif event['type'] == 'customer.subscription.updated':
         subscription = event['data']['object']
         await handle_subscription_updated(subscription)
-    
+
     elif event['type'] == 'customer.subscription.deleted':
         subscription = event['data']['object']
         await handle_subscription_canceled(subscription)
-    
+
     elif event['type'] == 'invoice.payment_succeeded':
         invoice = event['data']['object']
         await handle_payment_succeeded(invoice)
-    
+
     elif event['type'] == 'invoice.payment_failed':
         invoice = event['data']['object']
         await handle_payment_failed(invoice)
-    
+
     return {"status": "success"}
 
 async def handle_checkout_completed(session):
     """결제 완료 처리"""
     user_id = int(session['metadata']['user_id'])
     plan_id = int(session['metadata']['plan_id'])
-    
+
     # 구독 생성
     subscription_data = {
         "user_id": user_id,
@@ -602,9 +602,9 @@ async def handle_checkout_completed(session):
         "current_period_start": datetime.fromtimestamp(session['current_period_start']),
         "current_period_end": datetime.fromtimestamp(session['current_period_end'])
     }
-    
+
     await db.user_subscriptions.insert_one(subscription_data)
-    
+
     # 결제 트랜잭션 기록
     transaction_data = {
         "stripe_payment_intent_id": session['payment_intent'],
@@ -613,9 +613,9 @@ async def handle_checkout_completed(session):
         "status": "succeeded",
         "payment_method": "card"
     }
-    
+
     await db.payment_transactions.insert_one(transaction_data)
-    
+
     # 이메일 알림
     await send_subscription_confirmation_email(user_id, plan_id)
 ```
@@ -642,20 +642,20 @@ async def assign_seat_to_user(
     # 라이선스 조회
     license = await db.execute(
         """
-        SELECT * FROM school_licenses 
+        SELECT * FROM school_licenses
         WHERE license_id = :license_id AND expires_at > NOW()
         """,
         {"license_id": license_id}
     )
     license = license.fetchone()
-    
+
     if not license:
         raise HTTPException(status_code=404, detail="License not found or expired")
-    
+
     # 좌석 가용성 확인
     if license.used_seats >= license.total_seats:
         raise HTTPException(status_code=400, detail="No available seats")
-    
+
     # 좌석 할당
     await db.execute(
         """
@@ -665,17 +665,17 @@ async def assign_seat_to_user(
         """,
         {"license_id": license_id, "user_id": user_id}
     )
-    
+
     # 사용 좌석 수 증가
     await db.execute(
         """
-        UPDATE school_licenses 
+        UPDATE school_licenses
         SET used_seats = used_seats + 1
         WHERE license_id = :license_id
         """,
         {"license_id": license_id}
     )
-    
+
     return {"message": "Seat assigned successfully"}
 ```
 
@@ -702,13 +702,13 @@ async def lti_login(request: Request):
     """LTI 1.3 로그인 시작"""
     tool_conf = lti_config
     launch_data_storage = get_launch_data_storage()
-    
+
     oidc_login = FlaskOIDCLogin.new(
         FlaskRequest(request),
         tool_conf,
         launch_data_storage=launch_data_storage
     )
-    
+
     return oidc_login.redirect(get_launch_url())
 
 @router.post("/lti/launch")
@@ -716,33 +716,33 @@ async def lti_launch(request: Request):
     """LTI 리소스 런칭"""
     tool_conf = lti_config
     launch_data_storage = get_launch_data_storage()
-    
+
     message_launch = FlaskMessageLaunch.from_cache(
         launch_id,
         FlaskRequest(request),
         tool_conf,
         launch_data_storage=launch_data_storage
     )
-    
+
     # 사용자 정보 추출
     user_data = message_launch.get_launch_data()
     email = user_data.get('email')
     name = user_data.get('name')
     role = user_data.get('https://purl.imsglobal.org/spec/lti/claim/roles')[0]
-    
+
     # 사용자 조회 또는 생성
     user = await get_or_create_lti_user(email, name, role)
-    
+
     # JWT 토큰 생성
     access_token = create_access_token({
         "user_id": user.user_id,
         "email": user.email,
         "role": user.role
     })
-    
+
     # LMS로부터 제공된 context (과정/클래스) 정보
     context = user_data.get('https://purl.imsglobal.org/spec/lti/claim/context')
-    
+
     return RedirectResponse(
         url=f"{FRONTEND_URL}/lti/session?token={access_token}&context={context['id']}"
     )
@@ -787,23 +787,23 @@ SERVICE_ROUTES = {
 async def api_gateway_middleware(request: Request, call_next):
     """API Gateway 라우팅 미들웨어"""
     path = request.url.path
-    
+
     # 서비스 엔드포인트 찾기
     service_url = None
     for prefix, url in SERVICE_ROUTES.items():
         if path.startswith(prefix):
             service_url = url + path[len(prefix):]
             break
-    
+
     if not service_url:
         # 로컬 라우트
         return await call_next(request)
-    
+
     # 요청 전달
     async with httpx.AsyncClient() as client:
         headers = dict(request.headers)
         headers.pop('host', None)
-        
+
         response = await client.request(
             method=request.method,
             url=service_url,
@@ -811,7 +811,7 @@ async def api_gateway_middleware(request: Request, call_next):
             content=await request.body(),
             params=request.query_params
         )
-    
+
     # 응답 반환
     return Response(
         content=response.content,
@@ -877,23 +877,23 @@ app.include_router(v2_router)
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
-    
+
     openapi_schema = get_openapi(
         title="DreamSeedAI Public API",
         version="2.0.0",
         description="""
         DreamSeedAI Platform API
-        
+
         ## Authentication
         Use Bearer token in Authorization header
-        
+
         ## Rate Limits
         - Free tier: 100 requests/hour
         - Premium tier: 1000 requests/hour
         """,
         routes=app.routes,
     )
-    
+
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
@@ -905,15 +905,18 @@ app.openapi = custom_openapi
 ## 5. 기술 스택
 
 ### 프로그래밍 언어
+
 - **Python 3.11+**: 백엔드 서비스
 - **TypeScript/JavaScript**: 프론트엔드 및 Node.js 서비스
 
 ### 프레임워크
+
 - **FastAPI**: REST API 서버
 - **React/Next.js**: 프론트엔드 애플리케이션
 - **Pydantic**: 데이터 검증
 
 ### 인증 & 보안
+
 - **JWT (JSON Web Tokens)**: 토큰 기반 인증
 - **OAuth 2.0**: 소셜 로그인 및 서드파티 연동
 - **OIDC (OpenID Connect)**: 표준 인증 프로토콜
@@ -921,23 +924,28 @@ app.openapi = custom_openapi
 - **python-jose**: JWT 구현
 
 ### 결제
+
 - **Stripe API**: 구독 결제 및 청구
 - **PayPal API**: 대체 결제 수단
 
 ### 데이터베이스
+
 - **PostgreSQL**: 관계형 데이터 저장
 - **Redis**: 세션 캐싱, Rate Limiting
 
 ### 메시지 큐
+
 - **Apache Kafka**: 이벤트 스트리밍
 - **RabbitMQ**: 비동기 작업 큐
 
 ### 모니터링 & 로깅
+
 - **Prometheus**: 메트릭 수집
 - **Grafana**: 대시보드
 - **ELK Stack**: 로그 집계 및 분석
 
 ### 인프라
+
 - **Docker**: 컨테이너화
 - **Kubernetes**: 오케스트레이션
 - **Nginx**: 리버스 프록시
@@ -958,6 +966,7 @@ DreamSeedAI의 추가 핵심 서비스들은 다음과 같이 플랫폼의 완�
 ---
 
 **참고 문서**:
+
 - [사용자 관리 서비스](./user-management.md) (향후 추가 예정)
 - [인증 서비스](./authentication.md) (향후 추가 예정)
 - [결제 서비스](./payment-service.md) (향후 추가 예정)

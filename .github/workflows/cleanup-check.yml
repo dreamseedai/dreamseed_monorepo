@@ -1,0 +1,53 @@
+name: Repository Cleanup Check
+
+on:
+  schedule:
+    # 매주 월요일 오전 9시 (KST)
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  cleanup-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for orphaned files
+        run: |
+          echo "=== 루트 디렉토리 파일 체크 ==="
+          file_count=$(ls -1 *.{py,sh,md,txt,ini,yml,yaml,json,sql,log,db} 2>/dev/null | wc -l)
+          echo "루트 파일 개수: $file_count"
+          
+          if [ $file_count -gt 10 ]; then
+            echo "⚠️ 루트 디렉토리에 파일이 너무 많습니다 ($file_count개)"
+            echo "정리가 필요합니다."
+            exit 1
+          fi
+          
+      - name: Check for large log files
+        run: |
+          echo "=== 대용량 로그 파일 체크 ==="
+          find . -name "*.log" -size +10M -exec ls -lh {} \;
+          
+      - name: Check for orphaned directories
+        run: |
+          echo "=== 빈 디렉토리 체크 ==="
+          find . -type d -empty | head -20
+          
+      - name: Generate cleanup report
+        if: failure()
+        run: |
+          echo "# 🧹 정리 필요 리포트" > cleanup-report.md
+          echo "" >> cleanup-report.md
+          echo "## 루트 파일 목록" >> cleanup-report.md
+          ls -lh *.{py,sh,md,txt,log} 2>/dev/null >> cleanup-report.md || true
+          echo "" >> cleanup-report.md
+          echo "## 빈 디렉토리" >> cleanup-report.md
+          find . -type d -empty >> cleanup-report.md
+          
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: cleanup-report
+          path: cleanup-report.md
