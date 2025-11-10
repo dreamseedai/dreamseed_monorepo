@@ -1,85 +1,116 @@
-# Coverage / caches
-.coverage
-**/.coverage
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
+# =============================================================================
+# DreamSeed Monorepo .gitignore (Optimized 2024-11-09)
+# =============================================================================
+# 원칙:
+# 1. 기본적으로 소스 코드와 문서는 추적
+# 2. 빌드 산출물, 로그, 캐시만 제외
+# 3. 명시적 예외 규칙 최소화
+# =============================================================================
 
-# Virtual env / tools
-.venv/
-.venv-*/
-.venv-tools/
-
-# Build / artifacts
+# -----------------------------------------------------------------------------
+# 1. 빌드 산출물 및 캐시
+# -----------------------------------------------------------------------------
 dist/
 build/
-.DS_Store
-
-# Infra local history
-infra/.history/
-
-# Local projects (ignore)
-CascadeProjects/
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-package-lock.json
-yarn.lock
-
-# Build outputs
-dist/
-build/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
 *.min.js
 *.min.css
 *.bundle.js
-
-# Cache directories
-.cache/
-.parcel-cache/
-.next/
-.nuxt/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+**/.coverage
 
-# Local package/env caches (can be huge)
+# -----------------------------------------------------------------------------
+# 2. 의존성 디렉토리
+# -----------------------------------------------------------------------------
+node_modules/
+.pnp/
+.pnp.js
 .mamba/
 venv/
 .venv/
+.venv-*/
 env/
-env*/
+ENV/
 db_env/
-dreamseed/backend/venv/
+mathml_env/
+.precommit-env/
 
-# Local logs and tooling
-.logs/
-.tools/
-server.pid
-.continue/
+# -----------------------------------------------------------------------------
+# 3. 로그 및 임시 파일
+# -----------------------------------------------------------------------------
+*.log
+logs/
+*.pid
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Environment files
+# 최상위 로그 파일 (특정)
+/backend.log
+/server.log
+/batch_conversion.log
+/mathml_conversion.log
+
+# -----------------------------------------------------------------------------
+# 4. 데이터베이스 파일
+# -----------------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+dreamseed_*.db
+mpcstudy_*.db
+/dummy.db
+
+# -----------------------------------------------------------------------------
+# 5. 환경 변수 파일
+# -----------------------------------------------------------------------------
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
-*.env
-*.env.example
+.env.*.local
+.env.prod
+.env.production
+**/.env.prod
+**/.env.production
 
-# IDE files
-.vscode/
+# 예외: 예시 파일은 추적
+!.env.example
+!**/.env.example
+
+# -----------------------------------------------------------------------------
+# 6. IDE 및 에디터 설정
+# -----------------------------------------------------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
-*~
 .project
 .settings/
 
-# OS files
+# -----------------------------------------------------------------------------
+# 7. OS 파일
+# -----------------------------------------------------------------------------
 .DS_Store
 .DS_Store?
 ._*
@@ -88,394 +119,84 @@ server.pid
 ehthumbs.db
 Thumbs.db
 
-# Logs
-*.log
-logs/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*.backup
-*~
-
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-dreamseed_*.db
-mpcstudy_*.db
-
-# Documentation files (except main README)
-*.md
-!README.md
-!CHANGELOG.md
-!README_PROJECTS_AUTOMATION.md
-!*_TEMPLATE.md
-!RUNBOOK_*.md
-!DEPLOYMENT_GUIDE_*.md
-
-# Configuration files
-.editorconfig
-.eslintrc.*
-.prettierrc*
-tsconfig.json
-babel.config.*
-webpack.config.*
-rollup.config.*
-
-# Version files
-=*
-version.txt
-
-# Guide files
-*_GUIDE.md
-*_OVERVIEW.md
-*_RULES.md
-*_STATUS.md
-*_GUIDE.md
-*_DEPLOYMENT.md
-*_SETUP.md
-
-# Test files
-test_*.html
-test_*.py
-test_*.js
-*_test.*
-*_spec.*
-
-# Admin files
-admin/*.html
-admin/*.js
-admin/*.css
-admin/doc/
-admin/lib/
-
-# API files
-api/
-portal_api/
-# backend/ - governance 관련 코드 추적 필요
-apps/
-
-# Allow tracking SeedTest API app (override ignores)
-!apps/
-!apps/seedtest_api/
-!apps/seedtest_api/**
-
-# Static files
-static/
-assets/
-images/
-
-# Scripts
-*.sh
-deploy*.sh
-install*.sh
-run*.sh
-# Allow database scripts to be tracked
-!scripts/db/*.sh
-!scripts/db/README.md
-# Allow runbook samples to be tracked (no sensitive values)
-!docs/runbooks/*.sh.sample
-!docs/runbooks/README.md
-# Allow risk pipeline scripts
-!backend/risk_pipeline/scripts/*.sh
-# Allow documentation files
-!docs/*.md
-!docs/**/*.md
-
-# System files
-systemd-*.service
-nginx-*.conf
-*.service
-
-# Converter files
-*converter*
-*conversion*
-*_converter.*
-
-# OpenResty files
-openresty-*
-
-# Python files
-requirements*.txt
-*.py
-!mock_api.py
-# Allow tracking shared library Python files
-!shared/**/*.py
-# Allow tracking ops scripts
-!ops/scripts/**/*.py
-# Allow tracking backend (governance) Python files
-!backend/**/*.py
-
-# HTML test files
-*test*.html
-*debug*.html
-*simple*.html
-
-# JSON files
-*.json
-!package.json
-!package-lock.json
-!tsconfig.json
-!tsconfig*.json
-!.vscode/*.json
-!.github/**/*.json
-!shared/analytics/grafana/**/*.json
-!ops/k8s/monitoring/grafana-dashboards/*.json
-# Allow lint/format config files
-!prettier.config.json
-!.prettierrc.json
-!pyrightconfig.json
-!.eslintrc.json
-
-# Lua files
-*.lua
-
-# SQL files
-*.sql
-schema.sql
-# Allow RLS SQL
-!db/rls/*.sql
-# Allow risk pipeline SQL
-!backend/risk_pipeline/jobs/*.sql
-# Allow analytics SQL
-!shared/analytics/sql/*.sql
-
-# YAML files
-*.yml
-*.yaml
-!docker-compose.yml
-!.github/workflows/*.yml
-!.github/workflows/*.yaml
-#! Allow tracking Kubernetes manifests under ops/k8s
-!ops/k8s/**/*.yml
-!ops/k8s/**/*.yaml
-!portal_front/ops/k8s/**/*.yml
-!portal_front/ops/k8s/**/*.yaml
-# Allow Helm chart files
-!ops/k8s/monitoring/helm-chart/**/*.yaml
-!ops/k8s/monitoring/helm-chart/**/*.yml
-!ops/helm/charts/**/*.yaml
-!ops/helm/charts/**/*.yml
-# Allow Grafana provisioning
-!shared/analytics/grafana/**/*.yaml
-!shared/analytics/grafana/**/*.yml
-
-# TypeScript files
-*.ts
-*.tsx
-
-# React files
-src/
-
-# Portal front - mostly ignored except K8s manifests and source code
-portal_front/*
-!portal_front/ops/
-portal_front/ops/*
-!portal_front/ops/k8s/
-!portal_front/src/
-!portal_front/src/**/*.tsx
-!portal_front/src/**/*.ts
-!portal_front/package.json
-!portal_front/tsconfig.json
-
-# Portal front dashboard (프로덕션 버전 포함)
-portal_front/dashboard/
-!portal_front/dashboard/*.R
-!portal_front/dashboard/config/
-!portal_front/dashboard/migrations/
-!portal_front/dashboard/*.md
-!portal_front/dashboard/*.sh
-!portal_front/dashboard/*.ts
-
-# Tools
-tools/
-!tools/vscode-copy-button/
-!tools/vscode-copy-button/**
-kekule_*
-map_*
-search_*
-math_*
-
-# Dashboard (교사용 포털)
-!dashboard/
-!dashboard/**
-
-# Alembic
-alembic/
-alembic.ini
-
-# Health checks
-health.spec.ts
-
-# Proxy
-proxy_server.js
-
-# Simple servers
-simple_*.py
-simple_*.html
-
-# R workspace/temp
-r/
-*.Rhistory
-*.Rproj.user/
-
-# Real data
-real_*.py
-
-# Final files
-final_*.py
-
-# Checkpoint files
-*checkpoint*
-*_checkpoint.*
-
-# Log files
-*_log_*
-conversion_log_*
-conversion_errors_*
-
-# JSONL files
-*.jsonl
-
-# Index files
-index*.html
-!index.html
-
-# Backup files
-*backup*
-*_backup.*
-
-# Broken files
-*broken*
-*_broken.*
-
-# Clean files
-*clean*
-*_clean.*
-
-# Fixed files
-*fixed*
-*_fixed.*
-
-# Minimal files
-*minimal*
-*_minimal.*
-
-# Ultimate files
-*ultimate*
-*_ultimate.*
-
-# Enhanced files
-*enhanced*
-*_enhanced.*
-
-# Enterprise files
-*enterprise*
-*_enterprise.*
-
-# Plus files
-*plus*
-*_plus.*
-
-# Demo files
-*demo*
-*_demo.*
-
-# Debug files
-*debug*
-*_debug.*
-
-# Simple files
-*simple*
-*_simple.*
-
-# Test files
-*test*
-*_test.*
-# Allow tracking ops test scripts
-!ops/scripts/test_*.py
-# Allow Helm values files with service names containing 'test'
-!ops/k8s/monitoring/helm-chart/values-*test*.yaml
-# Allow monitoring documentation
-!ops/k8s/monitoring/*.md
-
-# HTML files (except main ones)
-*.html
-!question_editor_quill.html
-!index.html
-
-# JavaScript files
-*.js
-!mock_api.py
-
-# CSS files
-*.css
-
-# Other files
-TenantAdminGuard.tsx
-
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
-
-# Database environments
-db_env/
-
-# Logrotate configs
-logrotate-*.conf
-
-# TypeScript config (if not needed)
-tsconfig.json
-
-# --- Final overrides: track SeedTest API app ---
-!apps/
-!apps/seedtest_api/
-!apps/seedtest_api/**
-
-# But still ignore common local artifacts within seedtest_api
-apps/seedtest_api/.venv/
-apps/seedtest_api/**/__pycache__/
-apps/seedtest_api/**/*.pyc
-
-# --- Branding assets (track SVGs and docs under assets/branding) ---
-!assets/
-!assets/branding/
-!assets/branding/**
-!assets/branding/**/*.md
-!assets/branding/**/*.svg
-.env.prod
-.env.production
-**/.env.prod
-**/.env.production
-
-# MathML 변환 시스템 예외
-!shared/mathml/**/*.json
-!shared/mathml/**/*.jsonl
-!shared/mathml/**/*.py
-!shared/mathml/**/*.ts
-!shared/mathml/**/*.mjs
-
-# ETL 및 에디터 모듈 예외
-!shared/etl/**/*.py
-!shared/editor/**/*.ts
-!shared/editor/**/*.tsx
-!shared/editor/**/*.json
-!shared/editor/**/*.vue
-!shared/schemas/**/*.ts
-!shared/schemas/**/*.json
-
-# pnpm 워크스페이스
-!pnpm-workspace.yaml
-!tsconfig.base.json
-!.npmrc
-
-# 검증 스크립트
-!tools/**/*.mjs
-!tools/**/*.js
+# -----------------------------------------------------------------------------
+# 8. 히스토리 및 임시 디렉토리
+# -----------------------------------------------------------------------------
+.history/
+.tmp/
+.logs/
+.tools/
+.continue/
+
+# -----------------------------------------------------------------------------
+# 9. 아카이브 (구조화 후 이동될 디렉토리)
+# -----------------------------------------------------------------------------
+_archive/
+
+# -----------------------------------------------------------------------------
+# 10. 고립된/사용하지 않는 최상위 디렉토리
+# -----------------------------------------------------------------------------
+/adaptive_engine/
+/admin_front/
+/dreamseed/
+/dsadmin/
+/examples/
+/frontend/
+/migrations/
+/monitoring/
+/r-plumber/
+/shiny-admin/
+/tests/
+/webtests/
+/translator.py/
+/Caddyfile/
+/alembic/
+
+# -----------------------------------------------------------------------------
+# 11. 특정 파일 제외
+# -----------------------------------------------------------------------------
+/question_editor_quill.html
+
+# -----------------------------------------------------------------------------
+# 12. 패키지 관리자 락 파일 (선택적)
+# -----------------------------------------------------------------------------
+# pnpm 사용 시 package-lock.json과 yarn.lock은 불필요
+package-lock.json
+yarn.lock
+
+# pnpm-lock.yaml은 추적 (pnpm 사용)
+!pnpm-lock.yaml
+
+# -----------------------------------------------------------------------------
+# 13. 문서 정책 (기본적으로 모든 .md 추적)
+# -----------------------------------------------------------------------------
+# 모든 마크다운 문서 추적 (이전 규칙 제거)
+# *.md 규칙 삭제됨
+
+# -----------------------------------------------------------------------------
+# 14. 스크립트 정책 (필요한 스크립트는 추적)
+# -----------------------------------------------------------------------------
+# 모든 .sh 스크립트 추적 (이전 규칙 제거)
+# *.sh 규칙 삭제됨
+
+# -----------------------------------------------------------------------------
+# 15. 설정 파일 정책
+# -----------------------------------------------------------------------------
+# tsconfig, package.json 등은 기본적으로 추적
+# 이전의 과도한 차단 규칙 제거됨
+
+# -----------------------------------------------------------------------------
+# 16. 테스트 결과
+# -----------------------------------------------------------------------------
+test-results/
+playwright-report/
+coverage/
+
+# -----------------------------------------------------------------------------
+# 끝
+# -----------------------------------------------------------------------------
+
+# Mock API data (too large for Git)
+backend/app/api/data/questions.json
+backend/app/api/data/*.json
+\!backend/app/api/data/.gitkeep
