@@ -454,54 +454,37 @@ jobs:
           sleep 10
           curl -f http://localhost:8002/healthz || exit 1
           docker stop dreamseed-test
-
-  # 배포 준비
-  prepare-deployment:
-    name: Prepare Deployment
+          
+  # CI 완료 알림
+  ci-complete:
+    name: CI Complete
     runs-on: ubuntu-latest
     needs: [unit-tests, integration-tests, performance-tests, security-scan, docker-build]
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Create deployment package
-        run: |
-          mkdir -p deployment
-          cp -r api/ deployment/
-          cp -r admin/ deployment/
-          cp -r *.html deployment/
-          cp -r *.py deployment/
-          cp -r *.sh deployment/
-          cp -r *.conf deployment/
-          cp -r *.yml deployment/
-          cp -r *.json deployment/
-          if [ -f requirements.txt ]; then cp -r requirements.txt deployment/; fi
-          cp -r Dockerfile deployment/
-          tar -czf dreamseed-deployment.tar.gz deployment/
-
-      - name: Upload deployment package
-        uses: actions/upload-artifact@v4
-        with:
-          name: dreamseed-deployment
-          path: dreamseed-deployment.tar.gz
-
-  # 알림
-  notify:
-    name: Notify Results
-    runs-on: ubuntu-latest
-    needs: [prepare-deployment]
     if: always()
     steps:
-      - name: Notify on success
-        if: needs.prepare-deployment.result == 'success'
+      - name: Print upstream job results
         run: |
-          echo "✅ DreamSeed CI Pipeline 성공!"
-          echo "🚀 배포 준비 완료"
+          echo "==== CI job results ===="
+          echo "unit-tests: ${{ needs.unit-tests.result }}"
+          echo "integration-tests: ${{ needs.integration-tests.result }}"
+          echo "performance-tests: ${{ needs.performance-tests.result }}"
+          echo "security-scan: ${{ needs.security-scan.result }}"
+          echo "docker-build: ${{ needs.docker-build.result }}"
+          echo "========================"
 
-      - name: Notify on failure
-        if: needs.prepare-deployment.result == 'failure'
+      - name: Check CI status
         run: |
-          echo "❌ DreamSeed CI Pipeline 실패!"
-          echo "🔍 로그를 확인하세요"
-
+          # Check if any job actually failed (not skipped or success)
+          if [ "${{ needs.unit-tests.result }}" = "failure" ] || \
+             [ "${{ needs.integration-tests.result }}" = "failure" ] || \
+             [ "${{ needs.performance-tests.result }}" = "failure" ] || \
+             [ "${{ needs.security-scan.result }}" = "failure" ] || \
+             [ "${{ needs.docker-build.result }}" = "failure" ]; then
+            echo "❌ DreamSeed CI Pipeline 일부 실패"
+            echo "🔍 위의 job results 로그에서 실패한 job 을 확인하세요"
+            exit 1
+          else
+            echo "✅ DreamSeed CI Pipeline 성공!"
+            echo "🚀 배포는 helm-deploy.yml 워크플로를 수동 실행하세요"
+            exit 0
+          fi
