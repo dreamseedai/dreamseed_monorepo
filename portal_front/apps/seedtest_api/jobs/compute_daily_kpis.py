@@ -47,7 +47,7 @@ def _distinct_recent_users(session) -> list[str]:
         """
         SELECT DISTINCT user_id
         FROM exam_results
-        WHERE updated_at >= :since OR created_at >= :since
+        WHERE (updated_at >= :since OR created_at >= :since)
           AND user_id IS NOT NULL AND user_id <> ''
         LIMIT 100000
         """
