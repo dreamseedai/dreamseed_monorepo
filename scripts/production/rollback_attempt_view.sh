@@ -1,7 +1,7 @@
 #\!/usr/bin/env bash
 set -euo pipefail
 
-# Production Rollback: attempt VIEW V1 Schema Lock
+# Production Rollback: attempt VIEW V1 Schema Rollback
 # Last Updated: 2025-11-01
 
 RED='\033[0;31m'
