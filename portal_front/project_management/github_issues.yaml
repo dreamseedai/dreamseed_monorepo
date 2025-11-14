@@ -1,0 +1,340 @@
+# Bulk issue creation for roadmap
+# Use GitHub CLI: gh issue create -F <(yq .issue_template -o=json github_issues.yaml) ...
+
+common:
+  branch_naming: "feature/{area}/{short-desc}-{issue-id}"
+  reviewers:
+    - ops-lead
+    - data-lead
+    - api-lead
+  labels:
+    - roadmap
+    - implementation
+    - backend
+
+issues:
+  - id: PR-0A
+    title: "Model registry and run metadata schema"
+    assignees: ["api-lead"]
+    labels: ["db", "analytics"]
+    story_points: 5
+    branch: "feature/analytics/model-registry-PR-0A"
+    checklist_template: .github/ISSUE_TEMPLATE/implementation_checklist.md
+    description: |
+      Add model_registry, analysis_run, report_artifact tables and plumb run_id into analysis/recommendation flows.
+
+  - id: PR-0B
+    title: "Standardize observability and retries for external (R) calls"
+    assignees: ["api-lead", "ops-lead"]
+    labels: ["observability", "ops", "client"]
+    story_points: 3
+    branch: "feature/ops/observability-retries-PR-0B"
+    description: |
+      Add retry/backoff and structured logs to R Plumber client, align ServiceMonitor.
+
+  - id: PR-1A
+    title: "R IRT Plumber microservice (mirt): calibrate/score"
+    assignees: ["data-lead"]
+    labels: ["r", "irt", "service"]
+    story_points: 8
+    branch: "feature/r/mirt-plumber-PR-1A"
+    body: |
+      Branch: feature/r/mirt-plumber-PR-1A
+      Area: R Plumber service (IRT with mirt)
+
+      Files/Paths
+      - portal_front/r-irt-plumber/Dockerfile (install: mirt, data.table, plumber, jsonlite)
+      - portal_front/r-irt-plumber/api.R
+      - ops/k8s/r-irt-plumber/{deployment.yaml,service.yaml,ingress.yaml,servicemonitor.yaml,networkpolicy.yaml}
+      - ops/k8s/r-irt-plumber/overlays/internal/{kustomization.yaml,delete-ingress.yaml}
+
+      Endpoints (R Plumber)
+      - POST /irt/calibrate {responses} → item_params, abilities, fit metrics
+      - POST /irt/score {item_params, response_vector} → theta, se
+
+      Config keys
+      - R_IRT_BASE_URL, R_IRT_INTERNAL_TOKEN, R_IRT_TIMEOUT_SECS
+
+      AC
+      - Small sample: calibrate/score both return 200 with expected payload
+      - K8s deployed; internal overlay removes Ingress; NetworkPolicy restricts to app=seedtest-api
+
+      Snippet
+      ```r
+      #* @post /irt/calibrate
+      function(req, res, payload){
+        # parse payload$responses -> fit with mirt -> return item params & abilities
+        list(status="ok", items=list(), abilities=list(), metrics=list())
+      }
+      ```
+
+  - id: PR-1B
+    title: "IRT DB schema and ingestion job"
+    assignees: ["api-lead", "data-lead"]
+    labels: ["db", "irt", "job"]
+    story_points: 5
+    branch: "feature/db/irt-schema-ingest-PR-1B"
+    body: |
+      Branch: feature/db/irt-schema-ingest-PR-1B
+      Area: Alembic schema + ingestion job
+
+      DB Migration
+      - apps/seedtest_api/alembic/versions/2025xxxx_irt_tables.py
+        - mirt_item_params(item_id, params JSON with a/b/c or thresholds, model, version, fitted_at)
+        - mirt_ability(user_id, theta, se, version, fitted_at)
+        - mirt_fit_meta(run_id, model_spec, metrics_json)
+
+      Ingest Job
+      - apps/seedtest-api/jobs/mirt_calibrate.py (extract data → call R IRT → upsert)
+
+      AC
+      - calibrate/score results persisted (params/abilities) on small sample
+      - Alembic migration consistent; indexes/FKs as appropriate
+
+      Snippet
+      ```python
+      # apps/seedtest_api/alembic/versions/2025xxxx_irt_tables.py
+      from alembic import op
+      import sqlalchemy as sa
+
+      revision = "2025xxxx_irt_tables"; down_revision = "prev_rev"
+      def upgrade():
+          op.create_table(
+              "mirt_item_params",
+              sa.Column("item_id", sa.String, primary_key=True),
+              sa.Column("model", sa.String),
+              sa.Column("params", sa.JSON),
+              sa.Column("version", sa.String),
+              sa.Column("fitted_at", sa.DateTime, server_default=sa.func.now()),
+          )
+          # ... abilities, fit_meta ...
+      ```
+
+  - id: PR-1C
+    title: "Nightly IRT calibration CronJob"
+    assignees: ["ops-lead"]
+    labels: ["ops", "cron"]
+    story_points: 3
+    branch: "feature/ops/cron-irt-PR-1C"
+    body: |
+      Branch: feature/ops/cron-irt-PR-1C
+      Area: K8s Cron + NetworkPolicy
+
+      Files/Paths
+      - ops/k8s/cron/calibrate-irt.yaml (CronJob spec to POST /irt/calibrate)
+      - ops/k8s/cron/kustomization.yaml
+      - ops/k8s/cron/networkpolicy.yaml (egress allow only to r-irt-plumber and seedtest-api)
+      - infra/argocd/apps/internal/irt-calibrate-cron.yaml (Argo app)
+
+      AC
+      - Nightly Cron runs successfully; on error, logs contain error and DLQ pattern/log retained
+
+  - id: PR-2A
+    title: "Quarto report project + templates (ggplot2/gt)"
+    assignees: ["data-lead"]
+    labels: ["reports", "quarto"]
+    story_points: 5
+    branch: "feature/reports/quarto-templates-PR-2A"
+    body: |
+      Branch: feature/reports/quarto-templates-PR-2A
+      Area: Quarto templates
+
+      Files/Paths
+      - reports/quarto/_quarto.yml (branding/i18n)
+      - reports/quarto/student_report.qmd
+      - tools/quarto-runner/Dockerfile (quarto + tinytex)
+
+      AC
+      - Student-level weekly report renders locally; CI validation planned in 2C
+
+  - id: PR-2B
+    title: "Report generation job and API integration"
+    assignees: ["api-lead", "ops-lead"]
+    labels: ["reports", "jobs", "api"]
+    story_points: 8
+    branch: "feature/reports/report-jobs-api-PR-2B"
+    body: |
+      Branch: feature/reports/report-jobs-api-PR-2B
+      Area: Jobs + API
+
+      Files/Paths
+      - apps/seedtest_api/routers/pdf_jobs.py: POST /reports/generate
+      - ops/k8s/jobs/report-renderer.yaml (work queue pull Job)
+      - report_artifact table usage (URL/SHA256/created_at)
+
+      AC
+      - One student weekly report generated and downloadable via API
+
+  - id: PR-2C
+    title: "CI for Quarto build validation"
+    assignees: ["ops-lead"]
+    labels: ["ci", "reports"]
+    story_points: 3
+    branch: "feature/ci/quarto-validate-PR-2C"
+    body: |
+      Branch: feature/ci/quarto-validate-PR-2C
+      Area: CI
+      - GitHub Actions job to render or minimally validate Quarto docs.
+
+  - id: PR-3A
+    title: "R brms Plumber service for Bayesian growth"
+    assignees: ["data-lead"]
+    labels: ["r", "bayesian", "service"]
+    story_points: 13
+    branch: "feature/r/brms-plumber-PR-3A"
+    body: |
+      Branch: feature/r/brms-plumber-PR-3A
+      Area: R Plumber (brms)
+
+      Files/Paths
+      - portal_front/r-brms-plumber/Dockerfile (rstan/cmdstanr/brms)
+      - portal_front/r-brms-plumber/api.R
+
+      Endpoints
+      - POST /growth/fit, /growth/predict, /growth/posterior-summary
+
+      Config keys
+      - R_BRMS_BASE_URL, R_BRMS_INTERNAL_TOKEN, R_BRMS_TIMEOUT_SECS
+
+  - id: PR-3B
+    title: "API integration and fallback for Bayesian/Normal forecast"
+    assignees: ["api-lead"]
+    labels: ["api", "forecast"]
+    story_points: 5
+    branch: "feature/api/forecast-bayes-fallback-PR-3B"
+    body: |
+      Branch: feature/api/forecast-bayes-fallback-PR-3B
+      Area: API integration
+      - apps/seedtest-api/routers/forecast.py: add bayesian mode flag; on failure, Normal fallback
+
+  - id: PR-3C
+    title: "Cron for Bayesian growth calibration"
+    assignees: ["ops-lead"]
+    labels: ["ops", "cron"]
+    story_points: 3
+    branch: "feature/ops/cron-bayesian-PR-3C"
+    body: |
+      Branch: feature/ops/cron-bayesian-PR-3C
+      Area: K8s Cron
+      - ops/k8s/cron/calibrate-growth-bayesian.yaml
+
+  - id: PR-4A
+    title: "R survival/prophet Plumber service"
+    assignees: ["data-lead"]
+    labels: ["r", "survival", "prophet", "service"]
+    story_points: 8
+    branch: "feature/r/survival-prophet-plumber-PR-4A"
+    body: |
+      Branch: feature/r/survival-prophet-plumber-PR-4A
+      Area: R Plumber (survival/prophet)
+      - portal_front/r-forecast-plumber/api.R
+      - POST /survival/fit, /survival/predict; POST /prophet/fit, /prophet/predict
+
+  - id: PR-4B
+    title: "API integration and KPI storage for survival/time-to-goal"
+    assignees: ["api-lead"]
+    labels: ["api", "kpi"]
+    story_points: 5
+    branch: "feature/api/survival-kpi-PR-4B"
+    body: |
+      Branch: feature/api/survival-kpi-PR-4B
+      Area: API + DB
+      - Endpoints: /analysis/retention/survival, /analysis/time-to-goal
+      - Tables: survival_fit_meta, weekly_kpi(user_id, week, kpis_json)
+
+  - id: PR-5A
+    title: "Re-ranking pipeline for recommendations (tidymodels)"
+    assignees: ["data-lead", "api-lead"]
+    labels: ["recommendation", "ml"]
+    story_points: 8
+    branch: "feature/ml/re-ranking-PR-5A"
+    body: |
+      Branch: feature/ml/re-ranking-PR-5A
+      Area: Tidymodels training + model versioning (RDS)
+      - Model registry integration for versions
+      - Offline NDCG@k report
+
+  - id: PR-5B
+    title: "Online feedback loop for recommendations"
+    assignees: ["api-lead"]
+    labels: ["recommendation", "api"]
+    story_points: 5
+    branch: "feature/api/reco-feedback-PR-5B"
+    body: |
+      Branch: feature/api/reco-feedback-PR-5B
+      Area: API + logging
+      - POST /recommend/re_rank {user_id, candidates} → reranked list
+      - POST /recommend/feedback {impressions, clicks, completions, rating}
+      - DB: recommendation_model, recommendation_features, content_recommend_log + feedback columns
+
+  - id: PR-6A
+    title: "Interest/Aptitude signal ingestion + schema"
+    assignees: ["api-lead"]
+    labels: ["signals", "db"]
+    story_points: 5
+    branch: "feature/signals/ingestion-schema-PR-6A"
+
+  - id: PR-6B
+    title: "Mastery gaps and remediation path API"
+    assignees: ["api-lead", "data-lead"]
+    labels: ["analysis", "recommendation"]
+    story_points: 8
+    branch: "feature/analysis/remediation-path-PR-6B"
+    body: |
+      Branch: feature/analysis/remediation-path-PR-6B
+      Area: DB + services + API
+
+      DB
+      - knowledge_concept(id, name, subject, parent_id)
+      - question_concept_map(question_id, concept_id)
+      - student_mastery(user_id, concept_id, mastery_score, updated_at)
+
+      Services
+      - apps/seedtest_api/services/analysis_service.py: compute_mastery_gaps(user_id)
+
+      Routers
+      - GET /analysis/mastery-gaps?user_id=
+      - POST /recommend/remediation-path {user_id, target_concepts?}
+
+      AC
+      - For a given user_id: return Top-N gaps and concept→item/resource remediation path
+
+  - id: PR-6C
+    title: "Weekly progress dashboard & report"
+    assignees: ["data-lead"]
+    labels: ["reports", "dashboard"]
+    story_points: 5
+    branch: "feature/reports/weekly-dashboard-PR-6C"
+    body: |
+      Branch: feature/reports/weekly-dashboard-PR-6C
+      Area: API + Frontend
+      - API: GET /reports/weekly/summary?user_id=&weeks=4 → improvement_index_timeseries, subject_mastery, wrong_pattern_tags, recommended_sequence
+      - Frontend: src/pages/ReportsWeekly.tsx; src/components/charts/* (simple charts)
+      AC: one user 4-week summary JSON + rendered charts
+
+  - id: PR-7A
+    title: "A/B experimentation platform"
+    assignees: ["api-lead", "data-lead"]
+    labels: ["experiments", "analysis", "jobs"]
+    story_points: 13
+    branch: "feature/exp/ab-platform-PR-7A"
+    body: |
+      Branch: feature/exp/ab-platform-PR-7A
+      Area: DB + services + jobs + API
+
+      DB
+      - experiments(id, name, variants, start/end, status)
+      - experiment_assignments(user_id, exp_id, variant, assigned_at)
+      - experiment_events(user_id, exp_id, event_type, ts, metadata)
+
+      Services
+      - apps/seedtest_api/services/ab_assignment.py: deterministic assignment (seed/hash)
+
+      Routers
+      - apps/seedtest_api/routers/experiments.py: /exp/assign, /exp/event
+
+      Jobs/Analysis
+      - apps/seedtest-api/jobs/ab_effect_estimation.py: uplift/ATE/HTE estimates, report output
+
+      AC
+      - Consistent assignment; event logging; minimal effect estimation report generated

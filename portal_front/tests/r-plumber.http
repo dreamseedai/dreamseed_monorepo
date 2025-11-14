@@ -1,0 +1,33 @@
+### R Plumber GLMM local smoke
+GET http://localhost:8000/healthz
+
+### Fit small GLMM
+POST http://localhost:8000/glmm/fit
+Content-Type: application/json
+
+{
+  "observations": [
+    {"student_id": "s1", "item_id": "i1", "correct": 1},
+    {"student_id": "s1", "item_id": "i2", "correct": 0},
+    {"student_id": "s2", "item_id": "i1", "correct": 1},
+    {"student_id": "s2", "item_id": "i2", "correct": 1}
+  ]
+}
+
+### Predict with compact model
+POST http://localhost:8000/glmm/predict
+Content-Type: application/json
+
+{
+  "model": {
+    "fixed_effects": {"(Intercept)": 0},
+    "ranef": {"student_id": [], "item_id": []}
+  },
+  "newdata": [{"student_id": "s1", "item_id": "i1"}]
+}
+
+### Forecast summary
+POST http://localhost:8000/forecast/summary
+Content-Type: application/json
+
+{"mean": 0.1, "sd": 0.5, "target": 0.0}

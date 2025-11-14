@@ -1,8 +1,13 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
@@ -10,9 +15,31 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": true
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@/shared/*": [
+        "../shared/*"
+      ],
+      "@shared/editor/*": [
+        "../shared/editor/src/*"
+      ],
+      "@shared/schemas/*": [
+        "../shared/schemas/src/*"
+      ],
+      "@dreamseed/shared-editor": [
+        "../shared/editor/src/index.ts"
+      ],
+      "@dreamseed/shared-schemas": [
+        "../shared/schemas/src/index.ts"
+      ]
+    }
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "vite.config.ts"
+  ]
 }
-
-

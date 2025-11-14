@@ -1,0 +1,32 @@
+{
+  "org": "dreamseedai",
+  "repo": "dreamseed_monorepo",
+  "project_number": 1,
+  "project_url": "https://github.com/orgs/dreamseedai/projects/1",
+  "fieldNames": {
+    "status": "Status",
+    "storyPoints": "Story Points",
+    "priority": "Priority",
+    "iteration": "Iteration"
+  },
+  "statusLabelMap": {
+    "triage": "Inbox",
+    "roadmap": "Backlog",
+    "implementation": "In Progress",
+    "review": "In Review",
+    "qa": "QA",
+    "blocked": "Blocked",
+    "done": "Done"
+  },
+  "storyPointsLabelPrefix": "sp:",
+  "priorityLabelMap": {
+    "p1": "P1",
+    "p2": "P2",
+    "p3": "P3",
+    "priority:high": "High",
+    "priority:medium": "Medium",
+    "priority:low": "Low"
+  },
+  "iterationFromLabelPrefix": "iter:",
+  "notes": "Adjust option and field names to match Project 42 exactly."
+}

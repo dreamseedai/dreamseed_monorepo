@@ -1,0 +1,49 @@
+# cSpell:ignore univprepai
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: detect-inactivity
+  namespace: seedtest
+spec:
+  schedule: "0 5 * * *" # daily at 05:00 UTC (after daily KPIs)
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: detect-inactivity
+              image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:f830ff9c2-with-env
+              imagePullPolicy: IfNotPresent
+              command: ["python3", "-m", "apps.seedtest_api.jobs.detect_inactivity"]
+              env:
+                - name: INACTIVITY_THRESHOLD_DAYS
+                  value: "7"
+                - name: KPI_LOOKBACK_DAYS
+                  value: "30"
+                - name: METRICS_DEFAULT_TARGET
+                  value: "0.0"
+                - name: METRICS_USE_BAYESIAN
+                  value: "false"
+                - name: METRICS_CHURN_HORIZON_DAYS
+                  value: "14"
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-db-credentials
+                      key: DATABASE_URL
+                      optional: false
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "200m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "1000m"
+              # Timeout after 1 hour
+              terminationGracePeriodSeconds: 300
+

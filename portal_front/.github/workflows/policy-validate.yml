@@ -1,0 +1,95 @@
+name: Policy Validate (Kyverno & Conftest)
+
+on:
+  push:
+    paths:
+      - 'portal_front/ops/k8s/**'
+      - 'portal_front/policies/**'
+      - 'portal_front/.github/workflows/policy-validate.yml'
+  pull_request:
+    paths:
+      - 'portal_front/ops/k8s/**'
+      - 'portal_front/policies/**'
+      - 'portal_front/.github/workflows/policy-validate.yml'
+
+jobs:
+  conftest-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -sSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.1/kustomize_v5.4.1_linux_amd64.tar.gz -o /tmp/kustomize.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/kustomize.tgz kustomize
+
+      - name: Install conftest
+        run: |
+          curl -sSL https://github.com/open-policy-agent/conftest/releases/download/v0.52.0/conftest_0.52.0_Linux_x86_64.tar.gz -o /tmp/conftest.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/conftest.tgz conftest
+
+      - name: Build manifests (auto-discover kustomizations)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rendered
+          # discover kustomization roots (dirs containing kustomization.yaml)
+          mapfile -t TARGETS < <(find portal_front/ops/k8s -maxdepth 3 -type f -name 'kustomization.yaml' -print0 | xargs -0 -n1 dirname | sort -u)
+          if [ ${#TARGETS[@]} -eq 0 ]; then
+            echo "No kustomization targets found under portal_front/ops/k8s" >&2
+            exit 1
+          fi
+          for t in "${TARGETS[@]}"; do
+            out="/tmp/rendered/$(basename "$t").yaml"
+            echo "Rendering $t -> $out"
+            kustomize build "$t" > "$out"
+            test -s "$out"
+          done
+
+      - name: Conftest test
+        run: |
+          set -e
+          for f in /tmp/rendered/*.yaml; do
+            echo "Testing $f"
+            conftest test "$f" \
+              -p portal_front/policies/conftest/kubernetes/policy \
+              -p policy/k8s
+          done
+
+  kyverno-dryrun:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kyverno CLI
+        run: |
+          curl -sSL https://github.com/kyverno/kyverno/releases/download/v1.13.1/kyverno-cli_v1.13.1_linux_x86_64.tar.gz -o /tmp/kyverno.tgz
+          sudo tar -C /usr/local/bin -xzf /tmp/kyverno.tgz kyverno
+
+      - name: Render policies
+        run: |
+          mkdir -p /tmp/policies
+          cp -r portal_front/policies/kyverno/* /tmp/policies/
+
+      - name: Build manifests (auto-discover kustomizations)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rendered
+          mapfile -t TARGETS < <(find portal_front/ops/k8s -maxdepth 3 -type f -name 'kustomization.yaml' -print0 | xargs -0 -n1 dirname | sort -u)
+          for t in "${TARGETS[@]}"; do
+            out="/tmp/rendered/$(basename "$t").yaml"
+            echo "Rendering $t -> $out"
+            kustomize build "$t" > "$out"
+            test -s "$out"
+          done
+
+      - name: Kyverno apply (dry-run)
+        run: |
+          set -e
+          for f in /tmp/rendered/*.yaml; do
+            echo "Validating with Kyverno: $f"
+            kyverno apply /tmp/policies --resource "$f" --policy-report --fail-on-warn
+          done

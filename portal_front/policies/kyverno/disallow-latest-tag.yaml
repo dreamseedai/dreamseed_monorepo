@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: disallow-latest-on-pod
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: Images must not use the 'latest' tag.
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+            =(initContainers):
+              - image: "!*:latest"
+    - name: disallow-latest-on-controllers
+      match:
+        any:
+          - resources:
+              kinds: [Deployment,StatefulSet,DaemonSet,Job,CronJob]
+      validate:
+        message: Images must not use the 'latest' tag.
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - image: "!*:latest"
+                =(initContainers):
+                  - image: "!*:latest"

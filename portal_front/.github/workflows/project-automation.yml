@@ -1,0 +1,151 @@
+name: Project Automation
+on:
+  issues:
+    types: [labeled, unlabeled, assigned, unassigned, edited, opened]
+
+jobs:
+  sync-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up jq and gh
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          gh --version || (curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+            sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+            sudo apt-get update && sudo apt-get install gh -y)
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load project config (field names)
+        id: cfg
+        run: |
+          CFG="project_management/project_config.json"
+          if [[ -f "$CFG" ]]; then
+            STATUS_FIELD_NAME=$(jq -r 'try .fieldNames.status // "Status"' "$CFG" 2>/dev/null || echo "Status")
+            STORY_FIELD_NAME=$(jq -r 'try .fieldNames.storyPoints // "Story Points"' "$CFG" 2>/dev/null || echo "Story Points")
+            PRIORITY_FIELD_NAME=$(jq -r 'try .fieldNames.priority // "Priority"' "$CFG" 2>/dev/null || echo "Priority")
+            ITERATION_FIELD_NAME=$(jq -r 'try .fieldNames.iteration // "Iteration"' "$CFG" 2>/dev/null || echo "Iteration")
+            ORG_CFG=$(jq -r 'try .org // empty' "$CFG" 2>/dev/null || echo "")
+            REPO_CFG=$(jq -r 'try .repo // empty' "$CFG" 2>/dev/null || echo "")
+            PROJ_CFG=$(jq -r 'try .project_number // empty' "$CFG" 2>/dev/null || echo "")
+          else
+            STATUS_FIELD_NAME="Status"; STORY_FIELD_NAME="Story Points"; PRIORITY_FIELD_NAME="Priority"; ITERATION_FIELD_NAME="Iteration"
+            ORG_CFG=""; REPO_CFG=""; PROJ_CFG=""
+          fi
+          echo "status_field=$STATUS_FIELD_NAME" >> $GITHUB_OUTPUT
+          echo "story_field=$STORY_FIELD_NAME" >> $GITHUB_OUTPUT
+          echo "priority_field=$PRIORITY_FIELD_NAME" >> $GITHUB_OUTPUT
+          echo "iteration_field=$ITERATION_FIELD_NAME" >> $GITHUB_OUTPUT
+          if [[ -n "$ORG_CFG" ]]; then echo "org=$ORG_CFG" >> $GITHUB_OUTPUT; fi
+          if [[ -n "$REPO_CFG" ]]; then echo "repo=$REPO_CFG" >> $GITHUB_OUTPUT; fi
+          if [[ -n "$PROJ_CFG" ]]; then echo "project_number=$PROJ_CFG" >> $GITHUB_OUTPUT; fi
+
+      - name: Derive status, story points, priority, iteration
+        id: derive
+        run: |
+          labels_json='${{ toJson(github.event.issue.labels) }}'
+          status="Inbox"
+          if echo "$labels_json" | jq -r '.[].name' | grep -qi 'implementation'; then status="In Progress"; fi
+          if echo "$labels_json" | jq -r '.[].name' | grep -qi 'blocked'; then status="Blocked"; fi
+          if [[ "${{ github.event.issue.state }}" == "closed" ]]; then status="Done"; fi
+          echo "status=$status" >> $GITHUB_OUTPUT
+
+          # Story points from labels like sp:3, sp:5
+          sp=$(echo "$labels_json" | jq -r '.[].name' | grep -Eo 'sp:[0-9]+' | head -n1 | cut -d: -f2)
+          if [[ -z "$sp" ]]; then sp=0; fi
+          echo "story_points=$sp" >> $GITHUB_OUTPUT
+
+          # Priority from label like priority:p1 or priority:high
+          prio=$(echo "$labels_json" | jq -r '.[].name' | grep -Eio 'priority:[a-z0-9]+' | head -n1 | cut -d: -f2 | tr '[:lower:]' '[:upper:]')
+          if [[ -z "$prio" ]]; then prio=""; fi
+          echo "priority_label=$prio" >> $GITHUB_OUTPUT
+
+          # Iteration from label like iter:2025w01 (matches Project Iteration title)
+          iter=$(echo "$labels_json" | jq -r '.[].name' | grep -Eio 'iter:[A-Za-z0-9_.\-]+' | head -n1 | cut -d: -f2)
+          if [[ -z "$iter" ]]; then iter=""; fi
+          echo "iteration_name=$iter" >> $GITHUB_OUTPUT
+
+      - name: Update Projects via GraphQL
+        run: |
+          set -euo pipefail
+          export GH_TOKEN='${{ secrets.GITHUB_TOKEN }}'
+
+          # Compute ORG/REPO/PROJECT_NUMBER with fallbacks: config outputs -> secrets -> GitHub context
+          ORG='${{ steps.cfg.outputs.org }}'
+          [[ -z "$ORG" ]] && ORG='${{ github.repository_owner }}'
+
+          REPO='${{ steps.cfg.outputs.repo }}'
+          [[ -z "$REPO" ]] && REPO='${{ github.event.repository.name }}'
+
+          PROJECT_NUMBER='${{ steps.cfg.outputs.project_number }}'
+
+          ISSUE_NUMBER='${{ github.event.issue.number }}'
+          STATUS='${{ steps.derive.outputs.status }}'
+          STORY_POINTS='${{ steps.derive.outputs.story_points }}'
+          PRIORITY_LABEL='${{ steps.derive.outputs.priority_label }}'
+          ITERATION_NAME='${{ steps.derive.outputs.iteration_name }}'
+
+          STATUS_FIELD_NAME='${{ steps.cfg.outputs.status_field }}'
+          STORY_FIELD_NAME='${{ steps.cfg.outputs.story_field }}'
+          PRIORITY_FIELD_NAME='${{ steps.cfg.outputs.priority_field }}'
+          ITERATION_FIELD_NAME='${{ steps.cfg.outputs.iteration_field }}'
+
+          echo "Updating project item for issue #$ISSUE_NUMBER with status=$STATUS sp=$STORY_POINTS priority=$PRIORITY_LABEL iteration=$ITERATION_NAME"
+
+          # Resolve project id: from config output or secret PROJECT_NUMBER
+          if [[ -z "${PROJECT_NUMBER:-}" ]]; then
+            echo "PROJECT_NUMBER secret not set; skipping project update." && exit 0
+          fi
+
+          issueId=$(gh api graphql -f query='query($org:String!,$repo:String!,$number:Int!){repository(owner:$org,name:$repo){issue(number:$number){id}}}' -f org="$ORG" -f repo="$REPO" -F number=$ISSUE_NUMBER --jq '.data.repository.issue.id')
+          projectId=$(gh api graphql -f query='query($org:String!,$number:Int!){organization(login:$org){projectV2(number:$number){id title}}}' -f org="$ORG" -F number=$PROJECT_NUMBER --jq '.data.organization.projectV2.id')
+          itemId=$(gh api graphql -f query='mutation($project:ID!,$item:ID!){addProjectV2ItemById(input:{projectId:$project, contentId:$item}){item{id}}}' -f project=$projectId -f item=$issueId --jq '.data.addProjectV2ItemById.item.id')
+
+          # Get fields
+          fields=$(gh api graphql -f query='query($project:ID!){node(id:$project){... on ProjectV2{fields(first:100){nodes{__typename ... on ProjectV2FieldCommon{id name} ... on ProjectV2SingleSelectField{id name options{id name}} ... on ProjectV2IterationField{id name configuration{iterations{title id}}}}}}}}' -f project=$projectId --jq '.data.node.fields.nodes')
+          statusFieldId=$(echo "$fields" | jq -r --arg FN "$STATUS_FIELD_NAME" '.[] | select(.name==$FN) | .id')
+          storyFieldId=$(echo "$fields" | jq -r --arg FN "$STORY_FIELD_NAME" '.[] | select(.name==$FN) | .id')
+          priorityFieldId=$(echo "$fields" | jq -r --arg FN "$PRIORITY_FIELD_NAME" '.[] | select(.name==$FN) | .id')
+          iterationFieldId=$(echo "$fields" | jq -r --arg FN "$ITERATION_FIELD_NAME" '.[] | select(.name==$FN) | .id')
+
+          statusOptionId=$(gh api graphql -f query='query($project:ID!){node(id:$project){... on ProjectV2{fields(first:100){nodes{... on ProjectV2SingleSelectField{id name options{id name}}}}}}}' -f project=$projectId --jq --raw-field STATUS_FIELD_NAME="$STATUS_FIELD_NAME" '[.data.node.fields.nodes[] | select(.name==env.STATUS_FIELD_NAME) | .options[] | select(.name=="'"$STATUS"'") | .id] | first')
+
+          if [[ -n "$statusFieldId" && -n "$statusOptionId" ]]; then
+            gh api graphql -f query='mutation($project:ID!,$item:ID!,$field:ID!,$opt:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$opt}}){clientMutationId}}' \
+              -f project=$projectId -f item=$itemId -f field=$statusFieldId -f opt=$statusOptionId >/dev/null
+            echo "Status updated"
+          else
+            echo "Status field/option not resolved; skipping"
+          fi
+
+          if [[ -n "$storyFieldId" ]]; then
+            gh api graphql -f query='mutation($project:ID!,$item:ID!,$field:ID!,$sp:Float!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{number:$sp}}){clientMutationId}}' \
+              -f project=$projectId -f item=$itemId -f field=$storyFieldId -F sp=$STORY_POINTS >/dev/null
+            echo "Story Points updated"
+          else
+            echo "Story Points field not resolved; skipping"
+          fi
+
+          if [[ -n "$priorityFieldId" && -n "$PRIORITY_LABEL" ]]; then
+            priorityOptionId=$(gh api graphql -f query='query($project:ID!){node(id:$project){... on ProjectV2{fields(first:100){nodes{... on ProjectV2SingleSelectField{id name options{id name}}}}}}}' -f project=$projectId --jq --raw-field PRIORITY_FIELD_NAME="$PRIORITY_FIELD_NAME" '[.data.node.fields.nodes[] | select(.name==env.PRIORITY_FIELD_NAME) | .options[] | select(.name=="'"$PRIORITY_LABEL"'") | .id] | first')
+            if [[ -n "$priorityOptionId" ]]; then
+              gh api graphql -f query='mutation($project:ID!,$item:ID!,$field:ID!,$opt:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$opt}}){clientMutationId}}' \
+                -f project=$projectId -f item=$itemId -f field=$priorityFieldId -f opt=$priorityOptionId >/dev/null
+              echo "Priority updated"
+            else
+              echo "Priority option not found for label $PRIORITY_LABEL"
+            fi
+          fi
+
+          if [[ -n "$iterationFieldId" && -n "$ITERATION_NAME" ]]; then
+            iterationId=$(echo "$fields" | jq -r --arg FN "$ITERATION_FIELD_NAME" --arg title "$ITERATION_NAME" '.[] | select(.name==$FN) | .configuration.iterations[] | select(.title==$title) | .id' | head -n1)
+            if [[ -n "$iterationId" ]]; then
+              gh api graphql -f query='mutation($project:ID!,$item:ID!,$field:ID!,$iter:String!){updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,fieldId:$field,value:{iterationId:$iter}}){clientMutationId}}' \
+                -f project=$projectId -f item=$itemId -f field=$iterationFieldId -f iter=$iterationId >/dev/null
+              echo "Iteration updated"
+            else
+              echo "Iteration title not found: $ITERATION_NAME"
+            fi
+          fi

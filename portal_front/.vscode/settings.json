@@ -1,0 +1,12 @@
+{
+  "files.associations": {
+    "*.http": "http",
+    "*.rest": "http",
+    "r-plumber.http": "http",
+    "*.rego": "rego"
+  },
+  "[rego]": {
+    "editor.formatOnSave": true
+  },
+  "opa.path": "/usr/local/bin/opa"
+}

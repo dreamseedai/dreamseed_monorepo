@@ -1,0 +1,36 @@
+name: PR Auto label & comment
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  label-and-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto label
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: |
+            db
+            analytics
+            implementation
+
+      - name: Comment staging steps
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `attempt VIEW V1 스키마 잠금 배포 준비 완료.
+            DEPLOYMENT_GUIDE_attempt_view_lock.md 기준 6단계 진행 부탁드립니다.
+            1) alembic upgrade head
+            2) pytest -k attempt_view_smoke -q
+            3) SELECT count(*) FROM attempt;
+            4) SELECT * FROM attempt ORDER BY completed_at DESC LIMIT 5;
+            5) 다운스트림 샘플 쿼리 확인
+            6) 결과 캡처/승인 코멘트 후 Production CR 생성`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body
+            })
