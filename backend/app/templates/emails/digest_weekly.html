@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Digest</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        .summary {
+            background-color: #e7f3ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .summary-number {
+            font-size: 48px;
+            font-weight: 700;
+            color: #667eea;
+            margin: 0;
+        }
+        .summary-text {
+            font-size: 14px;
+            color: #6c757d;
+            margin: 5px 0 0 0;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .notification-item {
+            background-color: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .notification-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .notification-message {
+            color: #6c757d;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .notification-time {
+            color: #adb5bd;
+            font-size: 12px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 500;
+            margin: 20px 0;
+        }
+        .button:hover {
+            opacity: 0.9;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .unsubscribe {
+            margin-top: 15px;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Weekly Digest</h1>
+            <p>Here's what happened {{ period }}</p>
+        </div>
+        
+        <div class="content">
+            <p>Hi {{ user_name }},</p>
+            
+            <div class="summary">
+                <div class="summary-number">{{ total_notifications }}</div>
+                <div class="summary-text">unread notifications</div>
+            </div>
+            
+            {% for notification_type, notifications in grouped_notifications.items() %}
+            <div class="section">
+                <div class="section-title">
+                    {% if notification_type == 'new_message' %}
+                        💬 New Messages ({{ notifications|length }})
+                    {% elif notification_type == 'message_mention' %}
+                        🔔 Mentions ({{ notifications|length }})
+                    {% elif notification_type == 'conversation_invite' %}
+                        ✉️ Invitations ({{ notifications|length }})
+                    {% elif notification_type == 'file_uploaded' %}
+                        📎 Files ({{ notifications|length }})
+                    {% else %}
+                        📋 Other ({{ notifications|length }})
+                    {% endif %}
+                </div>
+                
+                {% for notification in notifications[:10] %}
+                <div class="notification-item">
+                    <div class="notification-title">{{ notification.title }}</div>
+                    <div class="notification-message">{{ notification.message }}</div>
+                    <div class="notification-time">{{ notification.created_at.strftime('%b %d, %I:%M %p') }}</div>
+                </div>
+                {% endfor %}
+                
+                {% if notifications|length > 10 %}
+                <p style="color: #6c757d; font-size: 14px; margin-top: 10px;">
+                    + {{ notifications|length - 10 }} more...
+                </p>
+                {% endif %}
+            </div>
+            {% endfor %}
+            
+            <center>
+                <a href="{{ site_url }}/messenger/notifications" class="button">View All Notifications</a>
+            </center>
+            
+            <p style="margin-top: 30px; color: #6c757d; font-size: 14px;">
+                You're receiving this email because you have weekly digest enabled. 
+                You can change your email preferences anytime.
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p>
+                This email was sent by <strong>{{ site_name }}</strong><br>
+                <a href="{{ site_url }}">Visit our website</a> | 
+                <a href="mailto:{{ support_email }}">Contact Support</a>
+            </p>
+            <div class="unsubscribe">
+                <a href="{{ site_url }}/settings/notifications">Manage email preferences</a> | 
+                <a href="{{ unsubscribe_url }}">Unsubscribe from digest</a>
+            </div>
+            <p>&copy; {{ current_year }} {{ site_name }}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
