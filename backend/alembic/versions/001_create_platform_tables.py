@@ -1,16 +1,17 @@
 """Create teacher/parent/tutor platform tables
 
 Revision ID: 001_create_platform_tables
-Revises: 
+Revises:
 Create Date: 2025-11-19 00:00:00.000000
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "001_create_platform_tables"
-down_revision = None  # ⚠️ UPDATE THIS with actual last revision ID if needed
+down_revision = "000_create_users_table"  # Updated: depends on users table
 branch_labels = None
 depends_on = None
 
@@ -42,13 +43,17 @@ def upgrade() -> None:
     op.create_index("ix_students_id", "students", ["id"], unique=False)
     op.create_index("ix_students_user_id", "students", ["user_id"], unique=False)
     op.create_index("ix_students_name", "students", ["name"], unique=False)
-    op.create_index("ix_students_external_id", "students", ["external_id"], unique=False)
+    op.create_index(
+        "ix_students_external_id", "students", ["external_id"], unique=False
+    )
 
     # 2) classes
     op.create_table(
         "classes",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("teacher_id", sa.Integer(), nullable=False),  # FK to users.id (INTEGER)
+        sa.Column(
+            "teacher_id", sa.Integer(), nullable=False
+        ),  # FK to users.id (INTEGER)
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("subject", sa.Text(), nullable=True),
         sa.Column("grade", sa.Text(), nullable=True),
@@ -217,9 +222,7 @@ def downgrade() -> None:
     )
     op.drop_table("student_ability_history")
 
-    op.drop_index(
-        "ix_tutor_session_tasks_session_id", table_name="tutor_session_tasks"
-    )
+    op.drop_index("ix_tutor_session_tasks_session_id", table_name="tutor_session_tasks")
     op.drop_table("tutor_session_tasks")
 
     op.drop_index("ix_tutor_sessions_status", table_name="tutor_sessions")
