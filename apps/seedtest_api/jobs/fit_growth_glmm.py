@@ -39,7 +39,7 @@ async def fit_growth_model(
 ) -> None:
     """
     Fit GLMM growth model to weekly scores.
-    
+
     Args:
         lookback_weeks: Number of weeks to look back (default: 12)
         min_observations: Minimum observations per student (default: 10)
@@ -54,21 +54,20 @@ async def fit_growth_model(
         if min_observations is not None
         else os.getenv("GLMM_MIN_OBSERVATIONS", "10")
     )
-    
+
     # R GLMM service URL
     r_glmm_url = os.getenv(
-        "R_GLMM_BASE_URL",
-        "http://r-glmm-plumber.seedtest.svc.cluster.local:80"
+        "R_GLMM_BASE_URL", "http://r-glmm-plumber.seedtest.svc.cluster.local:80"
     )
     r_glmm_token = os.getenv("R_GLMM_INTERNAL_TOKEN")
     timeout_secs = int(os.getenv("R_GLMM_TIMEOUT_SECS", "300"))
-    
+
     print(f"[INFO] Fitting GLMM growth model (lookback={lookback_weeks} weeks)")
-    
+
     # Load weekly scores from features_topic_daily
     # score = z-scored accuracy per week
     since_date = date.today() - timedelta(weeks=lookback_weeks)
-    
+
     with get_session() as s:
         stmt = sa.text(
             """
@@ -117,45 +116,48 @@ async def fit_growth_model(
             ORDER BY w.user_id, w.week_start
             """
         )
-        
-        rows = s.execute(
-            stmt,
-            {"since_date": since_date, "min_obs": min_observations}
-        ).mappings().all()
-        
+
+        rows = (
+            s.execute(stmt, {"since_date": since_date, "min_obs": min_observations})
+            .mappings()
+            .all()
+        )
+
         if not rows:
             print("[WARN] No data found for GLMM fitting")
             return
-        
+
         print(f"[INFO] Loaded {len(rows)} weekly observations")
-        
+
         # Convert to week index (0, 1, 2, ...)
         week_starts = sorted(set(r["week_start"] for r in rows))
         week_index_map = {ws: idx for idx, ws in enumerate(week_starts)}
-        
+
         # Prepare data for R GLMM service
         data_rows = []
         for r in rows:
-            data_rows.append({
-                "student_id": str(r["user_id"]),
-                "topic_id": str(r["topic_id"]),
-                "week": week_index_map[r["week_start"]],
-                "score": float(r["score_z"]),
-            })
-        
+            data_rows.append(
+                {
+                    "student_id": str(r["user_id"]),
+                    "topic_id": str(r["topic_id"]),
+                    "week": week_index_map[r["week_start"]],
+                    "score": float(r["score_z"]),
+                }
+            )
+
         print(f"[INFO] Prepared {len(data_rows)} rows for GLMM fitting")
-    
+
     # Call R GLMM service
     headers = {"Content-Type": "application/json"}
     if r_glmm_token:
         headers["X-Internal-Token"] = r_glmm_token
-    
+
     payload = {
         "data": data_rows,
         "formula": "score ~ week + (week|student_id) + (1|topic_id)",
         "family": "gaussian",
     }
-    
+
     try:
         async with httpx.AsyncClient(timeout=timeout_secs) as client:
             response = await client.post(
@@ -171,16 +173,16 @@ async def fit_growth_model(
     except Exception as e:
         print(f"[ERROR] Unexpected error calling R GLMM service: {e}")
         return
-    
+
     # Extract results
     fixed_effects = result.get("fixed_effects") or {}
     random_effects = result.get("random_effects") or {}
     fit_metrics = result.get("fit_metrics") or {}
-    
+
     print(f"[INFO] Fixed effects: {fixed_effects}")
     print(f"[INFO] Random effects summary: {list(random_effects.keys())}")
     print(f"[INFO] Fit metrics: {fit_metrics}")
-    
+
     # Store results in growth_glmm_meta
     with get_session() as s:
         stmt_meta = sa.text(
@@ -208,29 +210,37 @@ async def fit_growth_model(
                 fitted_at = NOW()
             """
         )
-        
+
         run_id = f"glmm-{datetime.utcnow().isoformat()}"
-        
+
         s.execute(
             stmt_meta,
             {
                 "run_id": run_id,
                 "formula": payload["formula"],
                 "fixed_effects": json.dumps(fixed_effects),
-                "random_effects_summary": json.dumps({
-                    "student_slopes": len(random_effects.get("student_id", {}).get("week", [])),
-                    "topic_intercepts": len(random_effects.get("topic_id", {}).get("(Intercept)", [])),
-                }),
+                "random_effects_summary": json.dumps(
+                    {
+                        "student_slopes": len(
+                            random_effects.get("student_id", {}).get("week", [])
+                        ),
+                        "topic_intercepts": len(
+                            random_effects.get("topic_id", {}).get("(Intercept)", [])
+                        ),
+                    }
+                ),
                 "fit_metrics": json.dumps(fit_metrics),
             },
         )
-        
+
         # Optionally update weekly_kpi with individual slopes
         update_kpi = os.getenv("GLMM_UPDATE_KPI", "false").lower() == "true"
         if update_kpi and random_effects.get("student_id"):
             student_slopes = random_effects["student_id"].get("week", {})
-            print(f"[INFO] Updating weekly_kpi with {len(student_slopes)} student slopes")
-            
+            print(
+                f"[INFO] Updating weekly_kpi with {len(student_slopes)} student slopes"
+            )
+
             stmt_kpi = sa.text(
                 """
                 UPDATE weekly_kpi
@@ -246,7 +256,7 @@ async def fit_growth_model(
                   )
                 """
             )
-            
+
             for student_id, slope in student_slopes.items():
                 try:
                     s.execute(
@@ -255,9 +265,9 @@ async def fit_growth_model(
                     )
                 except Exception as e:
                     print(f"[WARN] Failed to update KPI for {student_id}: {e}")
-        
+
         s.commit()
-    
+
     print(f"[INFO] GLMM growth model fitting completed: run_id={run_id}")
 
 

@@ -22,7 +22,8 @@ except ImportError:
     # Fallback for apps.seedtest_api structure
     import sys
     import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
     from apps.seedtest_api.db.base import Base
 target_metadata = Base.metadata
 

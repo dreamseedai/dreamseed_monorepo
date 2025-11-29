@@ -38,13 +38,15 @@ PRIORITY = [
     (
         "grade",
         lambda t, class_id, grade: (
-            (RiskThreshold.grade == grade) & (RiskThreshold.class_id == None)  # noqa: E711
+            (RiskThreshold.grade == grade)
+            & (RiskThreshold.class_id == None)  # noqa: E711
         ),
     ),
     (
         "tenant",
         lambda t, class_id, grade: (
-            (RiskThreshold.class_id == None) & (RiskThreshold.grade == None)  # noqa: E711
+            (RiskThreshold.class_id == None)
+            & (RiskThreshold.grade == None)  # noqa: E711
         ),
     ),
 ]

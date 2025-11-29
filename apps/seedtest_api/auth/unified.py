@@ -14,11 +14,11 @@ Design Philosophy:
 
 Usage:
     from apps.seedtest_api.auth.unified import get_current_user, require_role
-    
+
     @router.get("/dashboard")
     def dashboard(user: UserContext = Depends(get_current_user)):
         return {"user": user.user_id, "org": user.org_id}
-    
+
     @router.post("/classes", dependencies=[Depends(require_role("teacher", "admin"))])
     def create_class(user: UserContext = Depends(get_current_user)):
         ...
@@ -59,9 +59,10 @@ bearer = HTTPBearer(auto_error=False)
 # User Context Model
 # ============================================================================
 
+
 class UserContext(BaseModel):
     """Unified user context for all authentication methods.
-    
+
     Attributes:
         user_id: Unique user identifier (from JWT 'sub' or header X-User)
         org_id: Organization/tenant ID for multi-tenancy (from JWT or header X-Org-Id)
@@ -69,38 +70,39 @@ class UserContext(BaseModel):
         scope: Optional OAuth2 scope string
         auth_method: How the user was authenticated (jwt, header, dev)
     """
+
     user_id: str
     org_id: Optional[str] = None  # Changed to str to match header format
     roles: list[str] = []
     scope: Optional[str] = None
     auth_method: str = "unknown"
-    
+
     # Backward compatibility aliases
     @property
     def tenant_id(self) -> Optional[str]:
         """Alias for org_id (for compatibility with auth/deps.py)."""
         return self.org_id
-    
+
     def is_admin(self) -> bool:
         """Check if user has admin role."""
         return "admin" in self.roles
-    
+
     def is_teacher(self) -> bool:
         """Check if user has teacher role."""
         return "teacher" in self.roles
-    
+
     def is_counselor(self) -> bool:
         """Check if user has counselor role."""
         return "counselor" in self.roles
-    
+
     def is_student(self) -> bool:
         """Check if user has student role."""
         return "student" in self.roles
-    
+
     def is_viewer(self) -> bool:
         """Check if user has viewer role."""
         return "viewer" in self.roles
-    
+
     def has_role(self, *required_roles: str) -> bool:
         """Check if user has any of the required roles."""
         return any(role in self.roles for role in required_roles)
@@ -110,22 +112,23 @@ class UserContext(BaseModel):
 # Role Canonicalization
 # ============================================================================
 
+
 def canonicalize_roles(raw_roles: str | list[str]) -> list[str]:
     """Canonicalize role names from IdP to standard DreamSeedAI roles.
-    
+
     Converts various role naming conventions to standard roles:
     - admin: System administrator (all permissions)
     - teacher: Teacher (class management, student assessment)
     - counselor: Counseling teacher (student counseling, support)
     - student: Student (personal dashboard access)
     - viewer: Read-only user
-    
+
     Args:
         raw_roles: Comma-separated role string or list of roles from IdP
-        
+
     Returns:
         List of canonicalized role names
-        
+
     Examples:
         >>> canonicalize_roles("  Admin,  Principal")
         ['admin']
@@ -136,44 +139,49 @@ def canonicalize_roles(raw_roles: str | list[str]) -> list[str]:
     """
     if not raw_roles:
         return ["viewer"]  # Default role
-    
+
     # Handle both string and list input
     if isinstance(raw_roles, str):
         normalized = [r.strip().lower() for r in raw_roles.split(",") if r.strip()]
     else:
         normalized = [str(r).strip().lower() for r in raw_roles if r]
-    
+
     canonical_roles = set()
-    
+
     for role in normalized:
         # Admin keywords (English, Korean)
-        if any(kw in role for kw in ["admin", "관리자", "administrator", "principal", "교장"]):
+        if any(
+            kw in role
+            for kw in ["admin", "관리자", "administrator", "principal", "교장"]
+        ):
             canonical_roles.add("admin")
-        
+
         # Teacher keywords (English, Korean)
-        elif any(kw in role for kw in ["teacher", "교사", "선생", "instructor", "professor"]):
+        elif any(
+            kw in role for kw in ["teacher", "교사", "선생", "instructor", "professor"]
+        ):
             canonical_roles.add("teacher")
-        
+
         # Counselor keywords (English, Korean)
         elif any(kw in role for kw in ["counsel", "상담", "advisor", "guidance"]):
             canonical_roles.add("counselor")
-        
+
         # Student keywords (English, Korean)
         elif any(kw in role for kw in ["student", "학생", "pupil", "learner"]):
             canonical_roles.add("student")
-        
+
         # Viewer/Read-only keywords
         elif any(kw in role for kw in ["viewer", "조회", "reader", "guest", "일반"]):
             canonical_roles.add("viewer")
-        
+
         # Keep original if no match (for extensibility)
         else:
             canonical_roles.add(role)
-    
+
     # If no roles matched, default to viewer
     if not canonical_roles:
         canonical_roles.add("viewer")
-    
+
     return sorted(list(canonical_roles))
 
 
@@ -181,9 +189,10 @@ def canonicalize_roles(raw_roles: str | list[str]) -> list[str]:
 # JWT Authentication
 # ============================================================================
 
+
 def _decode_jwt_token(token: str) -> dict:
     """Decode and validate JWT token.
-    
+
     Supports both HS256 (symmetric) and RS256 (asymmetric) algorithms.
     """
     try:
@@ -197,7 +206,7 @@ def _decode_jwt_token(token: str) -> dict:
             key = JWT_PUBLIC_KEY
         else:
             key = JWT_SECRET
-        
+
         payload = jwt.decode(token, key, algorithms=[JWT_ALGORITHM])
         return payload
     except jwt.ExpiredSignatureError:
@@ -220,32 +229,29 @@ def _extract_user_from_jwt(payload: dict) -> UserContext:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing user_id in token (sub or user_id claim required)",
         )
-    
+
     # Extract org_id (try multiple claim names for compatibility)
     org_id = payload.get("org_id") or payload.get("tenant_id")
     if org_id is not None:
         org_id = str(org_id)  # Normalize to string
-    
+
     # Extract and canonicalize roles
     raw_roles = payload.get("roles", [])
     if isinstance(raw_roles, str):
         raw_roles = [r.strip() for r in raw_roles.split() if r.strip()]
     roles = canonicalize_roles(raw_roles) if raw_roles else ["viewer"]
-    
+
     scope = payload.get("scope")
-    
+
     return UserContext(
-        user_id=str(user_id),
-        org_id=org_id,
-        roles=roles,
-        scope=scope,
-        auth_method="jwt"
+        user_id=str(user_id), org_id=org_id, roles=roles, scope=scope, auth_method="jwt"
     )
 
 
 # ============================================================================
 # Header-based Authentication (OIDC Reverse Proxy)
 # ============================================================================
+
 
 def _extract_user_from_headers(
     x_user: Optional[str],
@@ -258,33 +264,34 @@ def _extract_user_from_headers(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Missing authentication header: {HEADER_USER}",
         )
-    
+
     if not x_org_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Missing organization header: {HEADER_ORG_ID}",
         )
-    
+
     if not x_roles:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Missing roles header: {HEADER_ROLES}",
         )
-    
+
     # Canonicalize roles
     canonical_roles = canonicalize_roles(x_roles)
-    
+
     return UserContext(
         user_id=x_user.strip(),
         org_id=x_org_id.strip(),
         roles=canonical_roles,
-        auth_method="header"
+        auth_method="header",
     )
 
 
 # ============================================================================
 # Unified Authentication (Main Entry Point)
 # ============================================================================
+
 
 async def get_current_user(
     # JWT auth
@@ -295,27 +302,27 @@ async def get_current_user(
     x_roles: Optional[str] = Header(None, alias=HEADER_ROLES),
 ) -> UserContext:
     """Unified authentication: JWT or Headers (with LOCAL_DEV fallback).
-    
+
     Priority:
     1. LOCAL_DEV mode → Return dev user (for testing)
     2. Authorization header exists → JWT authentication
     3. X-User/X-Org-Id/X-Roles exist → Header authentication
     4. Otherwise → 401 Unauthorized
-    
+
     This allows flexible deployment:
     - Development: LOCAL_DEV=true for quick testing
     - API clients: JWT tokens
     - Web dashboard: OIDC reverse proxy with headers
-    
+
     Args:
         authorization: Bearer token (optional)
         x_user: User ID from header (optional)
         x_org_id: Org ID from header (optional)
         x_roles: Roles from header (optional)
-        
+
     Returns:
         UserContext from JWT, headers, or dev mode
-        
+
     Raises:
         HTTPException: 401 if no valid authentication method
     """
@@ -326,9 +333,9 @@ async def get_current_user(
             org_id="1",
             roles=["admin", "teacher", "student"],  # Dev user has all roles
             scope="*",
-            auth_method="dev"
+            auth_method="dev",
         )
-    
+
     # Try JWT authentication
     if authorization:
         try:
@@ -338,11 +345,11 @@ async def get_current_user(
             # If JWT fails and headers are present, try header auth
             if not (x_user and x_org_id and x_roles):
                 raise  # Re-raise JWT error if no headers
-    
+
     # Try header authentication
     if x_user and x_org_id and x_roles:
         return _extract_user_from_headers(x_user, x_org_id, x_roles)
-    
+
     # No valid authentication method
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -355,22 +362,24 @@ async def get_current_user(
 # Role-based Access Control (RBAC)
 # ============================================================================
 
+
 def require_role(
     *allowed: Literal["student", "teacher", "counselor", "admin", "viewer"]
 ) -> Callable[[UserContext], UserContext]:
     """Create dependency that requires specific role(s).
-    
+
     Args:
         allowed: One or more role names that are allowed
-        
+
     Returns:
         FastAPI dependency function that validates role
-        
+
     Example:
         @router.get("/classes", dependencies=[Depends(require_role("teacher", "admin"))])
         def list_classes(user: UserContext = Depends(get_current_user)):
             return {"classes": [...]}
     """
+
     def _dep(user: UserContext = Depends(get_current_user)) -> UserContext:
         if not user.has_role(*allowed):
             raise HTTPException(
@@ -378,7 +387,7 @@ def require_role(
                 detail=f"Insufficient permissions. Required role: {allowed}, got: {user.roles}",
             )
         return user
-    
+
     return _dep
 
 
@@ -392,7 +401,9 @@ def require_admin(user: UserContext = Depends(get_current_user)) -> UserContext:
     return user
 
 
-def require_teacher_or_admin(user: UserContext = Depends(get_current_user)) -> UserContext:
+def require_teacher_or_admin(
+    user: UserContext = Depends(get_current_user),
+) -> UserContext:
     """Require teacher or admin role."""
     if not (user.is_teacher() or user.is_admin()):
         raise HTTPException(
@@ -406,45 +417,45 @@ def require_teacher_or_admin(user: UserContext = Depends(get_current_user)) -> U
 # Multi-tenancy Helpers
 # ============================================================================
 
+
 def require_org_access(
-    resource_org_id: str,
-    user: UserContext = Depends(get_current_user)
+    resource_org_id: str, user: UserContext = Depends(get_current_user)
 ) -> UserContext:
     """Verify user has access to resource's organization.
-    
+
     Rules:
     - Admin: Can access any organization
     - Others: Can only access their own organization
-    
+
     Args:
         resource_org_id: Organization ID of the resource being accessed
         user: Current user context
-        
+
     Returns:
         UserContext if access is allowed
-        
+
     Raises:
         HTTPException: 403 if user cannot access the organization
     """
     if user.is_admin():
         return user  # Admins can access any org
-    
+
     if user.org_id != resource_org_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Access denied. Resource belongs to organization {resource_org_id}",
         )
-    
+
     return user
 
 
 def get_org_filter(user: UserContext) -> Optional[str]:
     """Get organization filter for database queries.
-    
+
     Returns:
         - None if user is admin (no filter needed, can see all orgs)
         - user.org_id otherwise (filter to user's organization)
-        
+
     Usage:
         org_filter = get_org_filter(user)
         if org_filter:
@@ -459,27 +470,29 @@ def get_org_filter(user: UserContext) -> Optional[str]:
 # Backward Compatibility Layer
 # ============================================================================
 
+
 class User(BaseModel):
     """Legacy User model for backward compatibility with old deps.py.
-    
+
     This is a compatibility shim. New code should use UserContext directly.
     """
+
     user_id: str
     org_id: Optional[int] = None
     roles: list[str] = []
     scope: Optional[str] = None
-    
+
     def is_admin(self) -> bool:
         return any(r.lower() == "admin" for r in self.roles)
-    
+
     def is_teacher(self) -> bool:
         return any(r.lower() == "teacher" for r in self.roles)
-    
+
     def is_student(self) -> bool:
         return any(r.lower() == "student" for r in self.roles) or not (
             self.is_admin() or self.is_teacher()
         )
-    
+
     @classmethod
     def from_user_context(cls, ctx: UserContext) -> "User":
         """Convert UserContext to legacy User model."""
@@ -489,23 +502,18 @@ class User(BaseModel):
                 org_id_int = int(ctx.org_id)
             except ValueError:
                 pass
-        
+
         return cls(
-            user_id=ctx.user_id,
-            org_id=org_id_int,
-            roles=ctx.roles,
-            scope=ctx.scope
+            user_id=ctx.user_id, org_id=org_id_int, roles=ctx.roles, scope=ctx.scope
         )
 
 
-async def get_current_user_legacy(
-    ctx: UserContext = Depends(get_current_user)
-) -> User:
+async def get_current_user_legacy(ctx: UserContext = Depends(get_current_user)) -> User:
     """Get current user in legacy User format.
-    
+
     This is for backward compatibility with existing code that expects
     the old User model from deps.py.
-    
+
     New code should use get_current_user() directly to get UserContext.
     """
     return User.from_user_context(ctx)

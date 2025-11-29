@@ -28,7 +28,9 @@ class ExposureWeights(BaseModel):
     """Item exposure weights for CAT selection."""
 
     item_id: str
-    weight: float = Field(ge=0.0, le=1.0, description="Selection weight (0=excluded, 1=normal)")
+    weight: float = Field(
+        ge=0.0, le=1.0, description="Selection weight (0=excluded, 1=normal)"
+    )
     reason: str = Field(description="Reason for weight adjustment")
     alert_severity: Optional[str] = None
 
@@ -65,34 +67,38 @@ async def get_db() -> AsyncSession:
 
 @router.get("/exposure/weights", response_model=List[ExposureWeights])
 async def get_exposure_weights(
-    run_id: Optional[str] = Query(None, description="Specific run ID; defaults to latest"),
-    severity_threshold: str = Query("moderate", description="Include alerts >= this severity"),
+    run_id: Optional[str] = Query(
+        None, description="Specific run ID; defaults to latest"
+    ),
+    severity_threshold: str = Query(
+        "moderate", description="Include alerts >= this severity"
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> List[ExposureWeights]:
     """Get item exposure weights based on drift alerts.
-    
+
     Returns weight adjustments for items with drift alerts:
     - severe: weight = 0.0 (excluded)
     - moderate: weight = 0.5 (reduced exposure)
     - minor: weight = 0.8 (slight reduction)
-    
+
     Items without alerts get weight = 1.0 (normal).
     """
     # Stub implementation; replace with actual DB queries
     logger.warning("get_exposure_weights: using stub implementation")
-    
+
     # Example query (pseudo-code):
     # if run_id is None:
     #     # Get latest run
     #     run_id = await db.scalar(select(DriftAlert.run_id).order_by(desc(DriftAlert.created_at)).limit(1))
-    # 
+    #
     # alerts = await db.execute(
     #     select(DriftAlert)
     #     .filter(DriftAlert.run_id == run_id)
     #     .filter(DriftAlert.resolved_at.is_(None))
     # )
     # alerts = alerts.scalars().all()
-    
+
     # Stub data
     return [
         ExposureWeights(
@@ -118,15 +124,17 @@ async def get_exposure_weights(
 
 @router.get("/exposure/excluded", response_model=List[str])
 async def get_excluded_items(
-    run_id: Optional[str] = Query(None, description="Specific run ID; defaults to latest"),
+    run_id: Optional[str] = Query(
+        None, description="Specific run ID; defaults to latest"
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> List[str]:
     """Get list of items to completely exclude from CAT.
-    
+
     Returns item IDs with severe drift alerts (unresolved).
     """
     logger.warning("get_excluded_items: using stub implementation")
-    
+
     # Stub: query for severe alerts
     # alerts = await db.execute(
     #     select(DriftAlert.item_id)
@@ -136,31 +144,33 @@ async def get_excluded_items(
     #     .distinct()
     # )
     # return [item_id for item_id, in alerts]
-    
+
     return ["item_123", "item_999"]
 
 
 @router.get("/exposure/rules", response_model=ExposureRulesResponse)
 async def export_exposure_rules(
-    run_id: Optional[str] = Query(None, description="Specific run ID; defaults to latest"),
+    run_id: Optional[str] = Query(
+        None, description="Specific run ID; defaults to latest"
+    ),
     format: str = Query("json", description="Output format: json, yaml, or env"),
     db: AsyncSession = Depends(get_db),
 ) -> ExposureRulesResponse:
     """Export complete CAT exposure rules for integration.
-    
+
     Returns weights and exclusion list suitable for loading into:
     - CAT selector (select_next_with_constraints)
     - Environment variables
     - Configuration files
     """
     logger.warning("export_exposure_rules: using stub implementation")
-    
+
     # Build rules from alerts
     weights_data = await get_exposure_weights(run_id=run_id, db=db)
     excluded_data = await get_excluded_items(run_id=run_id, db=db)
-    
+
     weights_dict = {w.item_id: w.weight for w in weights_data}
-    
+
     return ExposureRulesResponse(
         run_id=run_id or "drift_20251104_160000",
         generated_at=datetime.now(timezone.utc),
@@ -180,7 +190,7 @@ async def resolve_alerts(
     db: AsyncSession = Depends(get_db),
 ) -> ResolveAlertResponse:
     """Mark drift alerts as resolved after action taken.
-    
+
     Updates resolved_at timestamp and logs action taken.
     Use after:
     - Item removed from CAT
@@ -188,7 +198,7 @@ async def resolve_alerts(
     - Exposure weight adjusted
     """
     logger.warning("resolve_alerts: using stub implementation")
-    
+
     # Stub: update alerts
     # await db.execute(
     #     update(DriftAlert)
@@ -196,11 +206,11 @@ async def resolve_alerts(
     #     .values(resolved_at=datetime.now(timezone.utc))
     # )
     # await db.commit()
-    
+
     logger.info(
         f"Resolved {len(request.alert_ids)} alerts. Action: {request.action_taken}"
     )
-    
+
     return ResolveAlertResponse(
         resolved_count=len(request.alert_ids),
         alert_ids=request.alert_ids,
@@ -209,15 +219,17 @@ async def resolve_alerts(
 
 @router.get("/alerts/unresolved", response_model=Dict[str, int])
 async def get_unresolved_alert_summary(
-    run_id: Optional[str] = Query(None, description="Specific run ID; defaults to latest"),
+    run_id: Optional[str] = Query(
+        None, description="Specific run ID; defaults to latest"
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, int]:
     """Get count of unresolved alerts by severity.
-    
+
     Returns: {"severe": 3, "moderate": 12, "minor": 5}
     """
     logger.warning("get_unresolved_alert_summary: using stub implementation")
-    
+
     # Stub: count alerts by severity
     # result = await db.execute(
     #     select(DriftAlert.severity, func.count())
@@ -226,21 +238,21 @@ async def get_unresolved_alert_summary(
     #     .group_by(DriftAlert.severity)
     # )
     # return {severity: count for severity, count in result}
-    
+
     return {"severe": 2, "moderate": 8, "minor": 3}
 
 
 # Integration helper for CAT adaptive demo
 def load_drift_exposure_weights(run_id: Optional[str] = None) -> Dict[str, float]:
     """Load drift-based exposure weights for CAT selector.
-    
+
     Call this in app_adaptive_demo.py to apply drift-based constraints:
-    
+
     ```python
     from apps.seedtest_api.routers.irt_drift_api import load_drift_exposure_weights
-    
+
     drift_weights = load_drift_exposure_weights()
-    
+
     # Apply to CAT selector
     item, info, _ = select_next_with_constraints(
         theta_new,
@@ -251,7 +263,7 @@ def load_drift_exposure_weights(run_id: Optional[str] = None) -> Dict[str, float
         ...
     )
     ```
-    
+
     Returns dict: {item_id: weight} where weight in [0.0, 1.0]
     """
     # Stub: in production, query DB or cache

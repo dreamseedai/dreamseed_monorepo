@@ -22,12 +22,34 @@ class MathMLToTeXConverter:
 
     # 수학 함수 키워드 (토큰화)
     MATH_FUNCTIONS = {
-        "sin", "cos", "tan", "cot", "sec", "csc",
-        "arcsin", "arccos", "arctan",
-        "sinh", "cosh", "tanh",
-        "log", "ln", "lg", "exp",
-        "lim", "det", "dim", "ker", "max", "min", "sup", "inf",
-        "gcd", "lcm", "deg", "arg",
+        "sin",
+        "cos",
+        "tan",
+        "cot",
+        "sec",
+        "csc",
+        "arcsin",
+        "arccos",
+        "arctan",
+        "sinh",
+        "cosh",
+        "tanh",
+        "log",
+        "ln",
+        "lg",
+        "exp",
+        "lim",
+        "det",
+        "dim",
+        "ker",
+        "max",
+        "min",
+        "sup",
+        "inf",
+        "gcd",
+        "lcm",
+        "deg",
+        "arg",
     }
 
     # 화학 원소 패턴
@@ -106,27 +128,27 @@ class MathMLToTeXConverter:
     def _process_mi(self, node: ET.Element) -> str:
         """identifier 처리 (함수/변수 구분)"""
         text = node.text or ""
-        
+
         # 수학 함수 토큰화
         if text in self.MATH_FUNCTIONS:
             return f"\\{text}"
-        
+
         # 화학 모드에서는 그대로
         if self.chem_mode:
             return text
-        
+
         # 그리스 문자
         if len(text) > 1 and text.isalpha():
             greek = self._to_greek(text)
             if greek:
                 return greek
-        
+
         return text
 
     def _process_mo(self, node: ET.Element) -> str:
         """operator 처리"""
         text = node.text or ""
-        
+
         # 특수 연산자 매핑
         op_map = {
             "×": "\\times",
@@ -155,7 +177,7 @@ class MathMLToTeXConverter:
             "⇒": "\\Rightarrow",
             "⇔": "\\Leftrightarrow",
         }
-        
+
         return op_map.get(text, text)
 
     def _process_msup(self, node: ET.Element) -> str:
@@ -163,14 +185,14 @@ class MathMLToTeXConverter:
         children = list(node)
         if len(children) != 2:
             return self._process_children(node)
-        
+
         base = self._process_node(children[0])
         exp = self._process_node(children[1])
-        
+
         # 단일 문자가 아니면 중괄호로 보호
         if len(exp) > 1 or not exp.isalnum():
             exp = f"{{{exp}}}"
-        
+
         return f"{base}^{exp}"
 
     def _process_msub(self, node: ET.Element) -> str:
@@ -178,14 +200,14 @@ class MathMLToTeXConverter:
         children = list(node)
         if len(children) != 2:
             return self._process_children(node)
-        
+
         base = self._process_node(children[0])
         sub = self._process_node(children[1])
-        
+
         # 단일 문자가 아니면 중괄호로 보호
         if len(sub) > 1 or not sub.isalnum():
             sub = f"{{{sub}}}"
-        
+
         return f"{base}_{sub}"
 
     def _process_msubsup(self, node: ET.Element) -> str:
@@ -193,17 +215,17 @@ class MathMLToTeXConverter:
         children = list(node)
         if len(children) != 3:
             return self._process_children(node)
-        
+
         base = self._process_node(children[0])
         sub = self._process_node(children[1])
         sup = self._process_node(children[2])
-        
+
         # 중괄호 보호
         if len(sub) > 1 or not sub.isalnum():
             sub = f"{{{sub}}}"
         if len(sup) > 1 or not sup.isalnum():
             sup = f"{{{sup}}}"
-        
+
         return f"{base}_{sub}^{sup}"
 
     def _process_mfrac(self, node: ET.Element) -> str:
@@ -211,10 +233,10 @@ class MathMLToTeXConverter:
         children = list(node)
         if len(children) != 2:
             return self._process_children(node)
-        
+
         num = self._process_node(children[0])
         denom = self._process_node(children[1])
-        
+
         return f"\\frac{{{num}}}{{{denom}}}"
 
     def _process_msqrt(self, node: ET.Element) -> str:
@@ -227,10 +249,10 @@ class MathMLToTeXConverter:
         children = list(node)
         if len(children) != 2:
             return self._process_children(node)
-        
+
         base = self._process_node(children[0])
         index = self._process_node(children[1])
-        
+
         return f"\\sqrt[{index}]{{{base}}}"
 
     def _process_mover(self, node: ET.Element) -> str:
@@ -238,10 +260,10 @@ class MathMLToTeXConverter:
         children = list(node)
         if len(children) != 2:
             return self._process_children(node)
-        
+
         base = self._process_node(children[0])
         over = self._process_node(children[1])
-        
+
         # 벡터 화살표
         if over == "→":
             return f"\\vec{{{base}}}"
@@ -259,10 +281,10 @@ class MathMLToTeXConverter:
         children = list(node)
         if len(children) != 2:
             return self._process_children(node)
-        
+
         base = self._process_node(children[0])
         under = self._process_node(children[1])
-        
+
         return f"\\underset{{{under}}}{{{base}}}"
 
     def _process_munderover(self, node: ET.Element) -> str:
@@ -270,11 +292,11 @@ class MathMLToTeXConverter:
         children = list(node)
         if len(children) != 3:
             return self._process_children(node)
-        
+
         base = self._process_node(children[0])
         under = self._process_node(children[1])
         over = self._process_node(children[2])
-        
+
         return f"{base}_{{{under}}}^{{{over}}}"
 
     def _process_mfenced(self, node: ET.Element) -> str:
@@ -282,7 +304,7 @@ class MathMLToTeXConverter:
         open_char = node.get("open", "(")
         close_char = node.get("close", ")")
         content = self._process_children(node)
-        
+
         # 큰 괄호
         if open_char == "(":
             return f"\\left({content}\\right)"
@@ -304,14 +326,29 @@ class MathMLToTeXConverter:
     def _to_greek(self, text: str) -> str | None:
         """그리스 문자 변환"""
         greek_map = {
-            "alpha": "\\alpha", "beta": "\\beta", "gamma": "\\gamma",
-            "delta": "\\delta", "epsilon": "\\epsilon", "zeta": "\\zeta",
-            "eta": "\\eta", "theta": "\\theta", "iota": "\\iota",
-            "kappa": "\\kappa", "lambda": "\\lambda", "mu": "\\mu",
-            "nu": "\\nu", "xi": "\\xi", "pi": "\\pi",
-            "rho": "\\rho", "sigma": "\\sigma", "tau": "\\tau",
-            "upsilon": "\\upsilon", "phi": "\\phi", "chi": "\\chi",
-            "psi": "\\psi", "omega": "\\omega",
+            "alpha": "\\alpha",
+            "beta": "\\beta",
+            "gamma": "\\gamma",
+            "delta": "\\delta",
+            "epsilon": "\\epsilon",
+            "zeta": "\\zeta",
+            "eta": "\\eta",
+            "theta": "\\theta",
+            "iota": "\\iota",
+            "kappa": "\\kappa",
+            "lambda": "\\lambda",
+            "mu": "\\mu",
+            "nu": "\\nu",
+            "xi": "\\xi",
+            "pi": "\\pi",
+            "rho": "\\rho",
+            "sigma": "\\sigma",
+            "tau": "\\tau",
+            "upsilon": "\\upsilon",
+            "phi": "\\phi",
+            "chi": "\\chi",
+            "psi": "\\psi",
+            "omega": "\\omega",
         }
         return greek_map.get(text.lower())
 
@@ -319,24 +356,24 @@ class MathMLToTeXConverter:
         """TeX 정규화 (안전성 강화)"""
         # 1. 연속 밑첨자 보호
         tex = re.sub(r"([A-Za-z])_([0-9A-Za-z])", r"\1_{\2}", tex)
-        
+
         # 2. 루트 괄호 보강
         tex = re.sub(r"\\sqrt\s+([^{])", r"\\sqrt{\1}", tex)
-        
+
         # 3. 함수 키워드 토큰화
         for func in self.MATH_FUNCTIONS:
             tex = re.sub(rf"(?<!\\)\b{func}\b", rf"\\{func}", tex)
-        
+
         # 4. 공백 정리
         tex = re.sub(r"\s+", " ", tex).strip()
-        
+
         return tex
 
 
 def extract_mathml_from_html(html: str) -> list[str]:
     """HTML에서 MathML 추출"""
     # Wiris MathML 패턴
-    pattern = r'<math[^>]*>.*?</math>'
+    pattern = r"<math[^>]*>.*?</math>"
     return re.findall(pattern, html, re.DOTALL)
 
 
@@ -344,14 +381,14 @@ def convert_wiris_to_tex(html: str) -> str:
     """Wiris HTML → TeX 변환 (메인 엔트리포인트)"""
     converter = MathMLToTeXConverter()
     mathml_list = extract_mathml_from_html(html)
-    
+
     if not mathml_list:
         return html
-    
+
     result = html
     for mathml in mathml_list:
         tex = converter.convert(mathml)
         # MathML을 TeX로 교체
         result = result.replace(mathml, f"${tex}$", 1)
-    
+
     return result

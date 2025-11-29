@@ -90,13 +90,24 @@ def _html_to_tiptap_doc(html: str, default_locale="ko") -> dict[str, Any]:
 
     def push_paragraph(text_runs: list[Any]):
         if not text_runs:
-            blocks.append({"type": "paragraph", "content": [{"type": "text", "text": ""}]})
+            blocks.append(
+                {"type": "paragraph", "content": [{"type": "text", "text": ""}]}
+            )
             return
         blocks.append({"type": "paragraph", "content": text_runs})
 
     for node in soup.body.contents if soup.body else soup.contents:
         # 블록 판단: p, div, li, h*, pre ...
-        if getattr(node, "name", None) in {"p", "div", "li", "pre", "h1", "h2", "h3", "h4"}:
+        if getattr(node, "name", None) in {
+            "p",
+            "div",
+            "li",
+            "pre",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+        }:
             inlines = []
             for child in node.children:
                 if getattr(child, "name", None) is None:  # NavigableString
@@ -106,7 +117,9 @@ def _html_to_tiptap_doc(html: str, default_locale="ko") -> dict[str, Any]:
                 elif child.name == "span" and child.get("data-type") == "math-inline":
                     tex = child.get("data-tex", "").strip()
                     lang = child.get("data-lang", "math")
-                    inlines.append({"type": "math-inline", "attrs": {"tex": tex, "lang": lang}})
+                    inlines.append(
+                        {"type": "math-inline", "attrs": {"tex": tex, "lang": lang}}
+                    )
                 else:
                     # 기타 인라인은 텍스트로 폴백
                     txt = child.get_text(" ", strip=False)
@@ -114,20 +127,35 @@ def _html_to_tiptap_doc(html: str, default_locale="ko") -> dict[str, Any]:
                         inlines.append({"type": "text", "text": txt})
 
             # 단독 수식만 있고 텍스트가 없으면 block으로 승격
-            only_math = all(n.get("type") == "math-inline" for n in inlines) and len(inlines) > 0
+            only_math = (
+                all(n.get("type") == "math-inline" for n in inlines)
+                and len(inlines) > 0
+            )
             has_text = any(
-                n.get("type") == "text" and (n.get("text") or "").strip() for n in inlines
+                n.get("type") == "text" and (n.get("text") or "").strip()
+                for n in inlines
             )
             if only_math and not has_text and len(inlines) == 1:
                 mi = inlines[0]["attrs"]
-                blocks.append({"type": "math-block", "attrs": {"tex": mi["tex"], "lang": mi["lang"]}})
+                blocks.append(
+                    {
+                        "type": "math-block",
+                        "attrs": {"tex": mi["tex"], "lang": mi["lang"]},
+                    }
+                )
             else:
                 push_paragraph(inlines)
-        elif getattr(node, "name", None) == "span" and node.get("data-type") == "math-inline":
+        elif (
+            getattr(node, "name", None) == "span"
+            and node.get("data-type") == "math-inline"
+        ):
             # 루트에 인라인 수식이 바로 오는 경우
             mi = {
                 "type": "math-inline",
-                "attrs": {"tex": node.get("data-tex", ""), "lang": node.get("data-lang", "math")},
+                "attrs": {
+                    "tex": node.get("data-tex", ""),
+                    "lang": node.get("data-lang", "math"),
+                },
             }
             push_paragraph([mi])
         else:
@@ -138,7 +166,8 @@ def _html_to_tiptap_doc(html: str, default_locale="ko") -> dict[str, Any]:
 
     doc = {
         "type": "doc",
-        "content": blocks or [{"type": "paragraph", "content": [{"type": "text", "text": ""}]}],
+        "content": blocks
+        or [{"type": "paragraph", "content": [{"type": "text", "text": ""}]}],
     }
     return doc
 

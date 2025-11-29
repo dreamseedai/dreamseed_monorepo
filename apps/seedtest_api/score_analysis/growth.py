@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 
 try:
     import numpy as np
+
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
@@ -28,11 +29,14 @@ def _safe_norm_cdf(x: float) -> float:
     """Wrapper for normal CDF that uses scipy if available, else fallback."""
     if HAS_SCIPY:
         from scipy.stats import norm as _norm  # type: ignore
+
         return float(_norm.cdf(x))
     return _norm_cdf(x)
 
 
-def prob_reach_target(theta_mu: float, theta_se: float, target: float, k: int = 5, shrink: float = 0.7) -> float:
+def prob_reach_target(
+    theta_mu: float, theta_se: float, target: float, k: int = 5, shrink: float = 0.7
+) -> float:
     """
     Estimate probability of reaching target within next k exams.
 
@@ -52,20 +56,23 @@ def prob_reach_target(theta_mu: float, theta_se: float, target: float, k: int = 
     # Probability to exceed at least once: 1 - Prod(P(X_t < target))
     probs_lt = []
     for t in range(1, k + 1):
-        se_t = theta_se * (shrink ** t)
+        se_t = theta_se * (shrink**t)
         z = (target - theta_mu) / se_t
         probs_lt.append(_safe_norm_cdf(z))  # P(X_t < target)
-    
+
     if HAS_SCIPY:
         import numpy as np  # type: ignore
+
         p_none = float(np.prod(probs_lt))
     else:
         p_none = math.prod(probs_lt)  # Python 3.8+
-    
+
     return max(0.0, min(1.0, 1.0 - p_none))
 
 
-def forecast_summary(theta_mu: float, theta_se: Optional[float], target: float, k: int = 5) -> dict:
+def forecast_summary(
+    theta_mu: float, theta_se: Optional[float], target: float, k: int = 5
+) -> dict:
     p = prob_reach_target(theta_mu, theta_se or 0.0, target, k=k)
     return {
         "target": target,

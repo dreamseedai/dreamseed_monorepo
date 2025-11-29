@@ -19,7 +19,7 @@ depends_on = None
 
 def upgrade() -> None:
     conn = op.get_bind()
-    
+
     # Check if prophet_fit_meta exists
     result1 = conn.execute(
         text(
@@ -33,7 +33,7 @@ def upgrade() -> None:
         )
     )
     table1_exists = result1.scalar()
-    
+
     if not table1_exists:
         conn.execute(
             text(
@@ -49,7 +49,7 @@ def upgrade() -> None:
                 """
             )
         )
-        
+
         conn.execute(
             text(
                 """
@@ -61,7 +61,7 @@ def upgrade() -> None:
         print("[INFO] Created prophet_fit_meta table")
     else:
         print("[INFO] prophet_fit_meta table already exists, skipping")
-    
+
     # Check if prophet_anomalies exists
     result2 = conn.execute(
         text(
@@ -75,7 +75,7 @@ def upgrade() -> None:
         )
     )
     table2_exists = result2.scalar()
-    
+
     if not table2_exists:
         conn.execute(
             text(
@@ -93,7 +93,7 @@ def upgrade() -> None:
                 """
             )
         )
-        
+
         conn.execute(
             text(
                 """
@@ -102,7 +102,7 @@ def upgrade() -> None:
                 """
             )
         )
-        
+
         conn.execute(
             text(
                 """
@@ -120,4 +120,3 @@ def downgrade() -> None:
     conn = op.get_bind()
     conn.execute(text("DROP TABLE IF EXISTS prophet_anomalies"))
     conn.execute(text("DROP TABLE IF EXISTS prophet_fit_meta"))
-

@@ -21,9 +21,7 @@ def list_sessions_test(
     db: Session = Depends(get_db),
 ):
     """[TEST] 튜터의 세션 목록 조회 (인증 없음)"""
-    items, total = list_sessions_for_tutor(
-        db, tutor_id, status, page, page_size
-    )
+    items, total = list_sessions_for_tutor(db, tutor_id, status, page, page_size)
     return {
         "total_count": total,
         "page": page,
@@ -48,9 +46,7 @@ def list_sessions(
     if tutor_id == 0:
         tutor_id = current_user.id
 
-    items, total = list_sessions_for_tutor(
-        db, tutor_id, status, page, page_size
-    )
+    items, total = list_sessions_for_tutor(db, tutor_id, status, page, page_size)
     return {
         "total_count": total,
         "page": page,

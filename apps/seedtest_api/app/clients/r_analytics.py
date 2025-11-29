@@ -5,6 +5,7 @@ Client for interacting with r-analytics service (port 8010).
 Supports topic theta scoring, improvement index, goal attainment, recommendations,
 churn risk assessment, and report generation.
 """
+
 from __future__ import annotations
 
 import json
@@ -27,7 +28,9 @@ class RAnalyticsClient:
         self.base_url = (base_url or os.getenv("R_ANALYTICS_BASE_URL", "")).rstrip("/")
         if not self.base_url:
             raise RuntimeError("R_ANALYTICS_BASE_URL not set")
-        self.timeout = float(os.getenv("R_ANALYTICS_TIMEOUT_SECS", str(timeout or 20.0)))
+        self.timeout = float(
+            os.getenv("R_ANALYTICS_TIMEOUT_SECS", str(timeout or 20.0))
+        )
         self.token = token or os.getenv("R_ANALYTICS_TOKEN")
         self.auth_header = auth_header  # "X-Internal-Token" or "Authorization"
 
@@ -85,9 +88,7 @@ class RAnalyticsClient:
         }
         return self._post("/goal/attainment", payload)
 
-    def recommend_next_topics(
-        self, student_id: str, k: int = 5
-    ) -> Dict[str, Any]:
+    def recommend_next_topics(self, student_id: str, k: int = 5) -> Dict[str, Any]:
         payload = {"student_id": student_id, "k": k}
         return self._post("/recommend/next-topics", payload)
 

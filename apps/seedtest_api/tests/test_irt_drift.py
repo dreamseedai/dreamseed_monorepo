@@ -17,9 +17,9 @@ class TestDriftWindow:
         """Test creating a drift window."""
         start = datetime(2025, 10, 1, tzinfo=timezone.utc)
         end = datetime(2025, 11, 1, tzinfo=timezone.utc)
-        
+
         window = create_drift_window(start, end, population_tags={"grade": "9"})
-        
+
         assert window.start_at == start
         assert window.end_at == end
         assert window.population_tags == {"grade": "9"}
@@ -46,7 +46,7 @@ class TestDriftDetection:
             n=500,
             run_id="test_run",
         )
-        
+
         recent = ItemCalibration(
             item_id="item_1",
             window_id=2,
@@ -62,12 +62,12 @@ class TestDriftDetection:
             n=500,
             run_id="test_run",
         )
-        
+
         alerts = detect_drift(baseline, recent, DEFAULT_THRESHOLDS)
-        
+
         # Should have at least delta_b and CI separation alerts
         assert len(alerts) >= 2
-        
+
         delta_b_alerts = [a for a in alerts if a.metric == "delta_b"]
         assert len(delta_b_alerts) > 0
         assert delta_b_alerts[0].severity in ["severe", "moderate"]
@@ -90,7 +90,7 @@ class TestDriftDetection:
             n=300,
             run_id="test_run",
         )
-        
+
         recent = ItemCalibration(
             item_id="item_2",
             window_id=2,
@@ -106,9 +106,9 @@ class TestDriftDetection:
             n=300,
             run_id="test_run",
         )
-        
+
         alerts = detect_drift(baseline, recent, DEFAULT_THRESHOLDS)
-        
+
         delta_a_alerts = [a for a in alerts if a.metric == "delta_a"]
         assert len(delta_a_alerts) > 0
         assert delta_a_alerts[0].severity in ["moderate", "severe"]
@@ -130,7 +130,7 @@ class TestDriftDetection:
             n=400,
             run_id="test_run",
         )
-        
+
         recent = ItemCalibration(
             item_id="item_3",
             window_id=2,
@@ -146,9 +146,9 @@ class TestDriftDetection:
             n=400,
             run_id="test_run",
         )
-        
+
         alerts = detect_drift(baseline, recent, DEFAULT_THRESHOLDS)
-        
+
         # Should have no alerts (all drifts below threshold)
         assert len(alerts) == 0
 
@@ -169,7 +169,7 @@ class TestDriftDetection:
             n=200,
             run_id="test_run",
         )
-        
+
         recent = ItemCalibration(
             item_id="item_4",
             window_id=2,
@@ -185,9 +185,9 @@ class TestDriftDetection:
             n=200,
             run_id="test_run",
         )
-        
+
         alerts = detect_drift(baseline, recent, DEFAULT_THRESHOLDS)
-        
+
         ci_alerts = [a for a in alerts if a.metric == "b_ci_separation"]
         assert len(ci_alerts) > 0
         assert ci_alerts[0].severity == "severe"
@@ -209,7 +209,7 @@ class TestDriftDetection:
             n=300,
             run_id="test_run",
         )
-        
+
         recent = ItemCalibration(
             item_id="item_5",
             window_id=2,
@@ -225,12 +225,12 @@ class TestDriftDetection:
             n=300,
             run_id="test_run",
         )
-        
+
         # Stricter thresholds
         custom_thresholds = {"delta_b": 0.10, "delta_a": 0.15, "delta_c": 0.02}
-        
+
         alerts = detect_drift(baseline, recent, custom_thresholds)
-        
+
         delta_b_alerts = [a for a in alerts if a.metric == "delta_b"]
         assert len(delta_b_alerts) > 0  # Should trigger with 0.10 threshold
 
@@ -266,7 +266,7 @@ class TestDIFAnalysis:
             n=400,
             run_id="test_run",
         )
-        
+
         recent = ItemCalibration(
             item_id="item_6",
             window_id=2,
@@ -288,9 +288,9 @@ class TestDIFAnalysis:
             },
             run_id="test_run",
         )
-        
+
         alerts = detect_drift(baseline, recent, DEFAULT_THRESHOLDS)
-        
+
         dif_alerts = [a for a in alerts if a.metric.startswith("dif_")]
         assert len(dif_alerts) > 0  # Should trigger DIF alerts for gender
 
@@ -301,7 +301,7 @@ class TestOperationalProcedures:
     def test_exposure_weight_mapping(self):
         """Test severity -> exposure weight mapping."""
         from apps.seedtest_api.routers.irt_drift_api import ExposureWeights
-        
+
         severe_weight = ExposureWeights(
             item_id="test",
             weight=0.0,
@@ -309,7 +309,7 @@ class TestOperationalProcedures:
             alert_severity="severe",
         )
         assert severe_weight.weight == 0.0
-        
+
         moderate_weight = ExposureWeights(
             item_id="test",
             weight=0.5,
@@ -317,7 +317,7 @@ class TestOperationalProcedures:
             alert_severity="moderate",
         )
         assert moderate_weight.weight == 0.5
-        
+
         minor_weight = ExposureWeights(
             item_id="test",
             weight=0.8,

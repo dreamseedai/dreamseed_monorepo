@@ -19,7 +19,7 @@ depends_on = None
 
 def upgrade() -> None:
     conn = op.get_bind()
-    
+
     # Check if survival_risk exists
     result = conn.execute(
         text(
@@ -33,7 +33,7 @@ def upgrade() -> None:
         )
     )
     table_exists = result.scalar()
-    
+
     if not table_exists:
         conn.execute(
             text(
@@ -48,7 +48,7 @@ def upgrade() -> None:
                 """
             )
         )
-        
+
         conn.execute(
             text(
                 """
@@ -57,7 +57,7 @@ def upgrade() -> None:
                 """
             )
         )
-        
+
         conn.execute(
             text(
                 """
@@ -74,4 +74,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     conn = op.get_bind()
     conn.execute(text("DROP TABLE IF EXISTS survival_risk"))
-

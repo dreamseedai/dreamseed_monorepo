@@ -193,18 +193,19 @@ def finish_exam(
         except Exception:
             # Non-fatal; continue to compute
             pass
-    
+
     result = compute_result(session_id, force=force, user_id=user_id, exam_id=exam_id)
-    
+
     # Trigger session completion hooks (including IRT theta update)
     if user_id:
         try:
             from ..services.session_hooks import on_session_complete
+
             on_session_complete(user_id, session_id)
         except Exception:
             # Non-fatal; hook failure should not block session completion
             pass
-    
+
     return result
 
 

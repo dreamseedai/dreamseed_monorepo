@@ -118,6 +118,7 @@ __all__ = [
 # Batch and selection helpers
 # ----------------------------
 
+
 def item_information_batch(theta: float, items: list[dict]) -> list[float]:
     """Compute item information for a batch of items.
 
@@ -160,7 +161,9 @@ def select_next_by_information(
     for idx, it in enumerate(items):
         if it.get("id") in used_ids:
             continue
-        info = item_information_3pl(theta, float(it["a"]), float(it["b"]), float(it.get("c", 0.0)))
+        info = item_information_3pl(
+            theta, float(it["a"]), float(it["b"]), float(it.get("c", 0.0))
+        )
         if info > best_info:
             best_info = info
             best_idx = idx
@@ -173,6 +176,7 @@ def select_next_by_information(
 # Theta estimation
 # ----------------------------
 
+
 def _dP_dtheta(theta: float, a: float, b: float, c: float) -> float:
     """First derivative dP/dθ for 3PL.
 
@@ -182,7 +186,9 @@ def _dP_dtheta(theta: float, a: float, b: float, c: float) -> float:
     return a * (P - c) * (1.0 - P) / max(1.0 - c, 1e-12)
 
 
-def mle_update_one_step(theta: float, a: float, b: float, c: float, y: int) -> tuple[float, float, float, float]:
+def mle_update_one_step(
+    theta: float, a: float, b: float, c: float, y: int
+) -> tuple[float, float, float, float]:
     """One-step Newton update for MLE using a single item response.
 
     Parameters
@@ -296,7 +302,9 @@ def map_theta_fisher(
     return theta
 
 
-def update_test_info_and_se(theta: float, a: float, b: float, c: float, test_info: float) -> tuple[float, float]:
+def update_test_info_and_se(
+    theta: float, a: float, b: float, c: float, test_info: float
+) -> tuple[float, float]:
     """Accumulate test information with the current item and compute SE.
 
     Returns (new_test_info, se). SE is 1/sqrt(I) if I > 0 else inf.
@@ -358,7 +366,9 @@ def eap_theta(
 try:  # pragma: no cover - optional dependency
     import numpy as _np  # type: ignore
 
-    def irf_3pl_np(theta: float, a: "_np.ndarray", b: "_np.ndarray", c: "_np.ndarray") -> "_np.ndarray":
+    def irf_3pl_np(
+        theta: float, a: "_np.ndarray", b: "_np.ndarray", c: "_np.ndarray"
+    ) -> "_np.ndarray":
         z = a * (theta - b)
         # Vectorized stable sigmoid
         s = _np.where(
@@ -368,7 +378,9 @@ try:  # pragma: no cover - optional dependency
         )
         return c + (1.0 - c) * s
 
-    def item_information_np(theta: float, a: "_np.ndarray", b: "_np.ndarray", c: "_np.ndarray") -> "_np.ndarray":
+    def item_information_np(
+        theta: float, a: "_np.ndarray", b: "_np.ndarray", c: "_np.ndarray"
+    ) -> "_np.ndarray":
         P = irf_3pl_np(theta, a, b, c)
         Q = 1.0 - P
         denom = _np.maximum(1.0 - c, 1e-12)
@@ -386,4 +398,3 @@ try:  # pragma: no cover - optional dependency
 
 except Exception:  # pragma: no cover - numpy not available
     pass
-

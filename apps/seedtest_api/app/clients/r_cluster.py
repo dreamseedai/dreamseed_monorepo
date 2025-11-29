@@ -4,6 +4,7 @@ R Cluster Plumber Client
 Client for interacting with r-cluster-plumber service (or r-forecast-plumber with clustering).
 Supports user segmentation using k-means or Gaussian mixture models (tidymodels).
 """
+
 from __future__ import annotations
 
 import os
@@ -116,4 +117,3 @@ class RClusterClient:
 
 
 __all__ = ["RClusterClient"]
-

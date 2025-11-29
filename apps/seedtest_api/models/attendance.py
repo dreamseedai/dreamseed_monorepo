@@ -19,9 +19,7 @@ class Attendance(Base):
     classroom_id = Column(Text, nullable=False, index=True)
     session_id = Column(Text, nullable=False, index=True)
     date = Column(Date, nullable=False, index=True)
-    status = Column(
-        String(16), nullable=False
-    )  # present | late | absent | excused
+    status = Column(String(16), nullable=False)  # present | late | absent | excused
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -29,7 +27,9 @@ class Attendance(Base):
     __table_args__ = (
         Index("ix_attendance_classroom_date", "classroom_id", "date"),
         Index("ix_attendance_student_date", "student_id", "date"),
-        Index("ix_attendance_tenant_classroom_date", "tenant_id", "classroom_id", "date"),
+        Index(
+            "ix_attendance_tenant_classroom_date", "tenant_id", "classroom_id", "date"
+        ),
         Index("ix_attendance_tenant_student_date", "tenant_id", "student_id", "date"),
     )
 

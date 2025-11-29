@@ -4,6 +4,7 @@ Parent portal API - Children and report access
 Endpoints:
 - GET /api/parent/children: Get list of parent's children
 """
+
 from typing import Any
 from uuid import UUID
 
@@ -17,11 +18,13 @@ from app.models.parent_models import ParentChildLink
 from app.models.user import User
 from app.schemas.parent_schemas import ParentChild, ParentChildrenResponse
 
+
 # Type conversion helpers
 def user_id_to_uuid(user_id: Any) -> UUID:
     """Convert integer user ID to UUID format for API responses"""
     # Accepts Column[int] or int at runtime
     return UUID(int=int(user_id))
+
 
 router = APIRouter(prefix="/api/parent", tags=["parent"])
 
@@ -33,7 +36,7 @@ async def get_parent_children(
 ):
     """
     Get list of children linked to current parent.
-    
+
     Returns:
     - List of children with basic info (id, name, school, grade)
     - Used for dropdown in parent report download page
@@ -65,4 +68,6 @@ async def get_parent_children(
             )
         )
 
-    return ParentChildrenResponse(parentId=user_id_to_uuid(parent.id), children=children)
+    return ParentChildrenResponse(
+        parentId=user_id_to_uuid(parent.id), children=children
+    )

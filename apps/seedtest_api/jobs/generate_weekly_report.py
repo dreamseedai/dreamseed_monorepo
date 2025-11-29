@@ -9,6 +9,7 @@ Environment:
   S3_BUCKET (required): S3 bucket name for report storage
   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (required): AWS credentials
 """
+
 from __future__ import annotations
 
 import json
@@ -27,13 +28,15 @@ from ..services.metrics import week_start as iso_week_start
 def load_user_kpis(session, user_id: str, week_start: date) -> Optional[Dict[str, Any]]:
     """Load weekly KPIs for a user."""
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT kpis
             FROM weekly_kpi
             WHERE user_id = :user_id
               AND week_start = :week_start
             LIMIT 1
-        """),
+        """
+        ),
         {"user_id": user_id, "week_start": week_start},
     )
     row = result.fetchone()
@@ -49,7 +52,8 @@ def load_ability_trend(session, user_id: str, weeks: int = 8) -> List[Dict[str, 
     """Load ability (theta) trend over multiple weeks."""
     since_date = date.today() - timedelta(weeks=weeks)
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT 
                 theta,
                 se,
@@ -58,7 +62,8 @@ def load_ability_trend(session, user_id: str, weeks: int = 8) -> List[Dict[str, 
             WHERE user_id = :user_id
               AND fitted_at >= :since
             ORDER BY fitted_at ASC
-        """),
+        """
+        ),
         {"user_id": user_id, "since": since_date},
     )
     rows = result.fetchall()
@@ -75,7 +80,8 @@ def load_ability_trend(session, user_id: str, weeks: int = 8) -> List[Dict[str, 
 def load_goal_data(session, user_id: str) -> List[Dict[str, Any]]:
     """Load interest/goal data for a user."""
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT 
                 subject_id,
                 interest_1_5,
@@ -85,7 +91,8 @@ def load_goal_data(session, user_id: str) -> List[Dict[str, Any]]:
             FROM interest_goal
             WHERE student_id::text = :user_id
             ORDER BY updated_at DESC
-        """),
+        """
+        ),
         {"user_id": user_id},
     )
     rows = result.fetchall()
@@ -101,11 +108,14 @@ def load_goal_data(session, user_id: str) -> List[Dict[str, Any]]:
     ]
 
 
-def load_topic_features(session, user_id: str, week_start: date) -> List[Dict[str, Any]]:
+def load_topic_features(
+    session, user_id: str, week_start: date
+) -> List[Dict[str, Any]]:
     """Load daily topic features for the week."""
     week_end = week_start + timedelta(days=6)
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT 
                 topic_id,
                 date,
@@ -122,7 +132,8 @@ def load_topic_features(session, user_id: str, week_start: date) -> List[Dict[st
               AND date >= :week_start
               AND date <= :week_end
             ORDER BY topic_id, date
-        """),
+        """
+        ),
         {"user_id": user_id, "week_start": week_start, "week_end": week_end},
     )
     rows = result.fetchall()
@@ -147,7 +158,8 @@ def load_item_params(session, user_id: str, weeks: int = 4) -> List[Dict[str, An
     """Load IRT item parameters for items attempted by user recently."""
     since_date = date.today() - timedelta(weeks=weeks)
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT DISTINCT
                 p.item_id,
                 p.params->>'a' AS discrimination,
@@ -162,7 +174,8 @@ def load_item_params(session, user_id: str, weeks: int = 4) -> List[Dict[str, An
               AND p.params ? 'b'
             ORDER BY p.fitted_at DESC
             LIMIT 200
-        """),
+        """
+        ),
         {"user_id": user_id, "since": since_date},
     )
     rows = result.fetchall()
@@ -186,13 +199,13 @@ def render_quarto_report(
     format: str = "html",
 ) -> Optional[Path]:
     """Render Quarto report from template.
-    
+
     Args:
         template_dir: Directory containing Quarto template (_quarto.yml, *.qmd files)
         data: Data dictionary to pass to template
         output_dir: Directory to write rendered output
         format: Output format (html, pdf)
-    
+
     Returns:
         Path to rendered output file or None if failed
     """
@@ -200,15 +213,17 @@ def render_quarto_report(
     data_file = template_dir / "_data.json"
     with open(data_file, "w") as f:
         json.dump(data, f, indent=2, default=str)
-    
+
     # Run quarto render
     try:
         cmd = [
             "quarto",
             "render",
             str(template_dir),
-            "--to", format,
-            "--output-dir", str(output_dir),
+            "--to",
+            format,
+            "--output-dir",
+            str(output_dir),
         ]
         subprocess.run(
             cmd,
@@ -217,37 +232,39 @@ def render_quarto_report(
             text=True,
             check=True,
         )
-        
+
         # Find output file
         if format == "html":
             output_file = output_dir / "index.html"
         else:
             output_file = output_dir / "index.pdf"
-        
+
         if output_file.exists():
             return output_file
         else:
             print(f"[ERROR] Quarto output not found: {output_file}")
             return None
-    
+
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Quarto render failed: {e}")
         print(f"[ERROR] stdout: {e.stdout}")
         print(f"[ERROR] stderr: {e.stderr}")
         return None
     except FileNotFoundError:
-        print("[ERROR] Quarto not found in PATH. Install Quarto: https://quarto.org/docs/get-started/")
+        print(
+            "[ERROR] Quarto not found in PATH. Install Quarto: https://quarto.org/docs/get-started/"
+        )
         return None
 
 
 def upload_to_s3(file_path: Path, bucket: str, key: str) -> Optional[str]:
     """Upload file to S3 and return public URL.
-    
+
     Args:
         file_path: Local file path
         bucket: S3 bucket name
         key: S3 object key
-    
+
     Returns:
         S3 URL or None if failed
     """
@@ -257,7 +274,7 @@ def upload_to_s3(file_path: Path, bucket: str, key: str) -> Optional[str]:
     except ImportError:
         print("[ERROR] boto3 not installed. Install: pip install boto3")
         return None
-    
+
     try:
         region = os.getenv("AWS_REGION", "ap-northeast-2")
         s3_client = boto3.client(
@@ -266,18 +283,22 @@ def upload_to_s3(file_path: Path, bucket: str, key: str) -> Optional[str]:
             aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
             region_name=region,
         )
-        
+
         s3_client.upload_file(
             str(file_path),
             bucket,
             key,
-            ExtraArgs={"ContentType": "text/html" if file_path.suffix == ".html" else "application/pdf"},
+            ExtraArgs={
+                "ContentType": (
+                    "text/html" if file_path.suffix == ".html" else "application/pdf"
+                )
+            },
         )
-        
+
         # Generate public URL
         url = f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
         return url
-    
+
     except ClientError as e:
         print(f"[ERROR] S3 upload failed: {e}")
         return None
@@ -294,14 +315,16 @@ def save_report_artifact(
     # Create report_artifacts table if it doesn't exist (via migration)
     # For now, we'll use a simple INSERT with ON CONFLICT
     session.execute(
-        text("""
+        text(
+            """
             INSERT INTO report_artifacts (user_id, week_start, format, url, generated_at)
             VALUES (:user_id, :week_start, :format, :url, NOW())
             ON CONFLICT (user_id, week_start, format)
             DO UPDATE SET
                 url = EXCLUDED.url,
                 generated_at = NOW()
-        """),
+        """
+        ),
         {
             "user_id": user_id,
             "week_start": week_start,
@@ -437,7 +460,11 @@ def load_prophet_forecast(session, user_id: str) -> Optional[Dict[str, Any]]:
         )
     )
     anomalies = [
-        {"week": r[0].isoformat() if r[0] else None, "score": float(r[1]) if r[1] is not None else None, "anomaly_score": float(r[2]) if r[2] is not None else None}
+        {
+            "week": r[0].isoformat() if r[0] else None,
+            "score": float(r[1]) if r[1] is not None else None,
+            "anomaly_score": float(r[2]) if r[2] is not None else None,
+        }
         for r in anomalies_result.fetchall()
     ]
 
@@ -457,13 +484,15 @@ def load_survival_risk(session, user_id: str) -> Optional[Dict[str, Any]]:
     """
     # Get latest risk score from weekly_kpi.S
     kpi_result = session.execute(
-        text("""
+        text(
+            """
             SELECT kpis->>'S' AS churn_risk
             FROM weekly_kpi
             WHERE user_id = :user_id
             ORDER BY week_start DESC
             LIMIT 1
-        """),
+        """
+        ),
         {"user_id": user_id},
     )
     kpi_row = kpi_result.fetchone()
@@ -473,7 +502,7 @@ def load_survival_risk(session, user_id: str) -> Optional[Dict[str, Any]]:
             churn_risk = float(kpi_row[0])
         except Exception:
             pass
-    
+
     # Get survival model meta
     meta_result = session.execute(
         text(
@@ -501,11 +530,15 @@ def load_survival_risk(session, user_id: str) -> Optional[Dict[str, Any]]:
             except Exception:
                 hrs = {}
         fit_meta = {"coefficients": coeffs or {}, "hazard_ratios": hrs or {}}
-    
+
     return {
         "churn_risk": churn_risk,
         "fit_meta": fit_meta,
-        "fitted_at": meta_row[2].isoformat() if meta_row and len(meta_row) > 2 and meta_row[2] else None,
+        "fitted_at": (
+            meta_row[2].isoformat()
+            if meta_row and len(meta_row) > 2 and meta_row[2]
+            else None
+        ),
     }
 
 
@@ -514,7 +547,8 @@ def load_user_segment(session, user_id: str) -> Optional[Dict[str, Any]]:
     Returns segment label, features snapshot, and segment metadata.
     """
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT 
                 s.segment_label,
                 s.features_snapshot,
@@ -525,20 +559,21 @@ def load_user_segment(session, user_id: str) -> Optional[Dict[str, Any]]:
             WHERE s.user_id = :user_id
             ORDER BY s.assigned_at DESC
             LIMIT 1
-        """),
+        """
+        ),
         {"user_id": user_id},
     )
     row = result.fetchone()
     if not row:
         return None
-    
+
     features = row[1] if row[1] else {}
     if isinstance(features, str):
         try:
             features = json.loads(features)
         except Exception:
             features = {}
-    
+
     return {
         "segment_label": row[0],
         "features_snapshot": features,
@@ -555,7 +590,7 @@ def generate_report_for_user(
     s3_bucket: Optional[str] = None,
 ) -> Optional[str]:
     """Generate weekly report for a single user.
-    
+
     Returns:
         Report URL (S3 or local path) or None if failed
     """
@@ -566,19 +601,21 @@ def generate_report_for_user(
         goals = load_goal_data(session, user_id)
         topic_features = load_topic_features(session, user_id, week_start)
         item_params = load_item_params(session, user_id)
-        recommendations = []  # load_top_recommendations(session, user_id, week_start, top_n=5)
+        recommendations = (
+            []
+        )  # load_top_recommendations(session, user_id, week_start, top_n=5)
         linking_constants = _load_linking_constants(session)
-        
+
         # Load advanced analytics data
         bayesian_growth = load_bayesian_growth(session, user_id)
         prophet_forecast = load_prophet_forecast(session, user_id)
         survival_risk = load_survival_risk(session, user_id)
         user_segment = load_user_segment(session, user_id)
-        
+
         if not kpis:
             print(f"[WARN] No KPIs found for user={user_id} week={week_start}")
             return None
-        
+
         # Prepare data for template
         data = {
             "user_id": user_id,
@@ -595,30 +632,34 @@ def generate_report_for_user(
             "survival_risk": survival_risk,
             "user_segment": user_segment,
         }
-        
+
         # Render Quarto report
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "output"
             output_dir.mkdir()
-            
+
             rendered_file = render_quarto_report(
                 template_dir,
                 data,
                 output_dir,
                 format=output_format,
             )
-            
+
             if not rendered_file:
                 return None
-            
+
             # Upload to S3 if bucket provided
             if s3_bucket:
-                key = f"reports/{user_id}/{week_start.isoformat()}/report.{output_format}"
+                key = (
+                    f"reports/{user_id}/{week_start.isoformat()}/report.{output_format}"
+                )
                 url = upload_to_s3(rendered_file, s3_bucket, key)
-                
+
                 if url:
                     # Save to database
-                    save_report_artifact(session, user_id, week_start, url, output_format)
+                    save_report_artifact(
+                        session, user_id, week_start, url, output_format
+                    )
                     return url
                 else:
                     return None
@@ -629,52 +670,56 @@ def generate_report_for_user(
 
 def main(target_week_start: Optional[date] = None, dry_run: bool = False) -> int:
     """Generate weekly reports for all active users.
-    
+
     Args:
         target_week_start: Week start date (defaults to last week)
         dry_run: If True, skip S3 upload and DB save
-    
+
     Returns:
         Exit code: 0 on success, 1 on failure
     """
     if target_week_start is None:
         # Default to last week
         target_week_start = iso_week_start(date.today() - timedelta(weeks=1))
-    
+
     template_dir = Path(__file__).parent.parent.parent / "reports" / "quarto"
     if not template_dir.exists():
         print(f"[ERROR] Template directory not found: {template_dir}")
         return 1
-    
+
     output_format = os.getenv("REPORT_FORMAT", "html")
     s3_bucket = os.getenv("S3_BUCKET") if not dry_run else None
-    
+
     if not s3_bucket and not dry_run:
         print("[ERROR] S3_BUCKET environment variable required")
         return 1
-    
+
     # Load active users from weekly_kpi
     with get_session() as session:
         result = session.execute(
-            text("""
+            text(
+                """
                 SELECT DISTINCT user_id
                 FROM weekly_kpi
                 WHERE week_start = :week_start
                 LIMIT 1000
-            """),
+            """
+            ),
             {"week_start": target_week_start},
         )
         user_ids = [row[0] for row in result.fetchall()]
-    
+
     if not user_ids:
         print(f"[INFO] No users found for week={target_week_start}")
         return 0
-    
-    print(f"[INFO] Generating reports for {len(user_ids)} users; week={target_week_start}, format={output_format}, dry_run={dry_run}")
-    
+
+    print(
+        f"[INFO] Generating reports for {len(user_ids)} users; week={target_week_start}, format={output_format}, dry_run={dry_run}"
+    )
+
     processed = 0
     failed = 0
-    
+
     # Ensure type narrowing for static analyzers
     assert target_week_start is not None
 
@@ -696,15 +741,17 @@ def main(target_week_start: Optional[date] = None, dry_run: bool = False) -> int
         except Exception as e:
             failed += 1
             print(f"[ERROR] user={user_id} error={e}")
-    
-    print(f"[INFO] Summary: processed={processed}, failed={failed}, week={target_week_start}")
+
+    print(
+        f"[INFO] Summary: processed={processed}, failed={failed}, week={target_week_start}"
+    )
     return 0 if failed == 0 else 1
 
 
 def cli() -> None:
     """CLI entry point."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Generate weekly student reports")
     parser.add_argument(
         "--week",
@@ -723,9 +770,9 @@ def cli() -> None:
         action="store_true",
         help="Skip S3 upload and DB save",
     )
-    
+
     args = parser.parse_args()
-    
+
     target_week = None
     if args.week:
         try:
@@ -733,20 +780,20 @@ def cli() -> None:
         except ValueError:
             print(f"[ERROR] Invalid date format: {args.week} (expected YYYY-MM-DD)")
             exit(1)
-    
+
     # Single user mode
     if args.user:
         if not target_week:
             target_week = iso_week_start(date.today() - timedelta(weeks=1))
-        
+
         template_dir = Path(__file__).parent.parent.parent / "reports" / "quarto"
         if not template_dir.exists():
             print(f"[ERROR] Template directory not found: {template_dir}")
             exit(1)
-        
+
         output_format = os.getenv("REPORT_FORMAT", "html")
         s3_bucket = os.getenv("S3_BUCKET") if not args.dry_run else None
-        
+
         url = generate_report_for_user(
             user_id=args.user,
             week_start=target_week,
@@ -758,9 +805,11 @@ def cli() -> None:
             print(f"[SUCCESS] Report generated: {url}")
             exit(0)
         else:
-            print(f"[ERROR] Report generation failed for user={args.user}, week={target_week}")
+            print(
+                f"[ERROR] Report generation failed for user={args.user}, week={target_week}"
+            )
             exit(1)
-    
+
     # Batch mode (all users)
     exit_code = main(target_week_start=target_week, dry_run=args.dry_run)
     exit(exit_code)
@@ -768,4 +817,3 @@ def cli() -> None:
 
 if __name__ == "__main__":
     cli()
-

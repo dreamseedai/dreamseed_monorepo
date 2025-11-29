@@ -8,6 +8,7 @@ LLM 프로바이더 어댑터
     LOCAL_KO_URL: 한국어 로컬 LLM URL (기본: http://127.0.0.1:9001/v1/chat/completions)
     LOCAL_EN_URL: 영어 로컬 LLM URL (기본: http://127.0.0.1:9002/v1/chat/completions)
 """
+
 from __future__ import annotations
 import os
 import logging
@@ -30,20 +31,20 @@ async def post_json(
     url: str,
     json: Dict[str, Any],
     headers: Optional[Dict[str, str]] = None,
-    timeout: float = 60.0
+    timeout: float = 60.0,
 ) -> Dict[str, Any]:
     """
     JSON POST 요청 헬퍼.
-    
+
     Args:
         url: 요청 URL
         json: 요청 바디
         headers: HTTP 헤더
         timeout: 타임아웃 (초)
-    
+
     Returns:
         응답 JSON
-    
+
     Raises:
         httpx.HTTPError: HTTP 에러
     """
@@ -56,36 +57,34 @@ async def post_json(
 async def call_deepseek(body: Dict[str, Any]) -> Dict[str, Any]:
     """
     DeepSeek API 호출.
-    
+
     Args:
         body: OpenAI 호환 요청 바디
-    
+
     Returns:
         응답 JSON
-    
+
     Raises:
         AssertionError: API 키 미설정
         httpx.HTTPError: API 에러
     """
     if not DEEPSEEK_API_KEY:
         raise ValueError("DEEPSEEK_API_KEY environment variable is required")
-    
+
     logger.info("Calling DeepSeek API")
-    
+
     return await post_json(
-        DEEPSEEK_URL,
-        body,
-        headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"}
+        DEEPSEEK_URL, body, headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"}
     )
 
 
 async def call_local_ko(body: Dict[str, Any]) -> Dict[str, Any]:
     """
     로컬 한국어 LLM 호출.
-    
+
     Args:
         body: OpenAI 호환 요청 바디
-    
+
     Returns:
         응답 JSON
     """
@@ -96,10 +95,10 @@ async def call_local_ko(body: Dict[str, Any]) -> Dict[str, Any]:
 async def call_local_en(body: Dict[str, Any]) -> Dict[str, Any]:
     """
     로컬 영어 LLM 호출.
-    
+
     Args:
         body: OpenAI 호환 요청 바디
-    
+
     Returns:
         응답 JSON
     """
@@ -115,24 +114,21 @@ PROVIDER_MAP = {
 }
 
 
-async def dispatch_by_provider(
-    provider: str,
-    body: Dict[str, Any]
-) -> Dict[str, Any]:
+async def dispatch_by_provider(provider: str, body: Dict[str, Any]) -> Dict[str, Any]:
     """
     프로바이더별 디스패치.
-    
+
     Args:
         provider: 프로바이더 타입 (Provider.LOCAL_KO, LOCAL_EN, DEEPSEEK)
         body: 요청 바디
-    
+
     Returns:
         응답 JSON
-    
+
     Raises:
         ValueError: 지원하지 않는 프로바이더
     """
     if provider not in PROVIDER_MAP:
         raise ValueError(f"Unsupported provider: {provider}")
-    
+
     return await PROVIDER_MAP[provider](body)

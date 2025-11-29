@@ -32,7 +32,7 @@ async def cluster_user_segments(
 ) -> None:
     """
     Cluster users into learning pattern segments.
-    
+
     Args:
         lookback_weeks: Number of weeks to look back (default: 12)
         n_clusters: Number of clusters (default: 3)
@@ -52,16 +52,16 @@ async def cluster_user_segments(
     except Exception:
         n_clusters = 3
     method = os.getenv("CLUSTER_METHOD", method).lower()
-    
+
     # Initialize R Forecast client (clustering endpoints included)
     try:
         client = RForecastClient()
     except RuntimeError as e:
         print(f"[ERROR] Failed to initialize R Forecast client: {e}")
         return
-    
+
     print(f"[INFO] Clustering user segments (lookback={lookback_weeks} weeks)")
-    
+
     # Load user features
     since_date = date.today() - timedelta(weeks=lookback_weeks)
 
@@ -108,49 +108,52 @@ async def cluster_user_segments(
             LEFT JOIN topic_agg t ON u.user_id = t.user_id
             """
         )
-        
+
         rows = s.execute(stmt, {"since_date": since_date}).mappings().all()
-        
+
         if not rows or len(rows) < 10:
             print("[WARN] Insufficient users for clustering (need >= 10)")
             return
-        
+
         print(f"[INFO] Loaded {len(rows)} user feature vectors")
-        
+
         data_rows = []
         for r in rows:
-            data_rows.append({
-                "user_id": str(r["user_id"]),
-                "engagement": float(r["engagement"]),
-                "improvement": float(r["improvement"]),
-                "efficiency": float(r["efficiency"]),
-                "recovery": float(r["recovery"]),
-                "sessions": float(r["sessions"]),
-                "gap": float(r["gap"]),
-                "avg_rt": float(r["avg_rt"]),
-                "avg_hints": float(r["avg_hints"]),
-                "total_attempts": float(r["total_attempts"]),
-            })
-    
+            data_rows.append(
+                {
+                    "user_id": str(r["user_id"]),
+                    "engagement": float(r["engagement"]),
+                    "improvement": float(r["improvement"]),
+                    "efficiency": float(r["efficiency"]),
+                    "recovery": float(r["recovery"]),
+                    "sessions": float(r["sessions"]),
+                    "gap": float(r["gap"]),
+                    "avg_rt": float(r["avg_rt"]),
+                    "avg_hints": float(r["avg_hints"]),
+                    "total_attempts": float(r["total_attempts"]),
+                }
+            )
+
     # Call R Clustering service
-    
+
     try:
         result = await client.cluster_fit(
             data_rows,
             method=method,
             k=n_clusters,
         )
-        
+
         if result.get("error"):
             print(f"[WARN] Clustering fit returned error: {result.get('error')}")
             return
-            
+
     except Exception as e:
         print(f"[ERROR] R Clustering service call failed: {e}")
         import traceback
+
         traceback.print_exc()
         return
-    
+
     # Extract results (new API returns: {status, method, k, clusters: {user_id: cluster_id}, centers, ...})
     assignments = result.get("clusters") or {}
     centers = result.get("centers") or []
@@ -160,15 +163,16 @@ async def cluster_user_segments(
         "tot_withinss": result.get("tot_withinss"),
         "betweenss": result.get("betweenss"),
     }
-    
+
     print(f"[INFO] Clustered into {actual_k} segments")
     print(f"[INFO] Metrics: {metrics}")
-    
+
     # Store results
     with get_session() as s:
         # Ensure tables exist
-        s.execute(sa.text(
-            """
+        s.execute(
+            sa.text(
+                """
             CREATE TABLE IF NOT EXISTS segment_meta (
                 run_id TEXT PRIMARY KEY,
                 method TEXT,
@@ -178,9 +182,11 @@ async def cluster_user_segments(
                 fitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
             """
-        ))
-        s.execute(sa.text(
-            """
+            )
+        )
+        s.execute(
+            sa.text(
+                """
             CREATE TABLE IF NOT EXISTS user_segment (
                 user_id TEXT PRIMARY KEY,
                 segment_label TEXT,
@@ -188,7 +194,8 @@ async def cluster_user_segments(
                 assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
             """
-        ))
+            )
+        )
         # Store segment metadata
         stmt_meta = sa.text(
             """
@@ -227,7 +234,7 @@ async def cluster_user_segments(
                 "metrics": json.dumps(metrics),
             },
         )
-        
+
         # Store user segment assignments
         stmt_segment = sa.text(
             """
@@ -249,13 +256,15 @@ async def cluster_user_segments(
                 assigned_at = NOW()
             """
         )
-        
+
         # Helper function to generate meaningful segment labels
         def _generate_segment_label(
-            cluster_id: int, user_features: Dict[str, Any], centers: List[Dict[str, Any]]
+            cluster_id: int,
+            user_features: Dict[str, Any],
+            centers: List[Dict[str, Any]],
         ) -> str:
             """Generate meaningful segment label based on user features and cluster characteristics.
-            
+
             Labels:
             - "short_frequent": 짧고 자주 (낮은 gap, 높은 sessions)
             - "long_rare": 길고 드물게 (높은 gap, 낮은 sessions)
@@ -269,7 +278,7 @@ async def cluster_user_segments(
             hints = user_features.get("avg_hints", 0.0)
             improvement = user_features.get("improvement", 0.0)
             efficiency = user_features.get("efficiency", 0.0)
-            
+
             # Rule-based labeling based on characteristic patterns
             if gap < 3.0 and sessions > 10.0:
                 return "short_frequent"  # 짧고 자주
@@ -286,17 +295,14 @@ async def cluster_user_segments(
             else:
                 # Fallback to cluster ID if no clear pattern
                 return f"cluster_{cluster_id}"
-        
+
         for user_id, cluster_id in assignments.items():
             # Find features for this user
-            user_features = next(
-                (r for r in data_rows if r["user_id"] == user_id),
-                {}
-            )
-            
+            user_features = next((r for r in data_rows if r["user_id"] == user_id), {})
+
             # Generate meaningful segment label
             segment_label = _generate_segment_label(cluster_id, user_features, centers)
-            
+
             s.execute(
                 stmt_segment,
                 {
@@ -305,10 +311,12 @@ async def cluster_user_segments(
                     "features_snapshot": json.dumps(user_features),
                 },
             )
-        
+
         s.commit()
-    
-    print(f"[INFO] Clustering completed: run_id={run_id}, {len(assignments)} users assigned")
+
+    print(
+        f"[INFO] Clustering completed: run_id={run_id}, {len(assignments)} users assigned"
+    )
 
 
 async def main() -> None:

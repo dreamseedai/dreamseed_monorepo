@@ -52,14 +52,14 @@ def test_create_drift_window(engine, clean_tables):
     now = datetime.now(timezone.utc)
     start = now - timedelta(days=30)
     population_tags = {"program": "middle-school", "language": "ko"}
-    
+
     window = create_drift_window(engine, start, now, population_tags)
-    
+
     assert window.window_id > 0
     assert window.start_at == start
     assert window.end_at == now
     assert window.population_tags == population_tags
-    
+
     # Verify in database
     with engine.connect() as conn:
         result = conn.execute(
@@ -76,15 +76,15 @@ def test_load_responses_sample_filter(engine, clean_tables):
     """Test response loading with minimum sample size filter."""
     # This test requires seeded test data in the attempts table
     # For now, we verify the query logic structure
-    
+
     from apps.seedtest_api.jobs.irt_drift_monitor import load_responses
-    
+
     now = datetime.now(timezone.utc)
     window = create_drift_window(engine, now - timedelta(days=7), now)
-    
+
     # Load with high min_sample (should return empty if no test data)
     responses = load_responses(engine, window, min_sample=1000)
-    
+
     # Verify structure (even if empty)
     assert "item_id" in responses.columns
     assert "user_id" in responses.columns
@@ -107,7 +107,7 @@ def test_detect_drift_thresholds():
         c_u95=0.25,
         n=500,
     )
-    
+
     # Test 1: delta_b violation (moderate)
     recent_moderate_b = ItemCalibration(
         item_id=101,
@@ -124,14 +124,14 @@ def test_detect_drift_thresholds():
         n=400,
         run_id="test_run_1",
     )
-    
+
     alerts_moderate_b = detect_drift(baseline, recent_moderate_b, DEFAULT_THRESHOLDS)
     assert len(alerts_moderate_b) >= 1
     assert any(a.metric == "delta_b" for a in alerts_moderate_b)
     delta_b_alert = next(a for a in alerts_moderate_b if a.metric == "delta_b")
     assert delta_b_alert.severity in ["moderate", "minor"]
     assert delta_b_alert.value == pytest.approx(0.35, rel=0.01)
-    
+
     # Test 2: delta_a violation (severe)
     recent_severe_a = ItemCalibration(
         item_id=101,
@@ -148,13 +148,13 @@ def test_detect_drift_thresholds():
         n=400,
         run_id="test_run_2",
     )
-    
+
     alerts_severe_a = detect_drift(baseline, recent_severe_a, DEFAULT_THRESHOLDS)
     assert len(alerts_severe_a) >= 1
     assert any(a.metric == "delta_a" for a in alerts_severe_a)
     delta_a_alert = next(a for a in alerts_severe_a if a.metric == "delta_a")
     assert delta_a_alert.severity == "severe"
-    
+
     # Test 3: delta_c violation
     recent_delta_c = ItemCalibration(
         item_id=101,
@@ -171,7 +171,7 @@ def test_detect_drift_thresholds():
         n=400,
         run_id="test_run_3",
     )
-    
+
     alerts_delta_c = detect_drift(baseline, recent_delta_c, DEFAULT_THRESHOLDS)
     assert len(alerts_delta_c) >= 1
     assert any(a.metric == "delta_c" for a in alerts_delta_c)
@@ -193,7 +193,7 @@ def test_detect_drift_ci_separation():
         c_u95=0.25,
         n=500,
     )
-    
+
     # Recent b_hat outside baseline CI
     recent_separated = ItemCalibration(
         item_id=102,
@@ -210,9 +210,9 @@ def test_detect_drift_ci_separation():
         n=400,
         run_id="test_run_ci",
     )
-    
+
     alerts = detect_drift(baseline, recent_separated, DEFAULT_THRESHOLDS)
-    
+
     # Should have both delta_b and CI separation alerts
     assert any(a.metric == "b_ci_separation" for a in alerts)
     ci_alert = next(a for a in alerts if a.metric == "b_ci_separation")
@@ -223,7 +223,7 @@ def test_compute_information_summary():
     """Test information function summary calculation."""
     # High discrimination item
     info = compute_information_summary(a=1.5, b=-0.5, c=0.20)
-    
+
     assert "max" in info
     assert "theta_at_max" in info
     assert info["max"] > 0.5  # Should have decent info
@@ -233,7 +233,7 @@ def test_compute_information_summary():
 def test_save_and_load_calibrations(engine, clean_tables):
     """Test saving and loading calibration records."""
     from apps.seedtest_api.jobs.irt_drift_monitor import save_calibrations
-    
+
     calibrations = [
         ItemCalibration(
             item_id=201,
@@ -268,9 +268,9 @@ def test_save_and_load_calibrations(engine, clean_tables):
             run_id="test_save",
         ),
     ]
-    
+
     save_calibrations(engine, calibrations)
-    
+
     # Verify in database
     with engine.connect() as conn:
         result = conn.execute(
@@ -279,14 +279,14 @@ def test_save_and_load_calibrations(engine, clean_tables):
         )
         rows = result.fetchall()
         assert len(rows) == 2
-        
+
         # Check first record
         row1 = next(r for r in rows if r.item_id == 201)
         assert row1.a_hat == pytest.approx(1.3, rel=0.01)
         assert row1.b_hat == pytest.approx(-0.4, rel=0.01)
         assert row1.c_hat == pytest.approx(0.22, rel=0.01)
         assert row1.n == 450
-        
+
         # Check info JSONB
         info_json = json.loads(row1.info) if isinstance(row1.info, str) else row1.info
         assert info_json["max"] == pytest.approx(0.65, rel=0.01)
@@ -295,7 +295,7 @@ def test_save_and_load_calibrations(engine, clean_tables):
 def test_save_and_load_alerts(engine, clean_tables):
     """Test saving and loading drift alerts."""
     from apps.seedtest_api.jobs.irt_drift_monitor import save_alerts
-    
+
     alerts = [
         DriftAlert(
             item_id=301,
@@ -316,9 +316,9 @@ def test_save_and_load_alerts(engine, clean_tables):
             run_id="test_alerts",
         ),
     ]
-    
+
     save_alerts(engine, alerts)
-    
+
     # Verify in database
     with engine.connect() as conn:
         result = conn.execute(
@@ -327,13 +327,13 @@ def test_save_and_load_alerts(engine, clean_tables):
         )
         rows = result.fetchall()
         assert len(rows) == 2
-        
+
         # Check first alert
         assert rows[0].item_id == 301
         assert rows[0].metric == "delta_b"
         assert rows[0].value == pytest.approx(0.35, rel=0.01)
         assert rows[0].severity == "moderate"
-        
+
         # Check second alert
         assert rows[1].item_id == 302
         assert rows[1].severity == "severe"
@@ -343,7 +343,7 @@ def test_save_and_load_alerts(engine, clean_tables):
 def test_end_to_end_pipeline_mock(engine, clean_tables, monkeypatch):
     """Test full pipeline with mocked R IRT service."""
     from apps.seedtest_api.jobs.irt_drift_monitor import run_drift_monitor
-    
+
     # Mock R IRT calibrate function
     def mock_r_calibrate(responses_df, model="3PL"):
         # Return fixed parameters for known items
@@ -359,40 +359,43 @@ def test_end_to_end_pipeline_mock(engine, clean_tables, monkeypatch):
             }
             for item_id in items
         }
-    
+
     # Monkeypatch the R IRT call
     import apps.seedtest_api.jobs.irt_drift_monitor as drift_module
+
     monkeypatch.setattr(drift_module, "call_r_irt_calibrate", mock_r_calibrate)
-    
+
     # Mock load_responses to return synthetic data
     import pandas as pd
-    
+
     def mock_load_responses(engine, window, min_sample=200):
         # Return synthetic data for 5 items
         data = []
         for item_id in [401, 402, 403, 404, 405]:
             for user_id in range(1, 251):  # 250 users
-                data.append({
-                    "item_id": item_id,
-                    "user_id": user_id,
-                    "correct": (item_id + user_id) % 2,  # Synthetic pattern
-                })
+                data.append(
+                    {
+                        "item_id": item_id,
+                        "user_id": user_id,
+                        "correct": (item_id + user_id) % 2,  # Synthetic pattern
+                    }
+                )
         return pd.DataFrame(data)
-    
+
     monkeypatch.setattr(drift_module, "load_responses", mock_load_responses)
-    
+
     # Run pipeline
     result = run_drift_monitor(
         recent_days=30,
         min_sample=200,
         run_id="test_e2e",
     )
-    
+
     # Verify results
     assert result["run_id"] == "test_e2e"
     assert result["calibrations"] == 5  # 5 common items
     assert result["alerts"] == 0  # No drift with identical params
-    
+
     # Verify database state
     with engine.connect() as conn:
         # Check windows
@@ -400,7 +403,7 @@ def test_end_to_end_pipeline_mock(engine, clean_tables, monkeypatch):
             text("SELECT id FROM drift_windows ORDER BY created_at DESC LIMIT 2")
         ).fetchall()
         assert len(windows) == 2
-        
+
         # Check calibrations
         calibs = conn.execute(
             text("SELECT COUNT(*) FROM item_calibration WHERE run_id = :run_id"),

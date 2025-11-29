@@ -4,6 +4,7 @@ Parent report PDF download API
 Endpoints:
 - GET /api/parent/reports/{student_id}/pdf: Download parent report as PDF
 """
+
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -24,21 +25,21 @@ router = APIRouter(prefix="/api/parent/reports", tags=["parent:reports"])
 def parse_period(period: str) -> tuple[datetime, datetime]:
     """
     Parse period string to start/end datetime.
-    
+
     Supported formats:
     - "last4w": Last 4 weeks (28 days)
     - "last8w": Last 8 weeks (56 days)
     - "semester": Last semester (~120 days)
     - "2024-11-01,2024-11-30": Custom date range (YYYY-MM-DD,YYYY-MM-DD)
-    
+
     Returns:
         Tuple of (start_datetime, end_datetime)
-    
+
     Raises:
         HTTPException 400: If period format is invalid
     """
     now = datetime.utcnow()
-    
+
     if period == "last4w":
         return now - timedelta(days=28), now
     elif period == "last8w":
@@ -72,14 +73,14 @@ async def download_parent_report_pdf(
 ):
     """
     Download parent report as PDF.
-    
+
     Args:
         student_id: Child's user ID
         period: Time period for report (default: last4w)
-    
+
     Returns:
         PDF file as application/pdf response
-    
+
     Raises:
         HTTPException 403: If parent doesn't have access to this child
         HTTPException 404: If no data found for period
@@ -91,16 +92,16 @@ async def download_parent_report_pdf(
     )
     link_result = await db.execute(link_query)
     link = link_result.scalar_one_or_none()
-    
+
     if not link:
         raise HTTPException(
             status_code=403,
             detail="You don't have access to this student's reports",
         )
-    
+
     # Parse period
     start, end = parse_period(period)
-    
+
     # Build report data (multi-source: ability + teacher + tutor comments)
     try:
         report_data = await build_parent_report_data(
@@ -114,7 +115,7 @@ async def download_parent_report_pdf(
             status_code=500,
             detail=f"Failed to build report data: {str(e)}",
         )
-    
+
     # Generate PDF
     try:
         pdf_bytes = generate_parent_report_pdf(report_data)
@@ -123,13 +124,13 @@ async def download_parent_report_pdf(
             status_code=500,
             detail=f"Failed to generate PDF: {str(e)}",
         )
-    
+
     # Return as downloadable file
     filename = f"DreamSeed_Report_{student_id}_{period}.pdf"
     headers = {
         "Content-Disposition": f'attachment; filename="{filename}"',
     }
-    
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

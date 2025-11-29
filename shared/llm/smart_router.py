@@ -15,14 +15,14 @@ Features:
 
 Usage:
     from shared.llm.smart_router import smart_chat
-    
+
     # 자동 라우팅
     response = await smart_chat(
         lang="zh-Hans",
         system="You are a helpful assistant",
         user="你好！"
     )
-    
+
     # Request 객체에서 자동 감지
     from fastapi import Request
     response = await smart_chat_from_request(
@@ -31,6 +31,7 @@ Usage:
         user="Hello!"
     )
 """
+
 from __future__ import annotations
 import logging
 from typing import Optional
@@ -50,15 +51,15 @@ logger = logging.getLogger(__name__)
 def choose_provider_by_lang(lang: str) -> str:
     """
     언어에 따라 프로바이더 선택.
-    
+
     Args:
         lang: 언어 코드 (ko, en, zh-Hans, zh-Hant)
-    
+
     Returns:
         프로바이더 타입 (Provider.LOCAL_KO, LOCAL_EN, DEEPSEEK)
     """
     lang = clamp_supported(lang)
-    
+
     if lang.startswith("zh-"):
         return Provider.DEEPSEEK
     elif lang == "en":
@@ -67,22 +68,18 @@ def choose_provider_by_lang(lang: str) -> str:
         return Provider.LOCAL_KO
 
 
-async def dispatch_by_lang(
-    lang: str,
-    body: dict,
-    providers: dict
-) -> dict:
+async def dispatch_by_lang(lang: str, body: dict, providers: dict) -> dict:
     """
     언어별 프로바이더 디스패치.
-    
+
     Args:
         lang: 언어 코드
         body: 요청 바디
         providers: 프로바이더 맵 {Provider.XXX: callable}
-    
+
     Returns:
         응답 JSON
-    
+
     Example:
         >>> providers = {
         ...     Provider.LOCAL_KO: call_local_ko,
@@ -92,34 +89,34 @@ async def dispatch_by_lang(
         >>> response = await dispatch_by_lang("ko", body, providers)
     """
     provider = choose_provider_by_lang(lang)
-    
+
     if provider not in providers:
         raise ValueError(f"Provider {provider} not found in providers map")
-    
+
     logger.info(f"Dispatching to {provider} for language {lang}")
-    
+
     return await providers[provider](body)
 
 
 class SmartRouter:
     """
     언어별 스마트 LLM 라우터.
-    
+
     Attributes:
         local_client: 로컬 LLM 클라이언트 (RTX 5090)
         cloud_client: 클라우드 LLM 클라이언트 (DeepSeek)
         enable_fallback: 클라우드 장애 시 로컬 폴백 활성화
     """
-    
+
     def __init__(
         self,
         local_client: Optional[LLMClient] = None,
         cloud_client: Optional[LLMClient] = None,
-        enable_fallback: bool = True
+        enable_fallback: bool = True,
     ):
         """
         스마트 라우터 초기화.
-        
+
         Args:
             local_client: 로컬 클라이언트 (기본값: CLIENT_LOCAL)
             cloud_client: 클라우드 클라이언트 (기본값: CLIENT_DEEPSEEK)
@@ -128,17 +125,17 @@ class SmartRouter:
         self.local_client = local_client or CLIENT_LOCAL
         self.cloud_client = cloud_client or CLIENT_DEEPSEEK
         self.enable_fallback = enable_fallback
-    
+
     def choose_client(self, lang: str) -> tuple[LLMClient, str]:
         """
         언어에 따라 클라이언트와 모델 선택.
-        
+
         Args:
             lang: 언어 코드 (ko, en, zh-Hans, zh-Hant)
-        
+
         Returns:
             (클라이언트, 모델명) 튜플
-        
+
         Routing:
             - ko → (local, Qwen2.5-7B-Instruct)
             - en → (local, Llama-3.1-8B-Instruct)
@@ -153,7 +150,7 @@ class SmartRouter:
         else:
             # 한국어 (기본값) → 로컬 한국어 모델
             return self.local_client, CFG.model_ko
-    
+
     async def chat(
         self,
         lang: str,
@@ -161,11 +158,11 @@ class SmartRouter:
         user: str,
         max_tokens: Optional[int] = None,
         timeout: Optional[float] = None,
-        temperature: float = 0.7
+        temperature: float = 0.7,
     ) -> str:
         """
         언어별 자동 라우팅 채팅.
-        
+
         Args:
             lang: 언어 코드 (ko, en, zh-Hans, zh-Hant)
             system: 시스템 프롬프트
@@ -173,14 +170,14 @@ class SmartRouter:
             max_tokens: 최대 토큰 수
             timeout: 타임아웃 (초)
             temperature: 샘플링 온도
-        
+
         Returns:
             생성된 응답 텍스트
-        
+
         Raises:
             httpx.HTTPError: API 에러
             httpx.TimeoutException: 타임아웃
-        
+
         Example:
             >>> router = SmartRouter()
             >>> response = await router.chat(
@@ -190,12 +187,12 @@ class SmartRouter:
             ... )
         """
         client, model = self.choose_client(lang)
-        
+
         logger.info(
             f"Routing to {'cloud' if is_chinese(lang) else 'local'} "
             f"(lang={lang}, model={model})"
         )
-        
+
         try:
             response = await client.chat(
                 model=model,
@@ -203,10 +200,10 @@ class SmartRouter:
                 user=user,
                 max_tokens=max_tokens,
                 timeout=timeout,
-                temperature=temperature
+                temperature=temperature,
             )
             return response
-        
+
         except Exception as e:
             # 클라우드 장애 시 로컬로 폴백 (중국어만)
             if self.enable_fallback and is_chinese(lang):
@@ -217,14 +214,14 @@ class SmartRouter:
                     # 로컬 한국어 모델로 폴백 (간단 번역 라운드 트립 허용)
                     fallback_model = CFG.model_ko
                     logger.info(f"Fallback to local model: {fallback_model}")
-                    
+
                     response = await self.local_client.chat(
                         model=fallback_model,
                         system=system,
                         user=user,
                         max_tokens=max_tokens,
                         timeout=timeout,
-                        temperature=temperature
+                        temperature=temperature,
                     )
                     return response
                 except Exception as fallback_error:
@@ -244,11 +241,11 @@ async def smart_chat(
     user: str,
     max_tokens: Optional[int] = None,
     timeout: Optional[float] = None,
-    temperature: float = 0.7
+    temperature: float = 0.7,
 ) -> str:
     """
     언어별 자동 라우팅 채팅 (전역 라우터 사용).
-    
+
     Args:
         lang: 언어 코드 (ko, en, zh-Hans, zh-Hant)
         system: 시스템 프롬프트
@@ -256,10 +253,10 @@ async def smart_chat(
         max_tokens: 최대 토큰 수
         timeout: 타임아웃 (초)
         temperature: 샘플링 온도
-    
+
     Returns:
         생성된 응답 텍스트
-    
+
     Example:
         >>> response = await smart_chat(
         ...     lang="ko",
@@ -273,7 +270,7 @@ async def smart_chat(
         user=user,
         max_tokens=max_tokens,
         timeout=timeout,
-        temperature=temperature
+        temperature=temperature,
     )
 
 
@@ -283,11 +280,11 @@ async def smart_chat_from_request(
     user: str,
     max_tokens: Optional[int] = None,
     timeout: Optional[float] = None,
-    temperature: float = 0.7
+    temperature: float = 0.7,
 ) -> str:
     """
     Request 객체에서 언어를 자동 감지하여 채팅.
-    
+
     Args:
         request: FastAPI Request 객체 (LangRouteMiddleware 필요)
         system: 시스템 프롬프트
@@ -295,13 +292,13 @@ async def smart_chat_from_request(
         max_tokens: 최대 토큰 수
         timeout: 타임아웃 (초)
         temperature: 샘플링 온도
-    
+
     Returns:
         생성된 응답 텍스트
-    
+
     Example:
         >>> from fastapi import Request
-        >>> 
+        >>>
         >>> @app.post("/chat")
         >>> async def chat(request: Request, message: str):
         ...     response = await smart_chat_from_request(
@@ -318,5 +315,5 @@ async def smart_chat_from_request(
         user=user,
         max_tokens=max_tokens,
         timeout=timeout,
-        temperature=temperature
+        temperature=temperature,
     )

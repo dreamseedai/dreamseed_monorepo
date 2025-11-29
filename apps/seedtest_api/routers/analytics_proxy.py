@@ -4,6 +4,7 @@ Analytics Proxy Router
 FastAPI router that proxies requests to r-analytics (plumber, port 8010).
 All endpoints are protected by JWT/JWKS scopes (reports:view, analysis:run, etc.).
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List
@@ -159,4 +160,3 @@ def report_generate(
         return client.report_generate(body.student_id, body.period)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"r-analytics error: {e}")
-

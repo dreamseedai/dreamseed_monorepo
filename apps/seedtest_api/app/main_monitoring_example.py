@@ -3,6 +3,7 @@
 ==================
 감사 로그 + Prometheus 메트릭 + trace_id 전파
 """
+
 from fastapi import FastAPI
 from shared.monitoring.middleware import AuditMetricsMiddleware, setup_structlog
 from shared.monitoring.metrics import router as metrics_router
@@ -10,16 +11,11 @@ from shared.monitoring.metrics import router as metrics_router
 # structlog 설정 (앱 시작 시 한 번만)
 setup_structlog()
 
-app = FastAPI(
-    title="SeedTest API",
-    version="1.0.0"
-)
+app = FastAPI(title="SeedTest API", version="1.0.0")
 
 # 감사 로그 + Prometheus 미들웨어
 app.add_middleware(
-    AuditMetricsMiddleware,
-    service_name="seedtest-api",
-    service_version="v1"
+    AuditMetricsMiddleware, service_name="seedtest-api", service_version="v1"
 )
 
 # 메트릭 엔드포인트 (/metrics, /healthz, /readyz)
@@ -40,4 +36,5 @@ def test():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

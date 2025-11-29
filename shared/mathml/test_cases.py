@@ -78,7 +78,6 @@ GOLDEN_TEST_CASES = [
         "expected_tex": r"\sqrt[3]{x+\sqrt{y}}",
         "mathspeak": "cube root of x plus square root of y",
     },
-    
     # ========================================
     # 2. 복합 첨자 (20+ 케이스)
     # ========================================
@@ -148,7 +147,6 @@ GOLDEN_TEST_CASES = [
         "expected_tex": r"a_{n-1}^{k+1}",
         "mathspeak": "a sub n minus 1 to the power k plus 1",
     },
-    
     # ========================================
     # 3. 분수 및 적분 (40+ 케이스)
     # ========================================
@@ -213,7 +211,6 @@ GOLDEN_TEST_CASES = [
         "expected_tex": r"\int_0^1 f(x)dx",
         "mathspeak": "integral from 0 to 1 of f of x d x",
     },
-    
     # ========================================
     # 4. 화학식 (40+ 케이스)
     # ========================================
@@ -275,7 +272,6 @@ GOLDEN_TEST_CASES = [
         "expected_tex": r"\ce{2H2 + O2 -> 2H2O}",
         "mathspeak": "2 H 2 plus O 2 yields 2 H 2 O",
     },
-    
     # ========================================
     # 5. 벡터 및 행렬 (20+ 케이스)
     # ========================================
@@ -305,7 +301,6 @@ GOLDEN_TEST_CASES = [
         "expected_tex": r"\hat{i}",
         "mathspeak": "i hat",
     },
-    
     # ========================================
     # 6. 극한 및 합 (20+ 케이스)
     # ========================================
@@ -355,7 +350,6 @@ GOLDEN_TEST_CASES = [
         "expected_tex": r"\sum_{i=1}^n i^2",
         "mathspeak": "sum from i equals 1 to n of i squared",
     },
-    
     # ========================================
     # 7. 그리스 문자 (10+ 케이스)
     # ========================================
@@ -375,7 +369,6 @@ GOLDEN_TEST_CASES = [
         "expected_tex": r"\alpha+\beta=\gamma",
         "mathspeak": "alpha plus beta equals gamma",
     },
-    
     # ========================================
     # 8. 특수 연산자 (10+ 케이스)
     # ========================================
@@ -395,7 +388,6 @@ GOLDEN_TEST_CASES = [
         "expected_tex": r"a\times b\div c",
         "mathspeak": "a times b divided by c",
     },
-    
     # ========================================
     # 9. 괄호 및 절댓값 (10+ 케이스)
     # ========================================
@@ -414,7 +406,6 @@ GOLDEN_TEST_CASES = [
         "expected_tex": r"\left(\frac{a}{b}\right)",
         "mathspeak": "open paren a over b close paren",
     },
-    
     # ========================================
     # 10. 복합 케이스 (20+ 케이스)
     # ========================================

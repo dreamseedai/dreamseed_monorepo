@@ -41,10 +41,16 @@ def upgrade() -> None:
         op.create_table(
             "items",
             sa.Column("id", sa.Text, primary_key=True, comment="Item identifier"),
-            sa.Column("a", sa.Float, nullable=False, comment="Discrimination (baseline)"),
+            sa.Column(
+                "a", sa.Float, nullable=False, comment="Discrimination (baseline)"
+            ),
             sa.Column("b", sa.Float, nullable=False, comment="Difficulty (baseline)"),
-            sa.Column("c", sa.Float, nullable=False, server_default="0.0", comment="Guessing"),
-            sa.Column("version", sa.Text, nullable=True, comment="Parameter version tag"),
+            sa.Column(
+                "c", sa.Float, nullable=False, server_default="0.0", comment="Guessing"
+            ),
+            sa.Column(
+                "version", sa.Text, nullable=True, comment="Parameter version tag"
+            ),
             sa.Column(
                 "is_anchor",
                 sa.Boolean,
@@ -119,7 +125,9 @@ def upgrade() -> None:
                 server_default=sa.text("NOW()"),
             ),
         )
-        op.create_index("ix_drift_windows_times", "drift_windows", ["start_at", "end_at"])
+        op.create_index(
+            "ix_drift_windows_times", "drift_windows", ["start_at", "end_at"]
+        )
 
     # Item calibration: windowed Bayesian re-estimation results
     if not table_exists(conn, "item_calibration"):

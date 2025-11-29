@@ -23,6 +23,7 @@ from typing import (
 
 try:  # optional dependency; code paths guarded
     import importlib.util as _util
+
     _HAS_NUMPY = _util.find_spec("numpy") is not None
 except Exception:  # pragma: no cover
     _HAS_NUMPY = False
@@ -30,7 +31,10 @@ except Exception:  # pragma: no cover
 # Import from shared.irt module (irt.py), not irt/ package
 # Need to use importlib to load the .py file explicitly due to name conflict with irt/ directory
 import importlib.util
-_spec = importlib.util.spec_from_file_location("shared.irt_module", __file__.replace("adaptive.py", "irt.py"))
+
+_spec = importlib.util.spec_from_file_location(
+    "shared.irt_module", __file__.replace("adaptive.py", "irt.py")
+)
 if _spec and _spec.loader:
     _irt_module = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(_irt_module)
@@ -133,7 +137,9 @@ def choose_next_item(
     return items[global_idx], best_info, global_idx
 
 
-def _topic_of(it: Mapping, topic_key: str) -> Optional[object]:  # pragma: no cover (helper)
+def _topic_of(
+    it: Mapping, topic_key: str
+) -> Optional[object]:  # pragma: no cover (helper)
     try:
         return it.get(topic_key)  # type: ignore[attr-defined]
     except Exception:
@@ -195,8 +201,10 @@ def select_next_with_constraints(
     scored.sort(key=lambda t: t[2], reverse=True)
 
     # Stage 3: apply content penalties/boosts to form adjusted weights
-    weights: List[Tuple[int, Mapping, float, float]] = []  # (idx, item, base_info, weight)
-    recent_topics = list(last_topics or [])[-max(avoid_repeat_k, 0):]
+    weights: List[Tuple[int, Mapping, float, float]] = (
+        []
+    )  # (idx, item, base_info, weight)
+    recent_topics = list(last_topics or [])[-max(avoid_repeat_k, 0) :]
     for idx, it, base_info in scored[: max(top_n, 1)]:
         topic = _topic_of(it, topic_key)
         # Penalty for repeating same topic as recent ones
@@ -260,7 +268,12 @@ def select_next_with_constraints(
     if avoid_same_topic_hard and last_topics:
         last = last_topics[-1]
         topic_cur = _topic_of(it, topic_key)
-        if topic_cur is not None and last is not None and topic_cur == last and len(weights) > 1:
+        if (
+            topic_cur is not None
+            and last is not None
+            and topic_cur == last
+            and len(weights) > 1
+        ):
             # Find best alternative with different topic
             alt = None
             for i2, it2, base2, w2 in sorted(weights, key=lambda t: t[3], reverse=True):
@@ -304,11 +317,13 @@ def run_adaptive_session(
         mid = item.get(km.id)
         if mid is not None:
             used_ids.append(mid)
-        asked.append({
-            "a": float(item[km.a]),
-            "b": float(item[km.b]),
-            "c": float(item.get(km.c, 0.0)),
-        })
+        asked.append(
+            {
+                "a": float(item[km.a]),
+                "b": float(item[km.b]),
+                "c": float(item.get(km.c, 0.0)),
+            }
+        )
         p = irf_3pl(true_theta, asked[-1]["a"], asked[-1]["b"], asked[-1]["c"])
         y = int(p >= 0.5)
         answers.append(y)
@@ -342,6 +357,7 @@ __all__ = [
 # ----------------------------
 # Stopping rule helper
 # ----------------------------
+
 
 def evaluate_stop(
     theta: float,
@@ -378,4 +394,3 @@ def evaluate_stop(
         return True, "sem_threshold", sem_val
 
     return False, "continue", sem_val
-

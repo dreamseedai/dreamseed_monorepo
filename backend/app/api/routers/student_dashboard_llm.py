@@ -36,9 +36,12 @@ from shared.analytics.ai_empathy_llm import make_message_llm
 
 # Note: Update this import based on your actual DB session setup
 # from shared.db.session import get_db
+
+
 def get_db():
     """Placeholder for DB session dependency. Replace with actual implementation."""
-    raise NotImplementedError("Replace with actual get_db() from shared.db.session")
+    raise NotImplementedError(
+        "Replace with actual get_db() from shared.db.session")
 
 
 router = APIRouter(prefix='/api/student', tags=['student'])
@@ -89,13 +92,13 @@ class GoalIn(BaseModel):
 def parse_accept_language(accept_language: Optional[str]) -> str:
     """
     Parse Accept-Language header to language code.
-    
+
     Args:
         accept_language: Accept-Language header value
-    
+
     Returns:
         Language code ('ko', 'zh', 'en')
-    
+
     Examples:
         >>> parse_accept_language('ko-KR,ko;q=0.9,en;q=0.8')
         'ko'
@@ -106,7 +109,7 @@ def parse_accept_language(accept_language: Optional[str]) -> str:
     """
     if not accept_language:
         return 'en'
-    
+
     val = accept_language.lower()
     if val.startswith('ko'):
         return 'ko'
@@ -114,7 +117,7 @@ def parse_accept_language(accept_language: Optional[str]) -> str:
         return 'zh'
     if val.startswith('en'):
         return 'en'
-    
+
     return 'en'
 
 
@@ -130,7 +133,7 @@ async def get_dashboard(
 ):
     """
     Get student dashboard summary with LLM-generated AI message.
-    
+
     Returns:
     - week_growth: 7-day average theta delta
     - today_mood: Today's mood (if set)
@@ -141,10 +144,10 @@ async def get_dashboard(
     """
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
-    
+
     tenant_uuid = UUID(user.tenant_id)
     student_uuid = UUID(user.user_id)
-    
+
     # Calculate 7-day growth from IrtSnapshot
     # Note: Adjust table name based on your schema
     week_growth = 0.0
@@ -157,7 +160,7 @@ async def get_dashboard(
     #     )
     # ).all()
     # week_growth = float(rows[0][0] or 0.0)
-    
+
     # Get today's mood
     mood_row = db.execute(
         select(StudentMood)
@@ -168,7 +171,7 @@ async def get_dashboard(
         )
     ).scalars().first()
     today_mood = mood_row.mood if mood_row else None
-    
+
     # Calculate streak: consecutive days with any log
     log_days = db.execute(
         select(StudentDailyLog.day)
@@ -179,7 +182,7 @@ async def get_dashboard(
         .order_by(StudentDailyLog.day.desc())
         .limit(30)
     ).scalars().all()
-    
+
     streak = 0
     check_date = today
     for _ in range(30):
@@ -188,7 +191,7 @@ async def get_dashboard(
             check_date = check_date - timedelta(days=1)
         else:
             break
-    
+
     # Get open goals (not done)
     goal_rows = db.execute(
         select(StudentGoal)
@@ -200,7 +203,7 @@ async def get_dashboard(
         .order_by(StudentGoal.created_at.desc())
         .limit(5)
     ).scalars().all()
-    
+
     goals = [
         GoalOut(
             id=str(g.id),
@@ -210,10 +213,10 @@ async def get_dashboard(
         )
         for g in goal_rows
     ]
-    
+
     # Parse language from Accept-Language header
     lang = parse_accept_language(accept_language)
-    
+
     # Get or generate AI message (cached by day)
     cached_msg = db.execute(
         select(StudentAIMessage)
@@ -223,13 +226,13 @@ async def get_dashboard(
             StudentAIMessage.day == today
         )
     ).scalars().first()
-    
+
     if cached_msg:
         msg, tone = cached_msg.message, cached_msg.tone
     else:
         # Collect goal titles for LLM context
         goal_titles = [g.title for g in goal_rows[:3]]
-        
+
         # Generate new message with LLM
         msg, tone = await make_message_llm(
             theta_delta_7d=week_growth,
@@ -238,7 +241,7 @@ async def get_dashboard(
             goal_titles=goal_titles,
             lang=lang
         )
-        
+
         # Cache it
         new_msg = StudentAIMessage(
             tenant_id=tenant_uuid,
@@ -256,7 +259,7 @@ async def get_dashboard(
         )
         db.add(new_msg)
         db.commit()
-    
+
     return DashboardOut(
         week_growth=week_growth,
         today_mood=today_mood,
@@ -275,13 +278,13 @@ def set_mood(
 ):
     """
     Set today's mood.
-    
+
     Creates or updates mood entry for today.
     """
     today = date.today()
     tenant_uuid = UUID(user.tenant_id)
     student_uuid = UUID(user.user_id)
-    
+
     # Check if mood already exists for today
     existing = db.execute(
         select(StudentMood)
@@ -291,7 +294,7 @@ def set_mood(
             StudentMood.day == today
         )
     ).scalars().first()
-    
+
     if existing:
         # Update existing
         existing.mood = payload.mood
@@ -306,7 +309,7 @@ def set_mood(
             note=payload.note
         )
         db.add(new_mood)
-    
+
     db.commit()
     return {"ok": True}
 
@@ -319,13 +322,13 @@ def add_goal(
 ):
     """
     Add a new goal.
-    
+
     Returns:
         Goal ID
     """
     tenant_uuid = UUID(user.tenant_id)
     student_uuid = UUID(user.user_id)
-    
+
     new_goal = StudentGoal(
         tenant_id=tenant_uuid,
         student_id=student_uuid,
@@ -335,7 +338,7 @@ def add_goal(
     db.add(new_goal)
     db.commit()
     db.refresh(new_goal)
-    
+
     return {"id": str(new_goal.id)}
 
 
@@ -347,13 +350,13 @@ def complete_goal(
 ):
     """
     Mark a goal as complete.
-    
+
     Raises:
         404: Goal not found or doesn't belong to user
     """
     tenant_uuid = UUID(user.tenant_id)
     student_uuid = UUID(user.user_id)
-    
+
     try:
         goal_uuid = UUID(goal_id)
     except ValueError:
@@ -361,23 +364,23 @@ def complete_goal(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Invalid goal ID format'
         )
-    
+
     goal = db.get(StudentGoal, goal_uuid)
-    
+
     if not goal:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Goal not found'
         )
-    
+
     # Verify ownership (tenant + student)
-    if goal.tenant_id \!= tenant_uuid or goal.student_id \!= student_uuid:
+    if goal.tenant_id != tenant_uuid or goal.student_id != student_uuid:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Goal not found'
         )
-    
+
     goal.done = True
     db.commit()
-    
+
     return {"ok": True}

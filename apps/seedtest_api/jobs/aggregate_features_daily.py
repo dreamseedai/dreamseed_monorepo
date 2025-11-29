@@ -7,6 +7,7 @@ Environment:
   AGG_LOOKBACK_DAYS (optional, default 7): Number of days to aggregate back from today
   AGG_INCLUDE_THETA (optional, default false): Whether to include IRT theta estimates
 """
+
 # cSpell:ignore LOOKBACK Upserted
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from datetime import date, datetime, timedelta
 import os
 import sys
 from pathlib import Path
+
 
 # Ensure "apps.*" imports work when running this file directly
 def _ensure_project_root_on_path() -> None:
@@ -25,6 +27,7 @@ def _ensure_project_root_on_path() -> None:
                 sys.path.insert(0, path_str)
             break
 
+
 _ensure_project_root_on_path()
 
 from sqlalchemy import text
@@ -35,10 +38,13 @@ LOOKBACK_DAYS = int(os.getenv("AGG_LOOKBACK_DAYS", "7"))
 INCLUDE_THETA = os.getenv("AGG_INCLUDE_THETA", "false").lower() == "true"
 
 
-def _distinct_user_topic_date_combos(session, since_date: date) -> list[tuple[str, str, date]]:
+def _distinct_user_topic_date_combos(
+    session, since_date: date
+) -> list[tuple[str, str, date]]:
     """Find all (user_id, topic_id, date) combinations from attempt VIEW."""
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT DISTINCT
                 student_id::text AS user_id,
                 topic_id,
@@ -48,7 +54,8 @@ def _distinct_user_topic_date_combos(session, since_date: date) -> list[tuple[st
               AND student_id IS NOT NULL
               AND topic_id IS NOT NULL
             ORDER BY user_id, topic_id, date
-        """),
+        """
+        ),
         {"since": datetime.combine(since_date, datetime.min.time())},
     )
     return [(row[0], row[1], row[2]) for row in result.fetchall()]
@@ -58,9 +65,10 @@ def _aggregate_one_day(session, user_id: str, topic_id: str, target_date: date) 
     """Aggregate stats for one user/topic/date combination."""
     date_start = datetime.combine(target_date, datetime.min.time())
     date_end = date_start + timedelta(days=1)
-    
+
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT
                 COUNT(*) AS attempts,
                 SUM(CASE WHEN correct THEN 1 ELSE 0 END)::int AS correct,
@@ -72,7 +80,8 @@ def _aggregate_one_day(session, user_id: str, topic_id: str, target_date: date) 
               AND topic_id = :topic_id
               AND completed_at >= :date_start
               AND completed_at < :date_end
-        """),
+        """
+        ),
         {
             "user_id": user_id,
             "topic_id": topic_id,
@@ -81,7 +90,7 @@ def _aggregate_one_day(session, user_id: str, topic_id: str, target_date: date) 
         },
     )
     row = result.fetchone()
-    
+
     if row is None or (row[0] or 0) == 0:
         return {
             "attempts": 0,
@@ -90,7 +99,7 @@ def _aggregate_one_day(session, user_id: str, topic_id: str, target_date: date) 
             "rt_median": None,
             "hints": 0,
         }
-    
+
     return {
         "attempts": row[0] or 0,
         "correct": row[1] or 0,
@@ -100,16 +109,19 @@ def _aggregate_one_day(session, user_id: str, topic_id: str, target_date: date) 
     }
 
 
-def _load_theta_if_needed(session, user_id: str, topic_id: str, target_date: date) -> tuple[float | None, float | None]:
+def _load_theta_if_needed(
+    session, user_id: str, topic_id: str, target_date: date
+) -> tuple[float | None, float | None]:
     """Load IRT theta estimate if INCLUDE_THETA is enabled.
     Order: student_topic_theta (topic-level) -> mirt_ability (user-level fallback).
     """
     if not INCLUDE_THETA:
         return (None, None)
-    
+
     # Try student_topic_theta first (topic-level theta)
     result = session.execute(
-        text("""
+        text(
+            """
             SELECT theta, se
             FROM student_topic_theta
             WHERE user_id = :user_id
@@ -117,7 +129,8 @@ def _load_theta_if_needed(session, user_id: str, topic_id: str, target_date: dat
               AND updated_at <= :target_date
             ORDER BY updated_at DESC
             LIMIT 1
-        """),
+        """
+        ),
         {
             "user_id": user_id,
             "topic_id": topic_id,
@@ -127,17 +140,19 @@ def _load_theta_if_needed(session, user_id: str, topic_id: str, target_date: dat
     row = result.fetchone()
     if row and row[0] is not None:
         return (float(row[0]), float(row[1]) if row[1] is not None else None)
-    
+
     # Fallback: use latest user-level theta from mirt_ability up to the date
     result2 = session.execute(
-        text("""
+        text(
+            """
             SELECT theta, se
             FROM mirt_ability
             WHERE user_id = :user_id
               AND fitted_at <= :target_date
             ORDER BY fitted_at DESC
             LIMIT 1
-        """),
+        """
+        ),
         {
             "user_id": user_id,
             "target_date": datetime.combine(target_date, datetime.max.time()),
@@ -146,7 +161,7 @@ def _load_theta_if_needed(session, user_id: str, topic_id: str, target_date: dat
     row2 = result2.fetchone()
     if row2 and row2[0] is not None:
         return (float(row2[0]), float(row2[1]) if row2[1] is not None else None)
-    
+
     return (None, None)
 
 
@@ -162,7 +177,8 @@ def _upsert_features_daily(
 ) -> None:
     """Upsert one row to features_topic_daily."""
     session.execute(
-        text("""
+        text(
+            """
             INSERT INTO features_topic_daily
               (user_id, topic_id, date, attempts, correct, avg_time_ms, hints,
                theta_estimate, theta_sd, rt_median, improvement, last_seen_at, computed_at)
@@ -181,7 +197,8 @@ def _upsert_features_daily(
               improvement = EXCLUDED.improvement,
               last_seen_at = NOW(),
               computed_at = NOW()
-        """),
+        """
+        ),
         {
             "user_id": user_id,
             "topic_id": topic_id,
@@ -201,47 +218,54 @@ def _upsert_features_daily(
 
 def main(anchor_date: date | None = None, dry_run: bool = False) -> int:
     """Aggregate daily topic features for all active users/topics.
-    
+
     Args:
         anchor_date: Date to aggregate for (defaults to yesterday, as today may be incomplete)
         dry_run: If True, skip database commits (for testing)
-    
+
     Returns:
         Exit code: 0 on success, 1 on failure
     """
     import time
+
     start_time = time.time()
-    
+
     # Default to yesterday (today's data may be incomplete)
     if anchor_date is None:
         anchor_date = date.today() - timedelta(days=1)
-    
+
     since_date = anchor_date - timedelta(days=LOOKBACK_DAYS)
-    
+
     processed = 0
     failed = 0
-    
+
     try:
         with get_session() as session:
             combos = _distinct_user_topic_date_combos(session, since_date)
-            
+
             if not combos:
-                print(f"[INFO] No (user_id, topic_id, date) combinations found (lookback={LOOKBACK_DAYS} days); exiting.")
+                print(
+                    f"[INFO] No (user_id, topic_id, date) combinations found (lookback={LOOKBACK_DAYS} days); exiting."
+                )
                 return 0
-            
-            print(f"[INFO] Aggregating features for {len(combos)} (user, topic, date) combinations; since={since_date}, anchor={anchor_date}, dry_run={dry_run}")
-            
+
+            print(
+                f"[INFO] Aggregating features for {len(combos)} (user, topic, date) combinations; since={since_date}, anchor={anchor_date}, dry_run={dry_run}"
+            )
+
             for user_id, topic_id, target_date in combos:
                 # Skip future dates
                 if target_date > anchor_date:
                     continue
-                
+
                 try:
                     stats = _aggregate_one_day(session, user_id, topic_id, target_date)
-                    
+
                     # Load theta if needed
-                    theta_estimate, theta_sd = _load_theta_if_needed(session, user_id, topic_id, target_date)
-                    
+                    theta_estimate, theta_sd = _load_theta_if_needed(
+                        session, user_id, topic_id, target_date
+                    )
+
                     # Calculate improvement index (accuracy or theta-based delta)
                     improvement = None
                     try:
@@ -250,8 +274,10 @@ def main(anchor_date: date | None = None, dry_run: bool = False) -> int:
                         )
                     except Exception as e:
                         if os.getenv("DEBUG", "").lower() == "true":
-                            print(f"[DEBUG] Improvement calculation failed for user={user_id} topic={topic_id} date={target_date}: {e}")
-                    
+                            print(
+                                f"[DEBUG] Improvement calculation failed for user={user_id} topic={topic_id} date={target_date}: {e}"
+                            )
+
                     if not dry_run:
                         _upsert_features_daily(
                             session,
@@ -263,27 +289,34 @@ def main(anchor_date: date | None = None, dry_run: bool = False) -> int:
                             theta_sd,
                             improvement,
                         )
-                    
+
                     processed += 1
-                    
+
                     if os.getenv("DEBUG", "").lower() == "true":
-                        print(f"[DEBUG] OK user={user_id} topic={topic_id} date={target_date} attempts={stats['attempts']}")
-                
+                        print(
+                            f"[DEBUG] OK user={user_id} topic={topic_id} date={target_date} attempts={stats['attempts']}"
+                        )
+
                 except Exception as e:
                     failed += 1
-                    print(f"[ERROR] user={user_id} topic={topic_id} date={target_date} error={e}")
-            
+                    print(
+                        f"[ERROR] user={user_id} topic={topic_id} date={target_date} error={e}"
+                    )
+
             if dry_run:
                 session.rollback()
                 print("[INFO] Dry-run mode: rolled back all changes")
-        
+
         duration_ms = int((time.time() - start_time) * 1000)
-        print(f"[INFO] Summary: processed={processed}, failed={failed}, duration_ms={duration_ms}")
+        print(
+            f"[INFO] Summary: processed={processed}, failed={failed}, duration_ms={duration_ms}"
+        )
         return 0
-        
+
     except Exception as e:
         print(f"[FATAL] Unhandled exception: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -291,7 +324,7 @@ def main(anchor_date: date | None = None, dry_run: bool = False) -> int:
 def cli() -> None:
     """CLI entry point with argument parsing."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(
         description="Aggregate daily topic features from attempt VIEW"
     )
@@ -306,9 +339,9 @@ def cli() -> None:
         action="store_true",
         help="Do not commit changes to database",
     )
-    
+
     args = parser.parse_args()
-    
+
     anchor_date = None
     if args.date:
         try:
@@ -316,11 +349,10 @@ def cli() -> None:
         except ValueError:
             print(f"[ERROR] Invalid date format: {args.date} (expected YYYY-MM-DD)")
             exit(1)
-    
+
     exit_code = main(anchor_date=anchor_date, dry_run=args.dry_run)
     exit(exit_code)
 
 
 if __name__ == "__main__":
     cli()
-

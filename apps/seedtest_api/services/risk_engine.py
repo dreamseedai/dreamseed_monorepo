@@ -24,14 +24,14 @@ def build_class_summary(
     db: Session, tenant_id: str, classroom_id: str, week: date
 ) -> None:
     """Build class summary for a given classroom and week.
-    
+
     Aggregates:
     - Mean/median/top10/bottom10 theta
     - 7-day theta growth (delta_theta_7d)
     - Attendance rates (absent/late)
     - Stability score (1/IQR of theta distribution)
     - Risk count
-    
+
     Args:
         db: Database session
         tenant_id: Tenant identifier for multitenancy
@@ -42,25 +42,27 @@ def build_class_summary(
     # Using weekly_kpi which contains aggregated theta estimates per user
     kpi_stmt = select(WeeklyKPI).where(WeeklyKPI.week_start == week)
     kpi_rows = db.execute(kpi_stmt).scalars().all()
-    
+
     theta_values = []
     for kpi in kpi_rows:
         if isinstance(kpi.kpis, dict) and "theta" in kpi.kpis:
             theta_values.append(float(kpi.kpis["theta"]))
-    
+
     if not theta_values:
         # No data for this week, skip
         return
 
     mean_theta = float(mean(theta_values))
     median_theta = float(median(theta_values))
-    
+
     sorted_thetas = sorted(theta_values)
     n = len(sorted_thetas)
     top10_idx = max(int(n * 0.9) - 1, 0)
     bottom10_idx = max(int(n * 0.1) - 1, 0)
     top10_theta = float(sorted_thetas[top10_idx]) if top10_idx < n else mean_theta
-    bottom10_theta = float(sorted_thetas[bottom10_idx]) if bottom10_idx < n else mean_theta
+    bottom10_theta = (
+        float(sorted_thetas[bottom10_idx]) if bottom10_idx < n else mean_theta
+    )
 
     # 7-day growth: average delta_theta from current week
     delta_values = [
@@ -83,11 +85,11 @@ def build_class_summary(
         .group_by(Attendance.status)
     )
     att_rows = db.execute(att_stmt).all()
-    
+
     total_att = sum(count for _, count in att_rows) or 1
     late_count = next((count for status, count in att_rows if status == "late"), 0)
     absent_count = next((count for status, count in att_rows if status == "absent"), 0)
-    
+
     late_rate = float(late_count) / total_att
     absent_rate = float(absent_count) / total_att
 
@@ -152,12 +154,12 @@ def run_risk_rules(
     db: Session, tenant_id: str, classroom_id: str, week: date, grade: str | None = None
 ) -> None:
     """Run risk detection rules for a classroom and week using dynamic thresholds.
-    
+
     Rules:
     1. Low growth: Δθ_7d < threshold AND last N weeks all Δθ ≤ 0 (N from threshold)
     2. Irregular attendance: absent_rate ≥ threshold OR late_rate ≥ threshold
     3. Response anomaly: (future) guessing probability c_hat or omit_rate
-    
+
     Args:
         db: Database session
         tenant_id: Tenant identifier for multitenancy
@@ -189,16 +191,15 @@ def run_risk_rules(
 
     for student_id, deltas in by_student.items():
         deltas.sort(key=lambda x: x[0])
-        
+
         if len(deltas) >= 3:
             last_delta = deltas[-1][1]
             required_weeks = thr_growth.low_growth_nonpos_weeks
             last_n_deltas = [d for _, d in deltas[-required_weeks:]]
-            
+
             # Check if low growth
-            if (
-                last_delta < thr_growth.low_growth_delta
-                and all(d <= 0 for d in last_n_deltas)
+            if last_delta < thr_growth.low_growth_delta and all(
+                d <= 0 for d in last_n_deltas
             ):
                 # Create risk flag
                 risk = RiskFlag(
@@ -270,10 +271,13 @@ def run_risk_rules(
 
 
 def run_teacher_dashboard_batch(
-    db: Session, tenant_id: str, classroom_ids: List[str], grade_map: Dict[str, str] | None = None
+    db: Session,
+    tenant_id: str,
+    classroom_ids: List[str],
+    grade_map: Dict[str, str] | None = None,
 ) -> None:
     """Main entrypoint for teacher dashboard batch processing with multitenancy.
-    
+
     Args:
         db: Database session
         tenant_id: Tenant identifier for multitenancy
@@ -285,10 +289,10 @@ def run_teacher_dashboard_batch(
 
     for classroom_id in classroom_ids:
         grade = grade_map.get(classroom_id) if grade_map else None
-        
+
         # Run risk detection with dynamic thresholds
         run_risk_rules(db, tenant_id, classroom_id, week, grade)
-        
+
         # Build class summary
         build_class_summary(db, tenant_id, classroom_id, week)
 

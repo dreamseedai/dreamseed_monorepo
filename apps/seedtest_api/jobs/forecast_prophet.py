@@ -33,7 +33,7 @@ async def forecast_improvement_trend(
 ) -> None:
     """
     Fit Prophet model to I_t time series and detect anomalies.
-    
+
     Args:
         lookback_weeks: Number of weeks to look back (default: 12)
         forecast_weeks: Number of weeks to forecast (default: 4)
@@ -45,20 +45,24 @@ async def forecast_improvement_trend(
         else os.getenv("PROPHET_LOOKBACK_WEEKS", "12")
     )
     forecast_weeks = int(os.getenv("PROPHET_FORECAST_WEEKS", str(forecast_weeks)))
-    anomaly_threshold = float(os.getenv("PROPHET_ANOMALY_THRESHOLD", str(anomaly_threshold)))
-    
-    print(f"[INFO] Forecasting I_t trend (lookback={lookback_weeks} weeks, forecast={forecast_weeks} weeks)")
-    
+    anomaly_threshold = float(
+        os.getenv("PROPHET_ANOMALY_THRESHOLD", str(anomaly_threshold))
+    )
+
+    print(
+        f"[INFO] Forecasting I_t trend (lookback={lookback_weeks} weeks, forecast={forecast_weeks} weeks)"
+    )
+
     # Initialize R Forecast client
     try:
         client = RForecastClient()
     except RuntimeError as e:
         print(f"[ERROR] Failed to initialize R Forecast client: {e}")
         return
-    
+
     # Load weekly I_t from weekly_kpi
     since_date = date.today() - timedelta(weeks=lookback_weeks)
-    
+
     with get_session() as s:
         stmt = sa.text(
             """
@@ -73,23 +77,25 @@ async def forecast_improvement_trend(
             ORDER BY week_start
             """
         )
-        
+
         rows = s.execute(stmt, {"since_date": since_date}).mappings().all()
-        
+
         if not rows or len(rows) < 4:
             print("[WARN] Insufficient I_t data for Prophet fitting (need >= 4 weeks)")
             return
-        
+
         print(f"[INFO] Loaded {len(rows)} weekly I_t observations")
-        
+
         # Prepare data for R service
         data_rows: List[Dict[str, Any]] = []
         for r in rows:
-            data_rows.append({
-                "ds": str(r["ds"]),
-                "y": float(r["y"]),
-            })
-    
+            data_rows.append(
+                {
+                    "ds": str(r["ds"]),
+                    "y": float(r["y"]),
+                }
+            )
+
     # Call R Prophet service (stateless predict API)
     try:
         result = await client.prophet_predict(
@@ -97,28 +103,35 @@ async def forecast_improvement_trend(
             periods=forecast_weeks,
             freq="week",
         )
-        
+
         if result.get("error"):
             print(f"[WARN] Prophet predict returned error: {result.get('error')}")
             return
-            
+
     except Exception as e:
         print(f"[ERROR] R Prophet service call failed: {e}")
         import traceback
+
         traceback.print_exc()
         return
-    
+
     # Extract results (API returns {status, periods, fitted: [{ds,yhat}], forecast: [{ds, yhat, yhat_lower, yhat_upper}]})
     forecast = result.get("forecast") or []
     fitted = result.get("fitted") or []
-    
+
     print(f"[INFO] Forecast: {len(forecast)} periods")
     for f in forecast:
-        print(f"[INFO]   {f.get('ds')} -> {f.get('yhat')} [{f.get('yhat_lower')}, {f.get('yhat_upper')}]")
-    
+        print(
+            f"[INFO]   {f.get('ds')} -> {f.get('yhat')} [{f.get('yhat_lower')}, {f.get('yhat_upper')}]"
+        )
+
     # Anomaly detection: compare historical actual vs fitted values
     # Build maps for quick lookup
-    fitted_map = {str(r.get("ds")): float(r.get("yhat")) for r in fitted if r.get("ds") is not None and r.get("yhat") is not None}
+    fitted_map = {
+        str(r.get("ds")): float(r.get("yhat"))
+        for r in fitted
+        if r.get("ds") is not None and r.get("yhat") is not None
+    }
     hist_pairs = []  # (ds, y, yhat, residual)
     for r in data_rows:
         ds = str(r.get("ds"))
@@ -136,6 +149,7 @@ async def forecast_improvement_trend(
     anomalies = []
     if hist_pairs:
         import statistics as stats
+
         residuals = [p[3] for p in hist_pairs]
         mu = stats.mean(residuals)
         sd = stats.pstdev(residuals) if len(residuals) > 1 else 0.0
@@ -144,24 +158,31 @@ async def forecast_improvement_trend(
         for ds, y, yhat, res in hist_pairs:
             z = (res - mu) / sd if sd and sd > 0 else 0.0
             if abs(z) >= thr:
-                anomalies.append({
-                    "ds": ds,
-                    "y": y,
-                    "yhat": yhat,
-                    "anomaly_score": float(z),
-                })
+                anomalies.append(
+                    {
+                        "ds": ds,
+                        "y": y,
+                        "yhat": yhat,
+                        "anomaly_score": float(z),
+                    }
+                )
 
     changepoints = []  # Reserved for future (if R service returns changepoints)
-    fit_meta = {"status": result.get("status"), "periods": result.get("periods"), "threshold": anomaly_threshold}
-    
+    fit_meta = {
+        "status": result.get("status"),
+        "periods": result.get("periods"),
+        "threshold": anomaly_threshold,
+    }
+
     # Store results
     run_id = f"prophet-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
     metric = "I_t"
 
     with get_session() as s:
         # Ensure tables exist
-        s.execute(sa.text(
-            """
+        s.execute(
+            sa.text(
+                """
             CREATE TABLE IF NOT EXISTS prophet_fit_meta (
                 run_id TEXT PRIMARY KEY,
                 metric TEXT,
@@ -171,9 +192,11 @@ async def forecast_improvement_trend(
                 fitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
             """
-        ))
-        s.execute(sa.text(
-            """
+            )
+        )
+        s.execute(
+            sa.text(
+                """
             CREATE TABLE IF NOT EXISTS prophet_anomalies (
                 run_id TEXT,
                 week_start DATE,
@@ -185,7 +208,8 @@ async def forecast_improvement_trend(
                 PRIMARY KEY (run_id, week_start, metric)
             )
             """
-        ))
+            )
+        )
         # Store fit metadata
         stmt_meta = sa.text(
             """
@@ -212,7 +236,7 @@ async def forecast_improvement_trend(
                 fitted_at = NOW()
             """
         )
-        
+
         s.execute(
             stmt_meta,
             {
@@ -223,7 +247,7 @@ async def forecast_improvement_trend(
                 "fit_meta": json.dumps(fit_meta),
             },
         )
-        
+
         # Store anomalies
         if anomalies:
             stmt_anomaly = sa.text(
@@ -253,7 +277,7 @@ async def forecast_improvement_trend(
                     detected_at = NOW()
                 """
             )
-            
+
             stored_count = 0
             for anom in anomalies:
                 ds_str = None
@@ -261,7 +285,7 @@ async def forecast_improvement_trend(
                     ds_str = anom.get("ds") or anom.get("week_start")
                     if not ds_str:
                         continue
-                    
+
                     s.execute(
                         stmt_anomaly,
                         {
@@ -275,12 +299,14 @@ async def forecast_improvement_trend(
                     )
                     stored_count += 1
                 except Exception as e:
-                    print(f"[WARN] Failed to store anomaly for {ds_str or 'unknown'}: {e}")
-            
+                    print(
+                        f"[WARN] Failed to store anomaly for {ds_str or 'unknown'}: {e}"
+                    )
+
             print(f"[INFO] Stored {stored_count} anomalies")
 
         s.commit()
-    
+
     print(f"[INFO] Prophet forecasting completed: run_id={run_id}")
 
 
@@ -292,13 +318,13 @@ async def main(
 ) -> int:
     """
     Main entry point for Prophet forecasting.
-    
+
     Returns:
         Exit code: 0 on success, 1 on failure
     """
     if dry_run:
         print("[INFO] DRY RUN MODE: No changes will be committed")
-    
+
     try:
         await forecast_improvement_trend(
             lookback_weeks=lookback_weeks,
@@ -309,6 +335,7 @@ async def main(
     except Exception as e:
         print(f"[FATAL] Prophet forecasting failed: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -316,7 +343,7 @@ async def main(
 def cli() -> None:
     """CLI entry point."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(
         description="Fit Prophet model for I_t trend forecasting and anomaly detection"
     )
@@ -343,9 +370,9 @@ def cli() -> None:
         action="store_true",
         help="Dry run mode (no database commits)",
     )
-    
+
     args = parser.parse_args()
-    
+
     exit_code = asyncio.run(
         main(
             lookback_weeks=args.lookback_weeks,

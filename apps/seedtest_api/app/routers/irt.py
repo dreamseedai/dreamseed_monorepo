@@ -3,6 +3,7 @@ IRT Drift Monitoring API Endpoints
 ===================================
 FastAPI router for IRT item parameters, calibration, and drift alerts
 """
+
 from datetime import datetime
 from typing import List, Optional
 
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/api/v1/irt", tags=["IRT"])
 # ==============================================================================
 class ItemBase(BaseModel):
     """Item base schema"""
+
     id: int
     id_str: Optional[str]
     bank_id: str
@@ -35,6 +37,7 @@ class ItemBase(BaseModel):
 
 class ItemWithParams(ItemBase):
     """Item with current IRT parameters"""
+
     model: Optional[str] = None
     a: Optional[float] = None
     b: Optional[float] = None
@@ -48,14 +51,18 @@ class ItemWithParams(ItemBase):
 
 class WindowCreate(BaseModel):
     """Create window request"""
+
     label: str = Field(..., example="2025-10 monthly")
     start_at: datetime
     end_at: datetime
-    population_tags: List[str] = Field(default=[], example=["cohort:2025-Q4", "lang:ko"])
+    population_tags: List[str] = Field(
+        default=[], example=["cohort:2025-Q4", "lang:ko"]
+    )
 
 
 class WindowResponse(BaseModel):
     """Window response"""
+
     id: int
     label: str
     start_at: datetime
@@ -66,6 +73,7 @@ class WindowResponse(BaseModel):
 
 class CalibrationResult(BaseModel):
     """Item calibration result"""
+
     id: int
     item_id: int
     window_id: int
@@ -80,6 +88,7 @@ class CalibrationResult(BaseModel):
 
 class DriftAlert(BaseModel):
     """Drift alert"""
+
     id: int
     item_id: int
     item_id_str: Optional[str]
@@ -97,12 +106,14 @@ class DriftAlert(BaseModel):
 
 class DriftAlertResolve(BaseModel):
     """Resolve drift alert request"""
+
     resolved: bool = True
 
 
 # ==============================================================================
 # Endpoints
 # ==============================================================================
+
 
 @router.get("/items", response_model=List[ItemWithParams])
 async def get_items(
@@ -115,7 +126,7 @@ async def get_items(
 ):
     """
     Get items with current IRT parameters
-    
+
     Filters:
     - bank_id: Item bank/pool identifier
     - lang: Language (en/ko/zh-Hans/zh-Hant)
@@ -132,7 +143,7 @@ async def get_items(
     LEFT JOIN shared_irt.item_parameters_current p ON i.id = p.item_id
     WHERE 1=1
     """
-    
+
     params = []
     if bank_id:
         query += f" AND i.bank_id = ${len(params) + 1}"
@@ -143,14 +154,14 @@ async def get_items(
     if is_anchor is not None:
         query += f" AND i.is_anchor = ${len(params) + 1}"
         params.append(is_anchor)
-    
+
     query += f" ORDER BY i.id LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}"
     params.extend([limit, offset])
-    
+
     # Execute query and return results
     # rows = await db.fetch_all(query, params)
     # return [ItemWithParams(**dict(row)) for row in rows]
-    
+
     # Placeholder for demonstration
     return []
 
@@ -162,7 +173,7 @@ async def create_window(
 ):
     """
     Create a calibration window
-    
+
     Windows define time periods and population filters for cohort-based calibration.
     """
     # Insert window
@@ -171,16 +182,16 @@ async def create_window(
     VALUES ($1, $2, $3, $4)
     RETURNING id, label, start_at, end_at, population_tags, created_at
     """
-    
+
     # row = await db.fetch_one(query, [
     #     window.label,
     #     window.start_at,
     #     window.end_at,
     #     window.population_tags
     # ])
-    
+
     # return WindowResponse(**dict(row))
-    
+
     # Placeholder
     raise HTTPException(501, "Not implemented")
 
@@ -198,10 +209,10 @@ async def get_windows(
     ORDER BY created_at DESC
     LIMIT $1 OFFSET $2
     """
-    
+
     # rows = await db.fetch_all(query, [limit, offset])
     # return [WindowResponse(**dict(row)) for row in rows]
-    
+
     return []
 
 
@@ -213,7 +224,7 @@ async def get_calibrations_for_window(
 ):
     """
     Get calibration results for a window
-    
+
     - drift_only=true: Returns only items with detected parameter drift
     """
     query = """
@@ -221,15 +232,15 @@ async def get_calibrations_for_window(
     FROM shared_irt.item_calibration
     WHERE window_id = $1
     """
-    
+
     if drift_only:
         query += " AND drift_flag IS NOT NULL"
-    
+
     query += " ORDER BY item_id"
-    
+
     # rows = await db.fetch_all(query, [window_id])
     # return [CalibrationResult(**dict(row)) for row in rows]
-    
+
     return []
 
 
@@ -244,7 +255,7 @@ async def get_drift_alerts(
 ):
     """
     Get drift alerts
-    
+
     Filters:
     - active_only: Only unresolved alerts (resolved_at IS NULL)
     - severity: Filter by severity (low/medium/high)
@@ -257,7 +268,7 @@ async def get_drift_alerts(
     FROM shared_irt.v_active_drift_alerts
     WHERE 1=1
     """
-    
+
     params = []
     if not active_only:
         # Switch to base table if including resolved
@@ -272,21 +283,21 @@ async def get_drift_alerts(
         JOIN shared_irt.windows w ON da.window_id = w.id
         WHERE 1=1
         """
-    
+
     if severity:
         query += f" AND severity = ${len(params) + 1}"
         params.append(severity)
-    
+
     if window_id:
         query += f" AND window_id = ${len(params) + 1}"
         params.append(window_id)
-    
+
     query += f" ORDER BY severity DESC, created_at DESC LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}"
     params.extend([limit, offset])
-    
+
     # rows = await db.fetch_all(query, params)
     # return [DriftAlert(**dict(row)) for row in rows]
-    
+
     return []
 
 
@@ -298,7 +309,7 @@ async def resolve_drift_alert(
 ):
     """
     Resolve or unresolve a drift alert
-    
+
     - resolved=true: Mark as resolved (sets resolved_at timestamp)
     - resolved=false: Reopen alert (sets resolved_at to NULL)
     """
@@ -316,19 +327,19 @@ async def resolve_drift_alert(
         WHERE id = $1
         RETURNING id
         """
-    
+
     # row = await db.fetch_one(query, [alert_id])
-    
+
     # if not row:
     #     raise HTTPException(404, "Alert not found or already in requested state")
-    
+
     # # Fetch updated alert
     # alert = await db.fetch_one(
     #     "SELECT * FROM shared_irt.drift_alerts WHERE id = $1",
     #     [alert_id]
     # )
     # return DriftAlert(**dict(alert))
-    
+
     raise HTTPException(501, "Not implemented")
 
 
@@ -339,7 +350,7 @@ async def get_item_calibration_history(
 ):
     """
     Get calibration history for an item across all windows
-    
+
     Useful for plotting parameter stability over time
     """
     query = """
@@ -352,10 +363,10 @@ async def get_item_calibration_history(
     WHERE ic.item_id = $1
     ORDER BY w.start_at DESC
     """
-    
+
     # rows = await db.fetch_all(query, [item_id])
     # return [CalibrationResult(**dict(row)) for row in rows]
-    
+
     return []
 
 
@@ -363,13 +374,14 @@ async def get_item_calibration_history(
 # Statistics Endpoints
 # ==============================================================================
 
+
 @router.get("/stats/summary")
 async def get_irt_stats_summary(
     # db: AsyncSession = Depends(get_db_session)
 ):
     """
     Get IRT system summary statistics
-    
+
     Returns:
     - Total items
     - Items with parameters
@@ -382,18 +394,13 @@ async def get_irt_stats_summary(
         "items_with_params": 0,
         "anchor_items": 0,
         "total_windows": 0,
-        "active_alerts": {
-            "high": 0,
-            "medium": 0,
-            "low": 0,
-            "total": 0
-        },
-        "recent_calibrations": []
+        "active_alerts": {"high": 0, "medium": 0, "low": 0, "total": 0},
+        "recent_calibrations": [],
     }
-    
+
     # Query stats
     # query = """
-    # SELECT 
+    # SELECT
     #   (SELECT COUNT(*) FROM shared_irt.items) as total_items,
     #   (SELECT COUNT(*) FROM shared_irt.item_parameters_current) as items_with_params,
     #   (SELECT COUNT(*) FROM shared_irt.items WHERE is_anchor = TRUE) as anchor_items,
@@ -402,8 +409,8 @@ async def get_irt_stats_summary(
     #   (SELECT COUNT(*) FROM shared_irt.drift_alerts WHERE resolved_at IS NULL AND severity = 'medium') as alerts_medium,
     #   (SELECT COUNT(*) FROM shared_irt.drift_alerts WHERE resolved_at IS NULL AND severity = 'low') as alerts_low
     # """
-    
+
     # row = await db.fetch_one(query)
     # stats.update(dict(row))
-    
+
     return stats

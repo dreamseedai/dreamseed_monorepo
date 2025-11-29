@@ -32,8 +32,15 @@ class RiskFlag(Base):
         Index("ix_risk_classroom_week", "classroom_id", "week_start"),
         Index("ix_risk_student_week", "student_id", "week_start"),
         Index("ix_risk_type_week", "type", "week_start"),
-        Index("ix_risk_flag_tenant_classroom_week", "tenant_id", "classroom_id", "week_start"),
-        Index("ix_risk_flag_tenant_student_week", "tenant_id", "student_id", "week_start"),
+        Index(
+            "ix_risk_flag_tenant_classroom_week",
+            "tenant_id",
+            "classroom_id",
+            "week_start",
+        ),
+        Index(
+            "ix_risk_flag_tenant_student_week", "tenant_id", "student_id", "week_start"
+        ),
     )
 
     def __repr__(self) -> str:

@@ -32,9 +32,8 @@ async def run_calibration(
     )
     lookback_days = int(lookback_val)
     model = (
-        (model or os.getenv("MIRT_MODEL") or os.getenv("IRT_MODEL") or "2PL")
-        .strip()
-    )
+        model or os.getenv("MIRT_MODEL") or os.getenv("IRT_MODEL") or "2PL"
+    ).strip()
     # Optional topic_id/subject_id filter for topic/subject-specific calibration banks
     topic_id = topic_id or os.getenv("MIRT_TOPIC_ID") or os.getenv("IRT_TOPIC_ID")
     if subject_id is None:
@@ -57,12 +56,12 @@ async def run_calibration(
     # Extract observations (user_id, item_id, is_correct, responded_at)
     # Priority order: attempt VIEW > responses table > exam_results JSON
     since_dt = datetime.now(tz=timezone.utc) - timedelta(days=lookback_days)
-    
+
     with get_session() as s:
         # Try attempt VIEW first (standardized schema)
         # Apply topic_id/subject_id filtering if specified (for topic/subject-specific calibration banks)
         limit_clause = f"LIMIT {max_obs}" if max_obs > 0 else ""
-        
+
         # Build WHERE clause with optional topic/subject filters
         where_clauses = [
             "completed_at >= :since",
@@ -70,22 +69,30 @@ async def run_calibration(
             "student_id IS NOT NULL",
         ]
         params: Dict[str, Any] = {"since": since_dt}
-        
+
         if topic_id:
             # Filter by topic_id from attempt VIEW or question table
-            where_clauses.append("(topic_id = :topic_id OR EXISTS (SELECT 1 FROM question q WHERE q.id = attempt.item_id AND q.topic_id = :topic_id))")
+            where_clauses.append(
+                "(topic_id = :topic_id OR EXISTS (SELECT 1 FROM question q WHERE q.id = attempt.item_id AND q.topic_id = :topic_id))"
+            )
             params["topic_id"] = topic_id
-            print(f"[INFO] Filtering by topic_id={topic_id} (topic-specific calibration bank)")
-        
+            print(
+                f"[INFO] Filtering by topic_id={topic_id} (topic-specific calibration bank)"
+            )
+
         if subject_id is not None:
             # Filter by exam_id (assuming exam_id maps to subject_id)
             # Note: This requires exam_results.exam_id to be available in attempt VIEW or join
-            where_clauses.append("EXISTS (SELECT 1 FROM exam_results er WHERE er.session_id = attempt.session_id AND er.exam_id = :subject_id)")
+            where_clauses.append(
+                "EXISTS (SELECT 1 FROM exam_results er WHERE er.session_id = attempt.session_id AND er.exam_id = :subject_id)"
+            )
             params["subject_id"] = subject_id
-            print(f"[INFO] Filtering by subject_id={subject_id} (subject-specific calibration bank)")
-        
+            print(
+                f"[INFO] Filtering by subject_id={subject_id} (subject-specific calibration bank)"
+            )
+
         where_clause = " AND ".join(where_clauses)
-        
+
         stmt_attempt = sa.text(
             f"""
             SELECT 
@@ -99,7 +106,7 @@ async def run_calibration(
             {limit_clause}
             """
         )
-        
+
         # Fallback 1: responses table
         stmt_responses = sa.text(
             """
@@ -110,7 +117,7 @@ async def run_calibration(
             LIMIT 10000
             """
         )
-        
+
         # Fallback 2: exam_results JSON
         stmt_exam_results = sa.text(
             """
@@ -121,8 +128,8 @@ async def run_calibration(
             LIMIT 10000
             """
         )
-        
-    # Try attempt VIEW
+
+        # Try attempt VIEW
         try:
             rows = s.execute(stmt_attempt, {"since": since_dt}).mappings().all()
             for r in rows:
@@ -130,19 +137,25 @@ async def run_calibration(
                     {
                         "user_id": str(r["user_id"]),
                         "item_id": str(r["item_id"]),
-                        "is_correct": bool(r["is_correct"]) if r["is_correct"] is not None else False,
+                        "is_correct": (
+                            bool(r["is_correct"])
+                            if r["is_correct"] is not None
+                            else False
+                        ),
                         "responded_at": str(r["responded_at"]),
                     }
                 )
             if observations:
-                print(f"[INFO] Loaded {len(observations)} observations from attempt VIEW")
+                print(
+                    f"[INFO] Loaded {len(observations)} observations from attempt VIEW"
+                )
         except Exception as e:
             print(f"[WARN] attempt VIEW not available: {e}; trying fallback...")
             try:
                 s.rollback()
             except Exception:
                 pass
-            
+
             # Fallback 1: responses table
             try:
                 rows = s.execute(stmt_responses, {"since": since_dt}).mappings().all()
@@ -156,17 +169,25 @@ async def run_calibration(
                         }
                     )
                 if observations:
-                    print(f"[INFO] Loaded {len(observations)} observations from responses table")
+                    print(
+                        f"[INFO] Loaded {len(observations)} observations from responses table"
+                    )
             except Exception as e2:
-                print(f"[WARN] responses table not available: {e2}; trying exam_results...")
+                print(
+                    f"[WARN] responses table not available: {e2}; trying exam_results..."
+                )
                 try:
                     s.rollback()
                 except Exception:
                     pass
-                
+
                 # Fallback 2: exam_results JSON
                 try:
-                    rows = s.execute(stmt_exam_results, {"since": since_dt}).mappings().all()
+                    rows = (
+                        s.execute(stmt_exam_results, {"since": since_dt})
+                        .mappings()
+                        .all()
+                    )
                     for r in rows:
                         doc = r.get("result_json") or {}
                         for q in doc.get("questions") or []:
@@ -187,7 +208,9 @@ async def run_calibration(
                                 }
                             )
                     if observations:
-                        print(f"[INFO] Loaded {len(observations)} observations from exam_results JSON")
+                        print(
+                            f"[INFO] Loaded {len(observations)} observations from exam_results JSON"
+                        )
                 except Exception as e3:
                     print(f"[ERROR] All data sources failed. Last error: {e3}")
 
@@ -254,42 +277,52 @@ async def run_calibration(
 
     print(f"[INFO] Total observations: {len(observations)}")
     print(f"[INFO] Model: {model}, Anchors: {len(anchors)}")
-    
+
     if dry_run:
         print("[DRY_RUN] Skipping R IRT service call and DB updates")
-        print(f"[DRY_RUN] Would calibrate {len(observations)} observations with {len(anchors)} anchors")
+        print(
+            f"[DRY_RUN] Would calibrate {len(observations)} observations with {len(anchors)} anchors"
+        )
         return
 
     # Call R IRT service with retry logic
     client = RIrtClient()
     max_retries = int(os.getenv("MIRT_MAX_RETRIES", "3"))
     retry_delay = float(os.getenv("MIRT_RETRY_DELAY_SECS", "5.0"))
-    
+
     result = None
     last_error = None
     for attempt in range(max_retries):
         try:
-            result = await client.calibrate(observations, model=model, anchors=(anchors or None))
+            result = await client.calibrate(
+                observations, model=model, anchors=(anchors or None)
+            )
             break  # Success
         except Exception as e:
             last_error = e
             if attempt < max_retries - 1:
                 wait_time = retry_delay * (attempt + 1)  # Exponential backoff
-                print(f"[WARN] R IRT service call failed (attempt {attempt + 1}/{max_retries}): {e}")
+                print(
+                    f"[WARN] R IRT service call failed (attempt {attempt + 1}/{max_retries}): {e}"
+                )
                 print(f"[INFO] Retrying in {wait_time:.1f} seconds...")
                 await asyncio.sleep(wait_time)
             else:
-                print(f"[ERROR] R IRT service call failed after {max_retries} attempts: {e}")
+                print(
+                    f"[ERROR] R IRT service call failed after {max_retries} attempts: {e}"
+                )
                 raise
-    
+
     if result is None:
-        raise RuntimeError(f"Failed to calibrate after {max_retries} attempts: {last_error}")
+        raise RuntimeError(
+            f"Failed to calibrate after {max_retries} attempts: {last_error}"
+        )
 
     # Expected result contains item_params, abilities, and fit metadata
     items = result.get("item_params") or []
     abilities = result.get("abilities") or []
     meta = result.get("fit_meta") or {}
-    
+
     # Extract linking constants if anchor equating was performed
     linking_constants = meta.get("linking_constants") or {}
     if linking_constants:
@@ -316,11 +349,14 @@ async def run_calibration(
         ON CONFLICT (run_id) DO UPDATE SET model_spec=EXCLUDED.model_spec, metrics=EXCLUDED.metrics, fitted_at=NOW()
         """
     )
-    
+
     # Update question.meta.irt with finalized parameters (if enabled)
-    update_question_meta = os.getenv("IRT_UPDATE_QUESTION_META", "false").lower() == "true"
-    up_question_meta = sa.text(
-        """
+    update_question_meta = (
+        os.getenv("IRT_UPDATE_QUESTION_META", "false").lower() == "true"
+    )
+    up_question_meta = (
+        sa.text(
+            """
         UPDATE question
         SET meta = jsonb_set(
             COALESCE(meta, '{}'::jsonb),
@@ -331,7 +367,10 @@ async def run_calibration(
         updated_at = NOW()
         WHERE id = :question_id
         """
-    ) if update_question_meta else None
+        )
+        if update_question_meta
+        else None
+    )
 
     with get_session() as s:
         item_count = 0
@@ -340,7 +379,7 @@ async def run_calibration(
             item_params = it.get("params") or {}
             item_model = str(it.get("model") or model)
             item_version = str(it.get("version") or "v1")
-            
+
             s.execute(
                 up_item,
                 {
@@ -350,7 +389,7 @@ async def run_calibration(
                     "version": item_version,
                 },
             )
-            
+
             # Optionally update question.meta.irt with finalized parameters
             if update_question_meta and (up_question_meta is not None):
                 try:
@@ -364,7 +403,7 @@ async def run_calibration(
                     }
                     # Remove None values
                     irt_meta = {k: v for k, v in irt_meta.items() if v is not None}
-                    
+
                     s.execute(
                         up_question_meta,
                         {
@@ -374,10 +413,12 @@ async def run_calibration(
                     )
                 except (ValueError, Exception) as e:
                     # Skip if question_id is not numeric or question doesn't exist
-                    print(f"[WARN] Failed to update question.meta for item_id={item_id_str}: {e}")
-            
+                    print(
+                        f"[WARN] Failed to update question.meta for item_id={item_id_str}: {e}"
+                    )
+
             item_count += 1
-        
+
         ability_count = 0
         for ab in abilities:
             s.execute(
@@ -391,18 +432,18 @@ async def run_calibration(
                 },
             )
             ability_count += 1
-        
+
         # Store fit metadata including linking constants
         run_id = (
             meta.get("run_id") or f"fit-{datetime.now(tz=timezone.utc).isoformat()}"
         )
         model_spec = meta.get("model_spec") or {}
         metrics = meta.get("metrics") or {}
-        
+
         # Include linking constants in model_spec if available
         if linking_constants:
             model_spec["linking_constants"] = linking_constants
-        
+
         s.execute(
             up_meta,
             {
@@ -411,10 +452,12 @@ async def run_calibration(
                 "metrics": json.dumps(metrics),
             },
         )
-        
+
         s.commit()
 
-    print(f"Calibration upsert completed: {item_count} items, {ability_count} abilities")
+    print(
+        f"Calibration upsert completed: {item_count} items, {ability_count} abilities"
+    )
     if linking_constants:
         print("Linking constants stored in fit_meta.model_spec.linking_constants")
     if update_question_meta:
@@ -430,13 +473,13 @@ async def main(
 ) -> int:
     """
     Main entry point for IRT calibration.
-    
+
     Returns:
         Exit code: 0 on success, 1 on failure
     """
     if dry_run:
         print("[INFO] DRY RUN MODE: No changes will be committed")
-    
+
     try:
         await run_calibration(
             lookback_days=lookback_days,
@@ -448,6 +491,7 @@ async def main(
     except Exception as e:
         print(f"[FATAL] IRT calibration failed: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -455,7 +499,7 @@ async def main(
 def cli() -> None:
     """CLI entry point."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(
         description="Run IRT calibration (mirt/ltm/eRm) with optional topic/subject filtering"
     )
@@ -488,9 +532,9 @@ def cli() -> None:
         action="store_true",
         help="Dry run mode (no database commits)",
     )
-    
+
     args = parser.parse_args()
-    
+
     exit_code = asyncio.run(
         main(
             lookback_days=args.lookback_days,

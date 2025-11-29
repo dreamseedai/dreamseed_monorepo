@@ -33,12 +33,12 @@ async def fit_bayesian_growth(
 ) -> None:
     """
     Fit Bayesian growth model using brms.
-    
+
     Args:
         lookback_weeks: Number of weeks to look back (default: 8)
         n_samples: Number of posterior samples (default: 1000)
         n_chains: Number of MCMC chains (default: 2)
-    
+
     Environment variables:
         - BRMS_LOOKBACK_WEEKS or LOOKBACK_WEEKS: Number of weeks (default: 8)
         - BRMS_N_SAMPLES or BRMS_ITER: Number of samples (default: 1000)
@@ -52,26 +52,24 @@ async def fit_bayesian_growth(
         if lookback_weeks is not None
         else os.getenv("BRMS_LOOKBACK_WEEKS") or os.getenv("LOOKBACK_WEEKS", "8")
     )
-    n_samples = int(
-        os.getenv("BRMS_N_SAMPLES") or os.getenv("BRMS_ITER", "1000")
+    n_samples = int(os.getenv("BRMS_N_SAMPLES") or os.getenv("BRMS_ITER", "1000"))
+    n_chains = int(os.getenv("BRMS_N_CHAINS") or os.getenv("BRMS_CHAINS", "2"))
+
+    print(
+        f"[INFO] Fitting Bayesian growth model (lookback={lookback_weeks} weeks, n_samples={n_samples}, n_chains={n_chains})"
     )
-    n_chains = int(
-        os.getenv("BRMS_N_CHAINS") or os.getenv("BRMS_CHAINS", "2")
-    )
-    
-    print(f"[INFO] Fitting Bayesian growth model (lookback={lookback_weeks} weeks, n_samples={n_samples}, n_chains={n_chains})")
-    
+
     # Initialize R BRMS client
     try:
         client = RBrmsClient()
     except RuntimeError as e:
         print(f"[ERROR] Failed to initialize R BRMS client: {e}")
         return
-    
+
     # Decide score source (default: weekly accuracy z-score)
     score_source = os.getenv("BRMS_SCORE_SOURCE", "accuracy").lower()
     since_date = date.today() - timedelta(weeks=lookback_weeks)
-    
+
     with get_session() as s:
         data_rows: List[Dict[str, Any]] = []
 
@@ -90,37 +88,52 @@ async def fit_bayesian_growth(
                     ORDER BY 1,2
                     """
                 )
-                acc_rows = s.execute(stmt_acc, {"since_date": since_date}).mappings().all()
+                acc_rows = (
+                    s.execute(stmt_acc, {"since_date": since_date}).mappings().all()
+                )
             except Exception as e:
-                print(f"[WARN] attempt view not available for accuracy aggregation: {e}")
+                print(
+                    f"[WARN] attempt view not available for accuracy aggregation: {e}"
+                )
                 acc_rows = []
 
             if not acc_rows:
-                print("[WARN] No weekly accuracy rows available; falling back to theta-based sources")
+                print(
+                    "[WARN] No weekly accuracy rows available; falling back to theta-based sources"
+                )
                 score_source = "theta"
             else:
                 # Compute global z-score across all rows to standardize
-                acc_values = [float(r["acc"]) for r in acc_rows if r.get("acc") is not None]
+                acc_values = [
+                    float(r["acc"]) for r in acc_rows if r.get("acc") is not None
+                ]
                 if not acc_values:
-                    print("[WARN] Weekly accuracy rows had no numeric values; falling back to theta")
+                    print(
+                        "[WARN] Weekly accuracy rows had no numeric values; falling back to theta"
+                    )
                     score_source = "theta"
                 else:
                     from statistics import mean, pstdev
 
                     m = mean(acc_values)
                     sd = pstdev(acc_values) if len(acc_values) > 1 else 0.0
+
                     def z(x: float) -> float:
                         if sd and sd > 0:
                             return (x - m) / sd
                         return 0.0
 
                     dates: List[date] = sorted({r["week_start"] for r in acc_rows})
-                    week_index_map: Dict[date, int] = {d: i for i, d in enumerate(dates)}
+                    week_index_map: Dict[date, int] = {
+                        d: i for i, d in enumerate(dates)
+                    }
                     for r in acc_rows:
                         user_id = str(r["user_id"])
                         wk = week_index_map[r["week_start"]]
                         score = z(float(r["acc"]))
-                        data_rows.append({"student": user_id, "week": wk, "score": score})
+                        data_rows.append(
+                            {"student": user_id, "week": wk, "score": score}
+                        )
 
         if score_source == "theta" and not data_rows:
             # Fallback chain based on theta
@@ -141,10 +154,14 @@ async def fit_bayesian_growth(
                     ORDER BY user_id, fitted_at
                     """
                 )
-                rows_mirt = s.execute(stmt_mirt, {"since_date": since_date}).mappings().all()
+                rows_mirt = (
+                    s.execute(stmt_mirt, {"since_date": since_date}).mappings().all()
+                )
                 if rows_mirt:
                     rows.extend([dict(r) for r in rows_mirt])
-                    print(f"[INFO] Loaded {len(rows_mirt)} theta observations from mirt_ability")
+                    print(
+                        f"[INFO] Loaded {len(rows_mirt)} theta observations from mirt_ability"
+                    )
             except Exception as e:
                 print(f"[WARN] mirt_ability table not available or query failed: {e}")
 
@@ -165,12 +182,20 @@ async def fit_bayesian_growth(
                         ORDER BY user_id, date
                         """
                     )
-                    rows_topic = s.execute(stmt_topic, {"since_date": since_date}).mappings().all()
+                    rows_topic = (
+                        s.execute(stmt_topic, {"since_date": since_date})
+                        .mappings()
+                        .all()
+                    )
                     if rows_topic:
                         rows.extend([dict(r) for r in rows_topic])
-                        print(f"[INFO] Loaded {len(rows_topic)} theta observations from student_topic_theta")
+                        print(
+                            f"[INFO] Loaded {len(rows_topic)} theta observations from student_topic_theta"
+                        )
                 except Exception as e:
-                    print(f"[WARN] student_topic_theta table not available or query failed: {e}")
+                    print(
+                        f"[WARN] student_topic_theta table not available or query failed: {e}"
+                    )
 
             # features_topic_daily (theta_mean)
             if not rows:
@@ -188,12 +213,20 @@ async def fit_bayesian_growth(
                         ORDER BY user_id, date
                         """
                     )
-                    rows_features = s.execute(stmt_features, {"since_date": since_date}).mappings().all()
+                    rows_features = (
+                        s.execute(stmt_features, {"since_date": since_date})
+                        .mappings()
+                        .all()
+                    )
                     if rows_features:
                         rows.extend([dict(r) for r in rows_features])
-                        print(f"[INFO] Loaded {len(rows_features)} theta observations from features_topic_daily")
+                        print(
+                            f"[INFO] Loaded {len(rows_features)} theta observations from features_topic_daily"
+                        )
                 except Exception as e:
-                    print(f"[WARN] features_topic_daily table not available or query failed: {e}")
+                    print(
+                        f"[WARN] features_topic_daily table not available or query failed: {e}"
+                    )
 
             # weekly_kpi ability_estimate
             if not rows:
@@ -212,10 +245,14 @@ async def fit_bayesian_growth(
                         ORDER BY user_id, week_start
                         """
                     )
-                    rows_kpi = s.execute(stmt_kpi, {"since_date": since_date}).mappings().all()
+                    rows_kpi = (
+                        s.execute(stmt_kpi, {"since_date": since_date}).mappings().all()
+                    )
                     if rows_kpi:
                         rows.extend([dict(r) for r in rows_kpi])
-                        print(f"[INFO] Loaded {len(rows_kpi)} ability observations from weekly_kpi")
+                        print(
+                            f"[INFO] Loaded {len(rows_kpi)} ability observations from weekly_kpi"
+                        )
                 except Exception as e:
                     print(f"[WARN] weekly_kpi.ability_estimate not available: {e}")
 
@@ -229,12 +266,14 @@ async def fit_bayesian_growth(
             dates = sorted(set(r["date"] for r in rows))
             week_index_map = {d: idx for idx, d in enumerate(dates)}
             for r in rows:
-                data_rows.append({
-                    "student": str(r["user_id"]),
-                    "week": week_index_map[r["date"]],
-                    "score": float(r["score"]),
-                })
-    
+                data_rows.append(
+                    {
+                        "student": str(r["user_id"]),
+                        "week": week_index_map[r["date"]],
+                        "score": float(r["score"]),
+                    }
+                )
+
     # Prepare priors (default if not provided)
     # Priors are designed for small sample/noise stabilization:
     # - Normal priors on intercept/week: Regularize coefficients towards 0
@@ -244,17 +283,21 @@ async def fit_bayesian_growth(
     #   2. High noise: Weak priors allow data to dominate but prevent extreme values
     #   3. Unstable gradients: Bounded priors help MCMC convergence
     priors = {
-        "intercept": {"dist": "normal", "mean": 0, "sd": 1},  # Regularize baseline ability
+        "intercept": {
+            "dist": "normal",
+            "mean": 0,
+            "sd": 1,
+        },  # Regularize baseline ability
         "week": {"dist": "normal", "mean": 0, "sd": 0.5},  # Regularize growth slope
         "sd": {"dist": "cauchy", "location": 0, "scale": 1},  # Robust to outliers
     }
-    
+
     # Get family from environment (default: gaussian)
     family = os.getenv("BRMS_FAMILY", "gaussian").lower()
-    
+
     # Call R BRMS service
     formula = "score ~ week + (week|student_id)"
-    
+
     try:
         result = await client.fit_growth(
             data_rows,
@@ -267,21 +310,22 @@ async def fit_bayesian_growth(
     except Exception as e:
         print(f"[ERROR] R BRMS service call failed: {e}")
         import traceback
+
         traceback.print_exc()
         return
-    
+
     # Extract results
     posterior_summary = result.get("posterior_summary") or {}
     diagnostics = result.get("diagnostics") or {}
     predictions = result.get("predictions") or {}  # Per-student predictions
-    
+
     print(f"[INFO] Posterior summary: {json.dumps(posterior_summary, indent=2)}")
     print(f"[INFO] Diagnostics: {json.dumps(diagnostics, indent=2)}")
     print(f"[INFO] Predictions computed for {len(predictions)} students")
-    
+
     # Store results
     run_id = f"brms-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
-    
+
     with get_session() as s:
         stmt_meta = sa.text(
             """
@@ -309,7 +353,7 @@ async def fit_bayesian_growth(
                 fitted_at = NOW()
             """
         )
-        
+
         s.execute(
             stmt_meta,
             {
@@ -320,7 +364,7 @@ async def fit_bayesian_growth(
                 "diagnostics": json.dumps(diagnostics),
             },
         )
-        
+
         # Update weekly_kpi with P (goal probability) and σ (uncertainty) if predictions available
         update_kpi = os.getenv("BRMS_UPDATE_KPI", "true").lower() == "true"
         if update_kpi and predictions:
@@ -345,32 +389,38 @@ async def fit_bayesian_growth(
                   )
                 """
             )
-            
+
             updated_count = 0
             for student_id, pred in predictions.items():
                 try:
                     p_value = pred.get("probability") or pred.get("P")
-                    sigma_value = pred.get("uncertainty") or pred.get("sigma") or pred.get("sd")
-                    
+                    sigma_value = (
+                        pred.get("uncertainty") or pred.get("sigma") or pred.get("sd")
+                    )
+
                     if p_value is not None:
                         result = s.execute(
                             stmt_kpi,
                             {
                                 "user_id": student_id,
                                 "p_value": float(p_value),
-                                "sigma_value": float(sigma_value) if sigma_value is not None else 0.0,
+                                "sigma_value": (
+                                    float(sigma_value)
+                                    if sigma_value is not None
+                                    else 0.0
+                                ),
                             },
                         )
-                        rc = getattr(result, 'rowcount', None)
+                        rc = getattr(result, "rowcount", None)
                         if isinstance(rc, int) and rc > 0:
                             updated_count += 1
                 except Exception as e:
                     print(f"[WARN] Failed to update KPI for {student_id}: {e}")
-            
+
             print(f"[INFO] Updated weekly_kpi.P/sigma for {updated_count} users")
-        
+
         s.commit()
-    
+
     print(f"[INFO] Bayesian growth model fitting completed: run_id={run_id}")
 
 
@@ -382,13 +432,13 @@ async def main(
 ) -> int:
     """
     Main entry point for Bayesian growth model fitting.
-    
+
     Returns:
         Exit code: 0 on success, 1 on failure
     """
     if dry_run:
         print("[INFO] DRY RUN MODE: No changes will be committed")
-    
+
     try:
         await fit_bayesian_growth(
             lookback_weeks=lookback_weeks,
@@ -399,6 +449,7 @@ async def main(
     except Exception as e:
         print(f"[FATAL] Bayesian growth model fitting failed: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -406,7 +457,7 @@ async def main(
 def cli() -> None:
     """CLI entry point."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(
         description="Fit Bayesian growth model for goal probability prediction"
     )
@@ -433,9 +484,9 @@ def cli() -> None:
         action="store_true",
         help="Dry run mode (no database commits)",
     )
-    
+
     args = parser.parse_args()
-    
+
     exit_code = asyncio.run(
         main(
             lookback_weeks=args.lookback_weeks,

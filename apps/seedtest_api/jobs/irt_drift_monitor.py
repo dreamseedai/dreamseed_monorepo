@@ -125,7 +125,7 @@ def load_responses(
     engine, window: DriftWindow, min_sample: int = DEFAULT_MIN_SAMPLE
 ) -> pd.DataFrame:
     """Load item responses for a given window.
-    
+
     Returns DataFrame with columns: item_id, user_id, correct (0/1)
     Filters to items with >= min_sample responses.
     """
@@ -154,7 +154,7 @@ def load_responses(
         ORDER BY wr.item_id, wr.user_id
         """
     )
-    
+
     with engine.connect() as conn:
         df = pd.read_sql(
             query,
@@ -165,7 +165,7 @@ def load_responses(
                 "min_sample": min_sample,
             },
         )
-    
+
     logger.info(
         f"Loaded {len(df)} responses for {df['item_id'].nunique()} items from window {window.window_id}"
     )
@@ -177,11 +177,11 @@ def call_r_irt_calibrate(
     model: str = "3PL",
 ) -> Dict[int, Dict[str, float]]:
     """Call R IRT plumber service to calibrate items.
-    
+
     Args:
         responses_df: DataFrame with columns [item_id, user_id, correct]
         model: "2PL" or "3PL"
-        
+
     Returns:
         Dict mapping item_id to {a, b, c, a_se, b_se, c_se}
     """
@@ -192,14 +192,14 @@ def call_r_irt_calibrate(
         values="correct",
         aggfunc="first",  # Should be unique per user-item
     )
-    
+
     # Convert to list of lists for JSON
     payload = {
         "responses": response_matrix.values.tolist(),
         "item_ids": response_matrix.columns.tolist(),
         "model": model,
     }
-    
+
     try:
         logger.info(f"Calling R IRT service at {R_IRT_PLUMBER_URL}/irt/calibrate")
         resp = httpx.post(
@@ -209,7 +209,7 @@ def call_r_irt_calibrate(
         )
         resp.raise_for_status()
         result = resp.json()
-        
+
         # Parse result: expected format {"item_id": {"a": ..., "b": ..., "c": ..., "a_se": ..., ...}}
         item_params = {}
         for item_data in result.get("items", []):
@@ -222,30 +222,28 @@ def call_r_irt_calibrate(
                 "b_se": item_data.get("b_se", 0.0),
                 "c_se": item_data.get("c_se", 0.0),
             }
-        
+
         logger.info(f"Calibrated {len(item_params)} items via R IRT service")
         return item_params
-    
+
     except Exception as e:
         logger.error(f"R IRT calibration failed: {e}")
         raise
 
 
-def compute_information_summary(
-    a: float, b: float, c: float
-) -> Dict[str, float]:
+def compute_information_summary(a: float, b: float, c: float) -> Dict[str, float]:
     """Compute simple information function summary.
-    
+
     Returns max info and theta at max for 3PL item.
     """
     from shared.irt import item_information_3pl
     import numpy as np
-    
+
     theta_range = np.linspace(-3, 3, 50)
     info_values = [item_information_3pl(t, a, b, c) for t in theta_range]
     max_info = float(np.max(info_values))
     theta_at_max = float(theta_range[np.argmax(info_values)])
-    
+
     return {
         "max": max_info,
         "theta_at_max": theta_at_max,
@@ -259,11 +257,11 @@ def detect_drift(
 ) -> List[DriftAlert]:
     """Detect drift by comparing baseline and recent calibrations."""
     alerts: List[DriftAlert] = []
-    
+
     delta_a = abs(recent_calib.a_hat - baseline_calib.a_hat)
     delta_b = abs(recent_calib.b_hat - baseline_calib.b_hat)
     delta_c = recent_calib.c_hat - baseline_calib.c_hat
-    
+
     # Check thresholds
     if delta_a > thresholds.get("delta_a", DEFAULT_THRESHOLDS["delta_a"]):
         severity = "severe" if delta_a > 0.4 else "moderate"
@@ -278,14 +276,10 @@ def detect_drift(
                 run_id=recent_calib.run_id,
             )
         )
-    
+
     if delta_b > thresholds.get("delta_b", DEFAULT_THRESHOLDS["delta_b"]):
         severity = (
-            "severe"
-            if delta_b > 0.5
-            else "moderate"
-            if delta_b > 0.35
-            else "minor"
+            "severe" if delta_b > 0.5 else "moderate" if delta_b > 0.35 else "minor"
         )
         alerts.append(
             DriftAlert(
@@ -298,7 +292,7 @@ def detect_drift(
                 run_id=recent_calib.run_id,
             )
         )
-    
+
     if delta_c > thresholds.get("delta_c", DEFAULT_THRESHOLDS["delta_c"]):
         alerts.append(
             DriftAlert(
@@ -311,7 +305,7 @@ def detect_drift(
                 run_id=recent_calib.run_id,
             )
         )
-    
+
     # CI separation check (if CIs available)
     if (
         baseline_calib.b_l95 is not None
@@ -332,7 +326,7 @@ def detect_drift(
                 run_id=recent_calib.run_id,
             )
         )
-    
+
     return alerts
 
 
@@ -340,7 +334,7 @@ def save_calibrations(engine, calibrations: List[ItemCalibration]) -> None:
     """Save calibration results to database."""
     if not calibrations:
         return
-    
+
     records = [
         {
             "item_id": c.item_id,
@@ -361,11 +355,11 @@ def save_calibrations(engine, calibrations: List[ItemCalibration]) -> None:
         }
         for c in calibrations
     ]
-    
+
     df = pd.DataFrame(records)
     with engine.begin() as conn:
         df.to_sql("item_calibration", conn, if_exists="append", index=False)
-    
+
     logger.info(f"Saved {len(calibrations)} calibration records")
 
 
@@ -373,7 +367,7 @@ def save_alerts(engine, alerts: List[DriftAlert]) -> None:
     """Save drift alerts to database."""
     if not alerts:
         return
-    
+
     records = [
         {
             "item_id": a.item_id,
@@ -386,11 +380,11 @@ def save_alerts(engine, alerts: List[DriftAlert]) -> None:
         }
         for a in alerts
     ]
-    
+
     df = pd.DataFrame(records)
     with engine.begin() as conn:
         df.to_sql("drift_alerts", conn, if_exists="append", index=False)
-    
+
     logger.info(f"Saved {len(alerts)} drift alerts")
 
 
@@ -407,15 +401,15 @@ def run_drift_monitor(
         thresholds = DEFAULT_THRESHOLDS.copy()
     if run_id is None:
         run_id = f"drift_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
-    
+
     engine = create_engine(DATABASE_URL)
     logger.info(f"Starting drift monitor run: {run_id}")
-    
+
     # Step 1: Define recent window
     now = datetime.now(timezone.utc)
     recent_start = now - timedelta(days=recent_days)
     recent_window = create_drift_window(engine, recent_start, now)
-    
+
     # Step 2: Define baseline window
     if baseline_from and baseline_to:
         baseline_window = create_drift_window(engine, baseline_from, baseline_to)
@@ -424,36 +418,36 @@ def run_drift_monitor(
         baseline_end = now - timedelta(days=90)
         baseline_start = baseline_end - timedelta(days=30)
         baseline_window = create_drift_window(engine, baseline_start, baseline_end)
-    
+
     # Step 3: Load responses
     recent_responses = load_responses(engine, recent_window, min_sample)
     baseline_responses = load_responses(engine, baseline_window, min_sample)
-    
+
     # Get item list (items with data in both windows)
     recent_items = set(recent_responses["item_id"].unique())
     baseline_items = set(baseline_responses["item_id"].unique())
     common_items = recent_items & baseline_items
     logger.info(f"Analyzing {len(common_items)} items with data in both windows")
-    
+
     if len(common_items) == 0:
         logger.warning("No common items between windows; exiting")
         return {"run_id": run_id, "calibrations": 0, "alerts": 0}
-    
+
     # Step 4: Calibrate via R IRT service
     baseline_params = call_r_irt_calibrate(baseline_responses, model="3PL")
     recent_params = call_r_irt_calibrate(recent_responses, model="3PL")
-    
+
     # Step 5: Build calibration objects and detect drift
     calibrations: List[ItemCalibration] = []
     all_alerts: List[DriftAlert] = []
-    
+
     for item_id in common_items:
         if item_id not in baseline_params or item_id not in recent_params:
             continue
-        
+
         bp = baseline_params[item_id]
         rp = recent_params[item_id]
-        
+
         # Compute CIs (±1.96 * SE for 95% CI)
         baseline_calib = ItemCalibration(
             item_id=item_id,
@@ -470,10 +464,10 @@ def run_drift_monitor(
             n=len(baseline_responses[baseline_responses["item_id"] == item_id]),
             run_id=run_id,
         )
-        
+
         # Information function summary
         info_summary = compute_information_summary(rp["a"], rp["b"], rp["c"])
-        
+
         recent_calib = ItemCalibration(
             item_id=item_id,
             window_id=recent_window.window_id,
@@ -490,24 +484,24 @@ def run_drift_monitor(
             info=info_summary,
             run_id=run_id,
         )
-        
+
         calibrations.append(recent_calib)
-        
+
         # Detect drift
         alerts = detect_drift(baseline_calib, recent_calib, thresholds)
         all_alerts.extend(alerts)
-        
+
         if alerts:
             logger.warning(f"Item {item_id}: {len(alerts)} drift alerts")
-    
+
     # Step 6: Save results
     save_calibrations(engine, calibrations)
     save_alerts(engine, all_alerts)
-    
+
     logger.info(
         f"Drift monitor complete. {len(calibrations)} items calibrated, {len(all_alerts)} alerts"
     )
-    
+
     return {
         "run_id": run_id,
         "baseline_window": baseline_window.window_id,
@@ -547,21 +541,19 @@ def main():
         type=str,
         help="Run identifier",
     )
-    
+
     args = parser.parse_args()
-    
+
     baseline_from = (
         datetime.fromisoformat(args.baseline_from) if args.baseline_from else None
     )
-    baseline_to = (
-        datetime.fromisoformat(args.baseline_to) if args.baseline_to else None
-    )
-    
+    baseline_to = datetime.fromisoformat(args.baseline_to) if args.baseline_to else None
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
-    
+
     result = run_drift_monitor(
         recent_days=args.recent_days,
         baseline_from=baseline_from,
@@ -569,7 +561,7 @@ def main():
         min_sample=args.min_sample,
         run_id=args.run_id,
     )
-    
+
     print(
         f"Run {result['run_id']}: {result['calibrations']} calibrations, {result['alerts']} alerts"
     )

@@ -8,7 +8,11 @@ MathML → MathJax 변환 시스템
 - 회귀 테스트 자동화
 """
 
-from .converter import MathMLToTeXConverter, convert_wiris_to_tex, extract_mathml_from_html
+from .converter import (
+    MathMLToTeXConverter,
+    convert_wiris_to_tex,
+    extract_mathml_from_html,
+)
 from .validator import MathValidator, RegressionTestSuite, ValidationResult
 
 __all__ = [

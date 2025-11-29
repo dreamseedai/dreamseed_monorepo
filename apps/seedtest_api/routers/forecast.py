@@ -14,10 +14,12 @@ router = APIRouter(prefix="/forecast", tags=["forecast"])
 A = float(os.getenv("ABILITY_TO_SCORE_A", "1.0"))
 B = float(os.getenv("ABILITY_TO_SCORE_B", "0.0"))
 
+
 def score_to_theta(target_score: float) -> float:
     if A == 0:
         return target_score  # 안전장치: 변환 비활성
     return (target_score - B) / A
+
 
 @router.get("/student")
 async def forecast_student(
@@ -27,10 +29,16 @@ async def forecast_student(
     db: Session = Depends(get_db),
 ):
     # Prefer GLMM theta if available, else fallback to attempts percentile->proxy
-    row = db.execute(
-        text("SELECT theta, se FROM ability_estimates WHERE user_id=:u ORDER BY updated_at DESC LIMIT 1"),
-        {"u": user_id},
-    ).mappings().first()
+    row = (
+        db.execute(
+            text(
+                "SELECT theta, se FROM ability_estimates WHERE user_id=:u ORDER BY updated_at DESC LIMIT 1"
+            ),
+            {"u": user_id},
+        )
+        .mappings()
+        .first()
+    )
     if not row:
         raise HTTPException(404, "no ability estimate")
 
@@ -55,10 +63,11 @@ async def forecast_student(
         from ..score_analysis.growth import forecast_summary
 
         # target/horizon은 설정/질의로 변경 가능
-        fcast = forecast_summary(theta or 0.0, se or 0.0, target=target_theta, k=horizon)
+        fcast = forecast_summary(
+            theta or 0.0, se or 0.0, target=target_theta, k=horizon
+        )
         data["forecast"] = fcast
     except Exception:
         pass
 
     return data
-

@@ -141,30 +141,30 @@ REPORT_TEMPLATE = """
 
 class DriftReporter:
     """Generate drift reports"""
-    
+
     def __init__(self, database_url: str):
         self.database_url = database_url
         self.pool: Optional[asyncpg.Pool] = None
-    
+
     async def connect(self):
         self.pool = await asyncpg.create_pool(self.database_url, min_size=1, max_size=3)
-    
+
     async def close(self):
         if self.pool:
             await self.pool.close()
-    
+
     async def gather_report_data(self, window_id: int) -> Dict:
         """Gather all data for report"""
         async with self.pool.acquire() as conn:
             # Window metadata
             window = await conn.fetchrow(
                 "SELECT label, start_at, end_at FROM shared_irt.windows WHERE id = $1",
-                window_id
+                window_id,
             )
-            
+
             if not window:
                 raise ValueError(f"Window {window_id} not found")
-            
+
             # Statistics
             stats = await conn.fetchrow(
                 """
@@ -178,9 +178,9 @@ class DriftReporter:
                 FROM shared_irt.item_calibration
                 WHERE window_id = $1
                 """,
-                window_id
+                window_id,
             )
-            
+
             # Active alerts
             alerts = await conn.fetch(
                 """
@@ -198,9 +198,9 @@ class DriftReporter:
                     END,
                     ABS(da.value) DESC NULLS LAST
                 """,
-                window_id
+                window_id,
             )
-            
+
             # Top drifts (comparison with previous window)
             top_drifts = await conn.fetch(
                 """
@@ -224,39 +224,40 @@ class DriftReporter:
                 ORDER BY ABS(curr.b_hat - prev.b_hat) DESC
                 LIMIT 10
                 """,
-                window_id
+                window_id,
             )
-            
+
             return {
                 "window_id": window_id,
-                "window_label": window['label'],
+                "window_label": window["label"],
                 "stats": dict(stats),
                 "alerts": [dict(row) for row in alerts],
                 "top_drifts": [dict(row) for row in top_drifts],
-                "report_date": datetime.utcnow()
+                "report_date": datetime.utcnow(),
             }
-    
+
     async def generate_report(self, window_id: int, output_path: str):
         """Generate HTML/PDF report"""
         data = await self.gather_report_data(window_id)
-        
+
         # Render template
         template = Template(REPORT_TEMPLATE)
         html = template.render(**data)
-        
+
         # Write HTML
-        html_path = Path(output_path).with_suffix('.html')
-        html_path.write_text(html, encoding='utf-8')
+        html_path = Path(output_path).with_suffix(".html")
+        html_path.write_text(html, encoding="utf-8")
         logger.info(f"HTML report: {html_path}")
-        
+
         # Convert to PDF (requires wkhtmltopdf or weasyprint)
         try:
             import subprocess
-            pdf_path = Path(output_path).with_suffix('.pdf')
+
+            pdf_path = Path(output_path).with_suffix(".pdf")
             subprocess.run(
-                ['wkhtmltopdf', str(html_path), str(pdf_path)],
+                ["wkhtmltopdf", str(html_path), str(pdf_path)],
                 check=True,
-                capture_output=True
+                capture_output=True,
             )
             logger.info(f"PDF report: {pdf_path}")
         except (FileNotFoundError, subprocess.CalledProcessError) as e:
@@ -265,22 +266,22 @@ class DriftReporter:
 
 
 @click.command()
-@click.option('--database-url', envvar='DATABASE_URL', required=True)
-@click.option('--window-id', type=int, required=True)
-@click.option('--output', required=True, help='Output file path (PDF or HTML)')
+@click.option("--database-url", envvar="DATABASE_URL", required=True)
+@click.option("--window-id", type=int, required=True)
+@click.option("--output", required=True, help="Output file path (PDF or HTML)")
 def main(database_url: str, window_id: int, output: str):
     """Generate IRT drift report for a window"""
     reporter = DriftReporter(database_url)
-    
+
     async def run():
         try:
             await reporter.connect()
             await reporter.generate_report(window_id, output)
         finally:
             await reporter.close()
-    
+
     asyncio.run(run())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

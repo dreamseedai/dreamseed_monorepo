@@ -83,7 +83,9 @@ def upgrade() -> None:
                 comment="Reference to drift_windows.id",
             ),
             # Parameter estimates
-            sa.Column("a_hat", sa.Float, nullable=False, comment="Discrimination estimate"),
+            sa.Column(
+                "a_hat", sa.Float, nullable=False, comment="Discrimination estimate"
+            ),
             sa.Column("b_hat", sa.Float, nullable=False, comment="Difficulty estimate"),
             sa.Column("c_hat", sa.Float, nullable=False, comment="Guessing estimate"),
             # 95% confidence/credible intervals
@@ -131,7 +133,9 @@ def upgrade() -> None:
         op.create_table(
             "drift_alerts",
             sa.Column("id", sa.BigInteger, primary_key=True, autoincrement=True),
-            sa.Column("item_id", sa.BigInteger, nullable=False, comment="Item identifier"),
+            sa.Column(
+                "item_id", sa.BigInteger, nullable=False, comment="Item identifier"
+            ),
             sa.Column(
                 "window_id",
                 sa.BigInteger,
@@ -144,7 +148,9 @@ def upgrade() -> None:
                 nullable=False,
                 comment="Metric name (delta_a, delta_b, delta_c, dif_*)",
             ),
-            sa.Column("value", sa.Float, nullable=False, comment="Observed metric value"),
+            sa.Column(
+                "value", sa.Float, nullable=False, comment="Observed metric value"
+            ),
             sa.Column(
                 "threshold",
                 sa.Float,

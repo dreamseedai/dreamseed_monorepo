@@ -8,6 +8,7 @@ Module-level helpers are provided for simple integrations (e.g., metrics.py):
 - prob_goal(mu, sd, target) -> float uses /growth/predict when available,
   falls back to Normal approximation if the service is unreachable.
 """
+
 from __future__ import annotations
 
 import os
@@ -126,20 +127,18 @@ class RBrmsClient:
             r.raise_for_status()
             return r.json()
 
-    def prob_goal(
-        self, mu: float, sd: float, target: float
-    ) -> float:
+    def prob_goal(self, mu: float, sd: float, target: float) -> float:
         """
         Compute goal probability P(score >= target | mu, sd).
-        
+
         This is a convenience method for integration with metrics.py.
         Uses normal approximation (fallback when R service unavailable).
-        
+
         Args:
             mu: Mean (expected score)
             sd: Standard deviation
             target: Target score
-        
+
         Returns:
             Probability in [0, 1]
         """
@@ -164,7 +163,10 @@ class RBrmsClient:
 
 
 def _base_url() -> str:
-    return (os.getenv("R_BRMS_BASE_URL") or "http://r-brms-plumber.seedtest.svc.cluster.local:80").rstrip("/")
+    return (
+        os.getenv("R_BRMS_BASE_URL")
+        or "http://r-brms-plumber.seedtest.svc.cluster.local:80"
+    ).rstrip("/")
 
 
 def _timeout() -> float:
@@ -208,4 +210,3 @@ def prob_goal(mu: float, sd: float, target: float) -> float:
 
 
 __all__ = ["RBrmsClient", "prob_goal"]
-

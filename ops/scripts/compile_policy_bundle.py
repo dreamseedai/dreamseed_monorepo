@@ -28,20 +28,17 @@ def compile_one(yaml_path: pathlib.Path):
     try:
         # YAML 로드
         data = yaml.safe_load(yaml_path.read_text("utf-8"))
-        
+
         # 스키마 검증
         validate(instance=data, schema=schema)
-        
+
         # JSON 출력
         out = compiled_dir / (yaml_path.stem + ".json")
-        out.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2),
-            "utf-8"
-        )
-        
+        out.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
+
         print(f"✔ compiled {yaml_path.name} -> {out.name}")
         return True
-        
+
     except yaml.YAMLError as e:
         print(f"❌ YAML parse error in {yaml_path.name}: {e}")
         return False
@@ -57,29 +54,29 @@ def compile_one(yaml_path: pathlib.Path):
 def main():
     """모든 번들 컴파일"""
     bundles_dir = root / "governance" / "bundles"
-    
+
     if not bundles_dir.exists():
         print(f"❌ Bundles directory not found: {bundles_dir}")
         sys.exit(1)
-    
+
     yaml_files = list(bundles_dir.glob("*.yaml"))
-    
+
     if not yaml_files:
         print(f"⚠️  No YAML files found in {bundles_dir}")
         sys.exit(0)
-    
+
     print(f"📦 Compiling {len(yaml_files)} policy bundle(s)...")
     print()
-    
+
     success_count = 0
     for yaml_file in yaml_files:
         if compile_one(yaml_file):
             success_count += 1
-    
+
     print()
     print(f"✅ Successfully compiled {success_count}/{len(yaml_files)} bundle(s)")
     print(f"📁 Output directory: {compiled_dir}")
-    
+
     if success_count < len(yaml_files):
         sys.exit(1)
 

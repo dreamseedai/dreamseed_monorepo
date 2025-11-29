@@ -30,7 +30,10 @@ from .adaptive import sem_from_items
 # Import from shared.irt module (irt.py), not irt/ package
 # Need to use importlib to load the .py file explicitly due to name conflict with irt/ directory
 import importlib.util
-_spec = importlib.util.spec_from_file_location("shared.irt_module", __file__.replace("reporting.py", "irt.py"))
+
+_spec = importlib.util.spec_from_file_location(
+    "shared.irt_module", __file__.replace("reporting.py", "irt.py")
+)
 if _spec and _spec.loader:
     _irt_module = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(_irt_module)
@@ -92,7 +95,9 @@ def _topic_breakdown(items: Sequence[Mapping]) -> Dict[str, Dict[str, float]]:
     return stats
 
 
-def _recommendations(topic_stats: Mapping[str, Mapping[str, float]], top_k: int = 3) -> List[str]:
+def _recommendations(
+    topic_stats: Mapping[str, Mapping[str, float]], top_k: int = 3
+) -> List[str]:
     # Sort by ascending pct correct, require at least 2 items to be confident
     candidates = [
         (topic, st.get("pct", 0.0), st.get("n", 0.0))

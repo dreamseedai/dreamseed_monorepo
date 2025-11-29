@@ -28,7 +28,11 @@ app.add_middleware(
 @app.get("/")
 async def root():
     """API 루트 엔드포인트"""
-    return {"message": "DreamSeedAI Backend API", "version": "1.0.0", "status": "running"}
+    return {
+        "message": "DreamSeedAI Backend API",
+        "version": "1.0.0",
+        "status": "running",
+    }
 
 
 @app.get("/health")

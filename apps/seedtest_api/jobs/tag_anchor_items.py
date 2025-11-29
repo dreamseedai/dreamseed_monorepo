@@ -51,7 +51,8 @@ def find_anchor_candidates(
     candidates = []
 
     # Query items with IRT parameters and response counts
-    stmt = text("""
+    stmt = text(
+        """
         WITH item_stats AS (
             SELECT
                 q.id,
@@ -81,14 +82,19 @@ def find_anchor_candidates(
           AND attempt_count >= :min_responses
         ORDER BY attempt_count DESC, user_count DESC
         LIMIT 500
-    """)
+    """
+    )
 
-    rows = session.execute(
-        stmt,
-        {
-            "min_responses": min_responses,
-        },
-    ).mappings().all()
+    rows = (
+        session.execute(
+            stmt,
+            {
+                "min_responses": min_responses,
+            },
+        )
+        .mappings()
+        .all()
+    )
 
     for row in rows:
         item_id = row["id"]
@@ -98,6 +104,7 @@ def find_anchor_candidates(
         if isinstance(irt_params, str):
             try:
                 import json
+
                 irt_params = json.loads(irt_params)
             except Exception:
                 continue
@@ -133,22 +140,22 @@ def find_anchor_candidates(
         # Stability check (optional): check if params are consistent across calibrations
         if require_stable_difficulty:
             # Check variance in recent calibrations
-            stmt_stability = text("""
+            stmt_stability = text(
+                """
                 SELECT params->>'b' AS b_val
                 FROM mirt_item_params
                 WHERE item_id = :item_id
                   AND fitted_at >= NOW() - INTERVAL '90 days'
                 ORDER BY fitted_at DESC
                 LIMIT 5
-            """)
+            """
+            )
             stability_rows = session.execute(
                 stmt_stability, {"item_id": str(item_id)}
             ).fetchall()
 
             if len(stability_rows) >= 2:
-                b_values = [
-                    float(r[0]) for r in stability_rows if r[0] is not None
-                ]
+                b_values = [float(r[0]) for r in stability_rows if r[0] is not None]
                 if b_values:
                     b_std = (
                         sum((x - sum(b_values) / len(b_values)) ** 2 for x in b_values)
@@ -196,24 +203,25 @@ def tag_items_as_anchor(
     for item_id in item_ids:
         try:
             # Check current tags
-            stmt_check = text("""
+            stmt_check = text(
+                """
                 SELECT meta->'tags' AS current_tags
                 FROM question
                 WHERE id = :item_id
-            """)
+            """
+            )
             row = session.execute(stmt_check, {"item_id": item_id}).fetchone()
 
             if not row:
                 results["errors"] += 1
-                results["details"].append(
-                    {"item_id": item_id, "status": "not_found"}
-                )
+                results["details"].append({"item_id": item_id, "status": "not_found"})
                 continue
 
             current_tags = row[0]
             if isinstance(current_tags, str):
                 try:
                     import json
+
                     current_tags = json.loads(current_tags)
                 except Exception:
                     current_tags = []
@@ -232,7 +240,8 @@ def tag_items_as_anchor(
             if not dry_run:
                 # Add "anchor" tag
                 new_tags = current_tags + ["anchor"]
-                stmt_update = text("""
+                stmt_update = text(
+                    """
                     UPDATE question
                     SET meta = jsonb_set(
                         COALESCE(meta, '{}'::jsonb),
@@ -242,7 +251,8 @@ def tag_items_as_anchor(
                     ),
                     updated_at = NOW()
                     WHERE id = :item_id
-                """)
+                """
+                )
                 session.execute(
                     stmt_update,
                     {
@@ -285,24 +295,29 @@ def verify_anchor_tags(session) -> Dict[str, Any]:
         Dict with verification results
     """
     # Count tagged items
-    stmt_count = text("""
+    stmt_count = text(
+        """
         SELECT COUNT(*) AS count
         FROM question
         WHERE meta->'tags' @> '["anchor"]'::jsonb
-    """)
+    """
+    )
     tagged_count = session.execute(stmt_count).fetchone()[0]
 
     # Count items with IRT params
-    stmt_irt = text("""
+    stmt_irt = text(
+        """
         SELECT COUNT(*) AS count
         FROM question
         WHERE meta ? 'irt'
           AND meta->'tags' @> '["anchor"]'::jsonb
-    """)
+    """
+    )
     tagged_with_irt = session.execute(stmt_irt).fetchone()[0]
 
     # List tagged items
-    stmt_list = text("""
+    stmt_list = text(
+        """
         SELECT
             id,
             meta->'tags' AS tags,
@@ -312,17 +327,20 @@ def verify_anchor_tags(session) -> Dict[str, Any]:
         WHERE meta->'tags' @> '["anchor"]'::jsonb
         ORDER BY id
         LIMIT 50
-    """)
+    """
+    )
     tagged_items = session.execute(stmt_list).mappings().all()
 
     # Count items used in recent calibrations
-    stmt_calib = text("""
+    stmt_calib = text(
+        """
         SELECT COUNT(DISTINCT mip.item_id) AS count
         FROM mirt_item_params mip
         JOIN question q ON q.id::text = mip.item_id
         WHERE q.meta->'tags' @> '["anchor"]'::jsonb
           AND mip.fitted_at >= NOW() - INTERVAL '30 days'
-    """)
+    """
+    )
     calib_count = session.execute(stmt_calib).fetchone()[0]
 
     return {
@@ -447,7 +465,9 @@ def main() -> int:
             top_candidates = candidates[: args.max_candidates]
             item_ids = [c["item_id"] for c in top_candidates]
 
-            print(f"[FOUND] {len(candidates)} candidates, selecting top {len(item_ids)}")
+            print(
+                f"[FOUND] {len(candidates)} candidates, selecting top {len(item_ids)}"
+            )
             if dry_run:
                 print("[DRY_RUN] Preview mode - no changes will be made")
                 print("\n📋 Top candidates:")

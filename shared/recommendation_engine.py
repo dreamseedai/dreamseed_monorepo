@@ -25,6 +25,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
@@ -32,6 +33,7 @@ except ImportError:
 
 class ContentType(str, Enum):
     """학습 콘텐츠 유형"""
+
     VIDEO = "video"
     ARTICLE = "article"
     PRACTICE = "practice"
@@ -41,6 +43,7 @@ class ContentType(str, Enum):
 
 class DifficultyLevel(str, Enum):
     """난이도 레벨"""
+
     BEGINNER = "beginner"
     INTERMEDIATE = "intermediate"
     ADVANCED = "advanced"
@@ -49,6 +52,7 @@ class DifficultyLevel(str, Enum):
 @dataclass
 class LearningContent:
     """학습 콘텐츠"""
+
     content_id: str
     title: str
     content_type: ContentType
@@ -58,10 +62,10 @@ class LearningContent:
     url: Optional[str] = None
     duration_min: Optional[int] = None
     rating: Optional[float] = None
-    
+
     # 메타데이터 (TF-IDF용)
     keywords: Optional[List[str]] = None
-    
+
     def to_dict(self) -> dict:
         return {
             "content_id": self.content_id,
@@ -80,12 +84,13 @@ class LearningContent:
 @dataclass
 class StudentWeakness:
     """학생 취약점"""
+
     topic: str
     accuracy: float
     n_attempts: int
     avg_difficulty: float
     importance: float  # 중요도 (0~1)
-    
+
     def to_dict(self) -> dict:
         return {
             "topic": self.topic,
@@ -99,11 +104,12 @@ class StudentWeakness:
 @dataclass
 class Recommendation:
     """추천 결과"""
+
     content: LearningContent
     score: float
     reason: str
     match_topics: List[str]
-    
+
     def to_dict(self) -> dict:
         return {
             "content": self.content.to_dict(),
@@ -117,16 +123,17 @@ class Recommendation:
 # Rule-based Recommender (Phase 1)
 # ==============================================================================
 
+
 class RuleBasedRecommender:
     """규칙 기반 추천 엔진
-    
+
     학생의 취약 토픽에 대해 미리 정의된 규칙으로 콘텐츠를 추천합니다.
     """
-    
+
     def __init__(self, contents: List[LearningContent]):
         self.contents = contents
         self._build_topic_index()
-        
+
     def _build_topic_index(self):
         """토픽별 콘텐츠 인덱스 구축"""
         self.topic_index: Dict[str, List[LearningContent]] = {}
@@ -135,7 +142,7 @@ class RuleBasedRecommender:
                 if topic not in self.topic_index:
                     self.topic_index[topic] = []
                 self.topic_index[topic].append(content)
-    
+
     def recommend(
         self,
         weaknesses: List[StudentWeakness],
@@ -143,65 +150,67 @@ class RuleBasedRecommender:
         top_k: int = 5,
     ) -> List[Recommendation]:
         """규칙 기반 추천
-        
+
         Parameters
         ----------
         weaknesses : List[StudentWeakness]
             학생의 취약점 목록
-            
+
         student_ability : float
             학생 능력치 (θ)
-            
+
         top_k : int
             추천 개수
-            
+
         Returns
         -------
         List[Recommendation]
             추천 콘텐츠 목록
         """
         recommendations = []
-        
+
         # 중요도 순으로 정렬
         sorted_weaknesses = sorted(
             weaknesses,
             key=lambda w: (w.importance, 1.0 - w.accuracy),
             reverse=True,
         )
-        
+
         for weakness in sorted_weaknesses[:3]:  # 상위 3개 취약점
             # 해당 토픽의 콘텐츠 찾기
             candidates = self.topic_index.get(weakness.topic, [])
-            
+
             for content in candidates:
                 # 난이도 매칭
                 difficulty_match = self._match_difficulty(
                     student_ability, weakness.accuracy, content.difficulty
                 )
-                
+
                 if difficulty_match > 0.3:  # 최소 매칭 임계값
                     # 점수 계산
                     score = (
-                        weakness.importance * 0.4 +
-                        (1.0 - weakness.accuracy) * 0.3 +
-                        difficulty_match * 0.3
+                        weakness.importance * 0.4
+                        + (1.0 - weakness.accuracy) * 0.3
+                        + difficulty_match * 0.3
                     )
-                    
+
                     # 추천 이유 생성
                     reason = self._generate_reason(weakness, content)
-                    
-                    recommendations.append(Recommendation(
-                        content=content,
-                        score=score,
-                        reason=reason,
-                        match_topics=[weakness.topic],
-                    ))
-        
+
+                    recommendations.append(
+                        Recommendation(
+                            content=content,
+                            score=score,
+                            reason=reason,
+                            match_topics=[weakness.topic],
+                        )
+                    )
+
         # 점수 순으로 정렬
         recommendations.sort(key=lambda r: r.score, reverse=True)
-        
+
         return recommendations[:top_k]
-    
+
     def _match_difficulty(
         self,
         student_ability: float,
@@ -216,16 +225,21 @@ class RuleBasedRecommender:
             student_level = DifficultyLevel.ADVANCED
         else:
             student_level = DifficultyLevel.INTERMEDIATE
-        
+
         # 매칭 점수
         if student_level == content_difficulty:
             return 1.0
-        elif abs(self._difficulty_to_num(student_level) - 
-                 self._difficulty_to_num(content_difficulty)) == 1:
+        elif (
+            abs(
+                self._difficulty_to_num(student_level)
+                - self._difficulty_to_num(content_difficulty)
+            )
+            == 1
+        ):
             return 0.5
         else:
             return 0.1
-    
+
     def _difficulty_to_num(self, level: DifficultyLevel) -> int:
         mapping = {
             DifficultyLevel.BEGINNER: 1,
@@ -233,7 +247,7 @@ class RuleBasedRecommender:
             DifficultyLevel.ADVANCED: 3,
         }
         return mapping[level]
-    
+
     def _generate_reason(
         self,
         weakness: StudentWeakness,
@@ -252,16 +266,17 @@ class RuleBasedRecommender:
 # Content-based Filtering (Phase 2)
 # ==============================================================================
 
+
 class ContentBasedRecommender:
     """콘텐츠 기반 필터링 추천 엔진
-    
+
     TF-IDF를 사용하여 콘텐츠와 학생 취약점의 유사도를 계산합니다.
     """
-    
+
     def __init__(self, contents: List[LearningContent]):
         self.contents = contents
         self._build_tfidf()
-        
+
     def _build_tfidf(self):
         """TF-IDF 벡터 구축"""
         # 문서 집합: 각 콘텐츠의 키워드
@@ -273,22 +288,22 @@ class ContentBasedRecommender:
             else:
                 doc = content.topics + content.description.lower().split()
             documents.append(set(doc))
-        
+
         # 전체 단어 집합
         all_words = set()
         for doc in documents:
             all_words.update(doc)
-        
+
         self.vocabulary = list(all_words)
         self.word_to_idx = {word: idx for idx, word in enumerate(self.vocabulary)}
-        
+
         # IDF 계산
         n_docs = len(documents)
         self.idf = {}
         for word in self.vocabulary:
             df = sum(1 for doc in documents if word in doc)
             self.idf[word] = math.log(n_docs / (df + 1))
-        
+
         # 각 콘텐츠의 TF-IDF 벡터
         self.content_vectors = []
         for doc in documents:
@@ -297,14 +312,14 @@ class ContentBasedRecommender:
             tf = {}
             for word in doc:
                 tf[word] = tf.get(word, 0) + 1
-            
+
             # TF-IDF
             for word, freq in tf.items():
                 idx = self.word_to_idx[word]
                 vector[idx] = freq * self.idf[word]
-            
+
             self.content_vectors.append(vector)
-    
+
     def recommend(
         self,
         weaknesses: List[StudentWeakness],
@@ -312,7 +327,7 @@ class ContentBasedRecommender:
         top_k: int = 5,
     ) -> List[Recommendation]:
         """콘텐츠 기반 추천
-        
+
         학생의 취약 토픽을 쿼리로 사용하여 유사한 콘텐츠를 찾습니다.
         """
         # 학생 취약점을 쿼리 벡터로 변환
@@ -322,61 +337,64 @@ class ContentBasedRecommender:
             # 중요도 가중치
             for _ in range(int(weakness.importance * 3)):
                 query_words.add(weakness.topic.lower())
-        
+
         # 쿼리 TF-IDF 벡터
         query_vector = [0.0] * len(self.vocabulary)
         for word in query_words:
             if word in self.word_to_idx:
                 idx = self.word_to_idx[word]
                 query_vector[idx] = self.idf.get(word, 0)
-        
+
         # 코사인 유사도 계산
         similarities = []
         for i, content_vector in enumerate(self.content_vectors):
             sim = self._cosine_similarity(query_vector, content_vector)
             similarities.append((i, sim))
-        
+
         # 유사도 순으로 정렬
         similarities.sort(key=lambda x: x[1], reverse=True)
-        
+
         # 추천 생성
         recommendations = []
-        for i, sim in similarities[:top_k * 2]:  # 후보를 더 많이 뽑음
+        for i, sim in similarities[: top_k * 2]:  # 후보를 더 많이 뽑음
             content = self.contents[i]
-            
+
             # 난이도 필터링
             if self._is_appropriate_difficulty(student_ability, content.difficulty):
                 # 매칭된 토픽 찾기
                 match_topics = [
-                    w.topic for w in weaknesses
+                    w.topic
+                    for w in weaknesses
                     if w.topic.lower() in [t.lower() for t in content.topics]
                 ]
-                
+
                 reason = f"'{', '.join(match_topics[:2])}' 학습에 적합한 콘텐츠입니다"
-                
-                recommendations.append(Recommendation(
-                    content=content,
-                    score=sim,
-                    reason=reason,
-                    match_topics=match_topics,
-                ))
-                
+
+                recommendations.append(
+                    Recommendation(
+                        content=content,
+                        score=sim,
+                        reason=reason,
+                        match_topics=match_topics,
+                    )
+                )
+
                 if len(recommendations) >= top_k:
                     break
-        
+
         return recommendations
-    
+
     def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """코사인 유사도"""
         dot_product = sum(a * b for a, b in zip(vec1, vec2))
         norm1 = math.sqrt(sum(a * a for a in vec1))
         norm2 = math.sqrt(sum(b * b for b in vec2))
-        
+
         if norm1 == 0 or norm2 == 0:
             return 0.0
-        
+
         return dot_product / (norm1 * norm2)
-    
+
     def _is_appropriate_difficulty(
         self,
         student_ability: float,
@@ -384,9 +402,15 @@ class ContentBasedRecommender:
     ) -> bool:
         """적절한 난이도인지 확인"""
         if student_ability < -0.5:
-            return content_difficulty in [DifficultyLevel.BEGINNER, DifficultyLevel.INTERMEDIATE]
+            return content_difficulty in [
+                DifficultyLevel.BEGINNER,
+                DifficultyLevel.INTERMEDIATE,
+            ]
         elif student_ability > 0.5:
-            return content_difficulty in [DifficultyLevel.INTERMEDIATE, DifficultyLevel.ADVANCED]
+            return content_difficulty in [
+                DifficultyLevel.INTERMEDIATE,
+                DifficultyLevel.ADVANCED,
+            ]
         else:
             return True  # 중간 레벨은 모든 난이도 허용
 
@@ -395,18 +419,19 @@ class ContentBasedRecommender:
 # Collaborative Filtering (Phase 3)
 # ==============================================================================
 
+
 class CollaborativeRecommender:
     """협업 필터링 추천 엔진
-    
+
     유사한 학생들이 효과를 본 콘텐츠를 추천합니다.
     """
-    
+
     def __init__(self):
         # 학생-콘텐츠 상호작용 데이터
         self.interaction_matrix: Dict[str, Dict[str, float]] = {}
         # 학생 프로필
         self.student_profiles: Dict[str, Dict] = {}
-        
+
     def add_interaction(
         self,
         student_id: str,
@@ -415,7 +440,7 @@ class CollaborativeRecommender:
         improvement: Optional[float] = None,
     ):
         """상호작용 데이터 추가
-        
+
         Parameters
         ----------
         student_id : str
@@ -427,14 +452,14 @@ class CollaborativeRecommender:
         """
         if student_id not in self.interaction_matrix:
             self.interaction_matrix[student_id] = {}
-        
+
         # 평점과 향상도를 결합
         score = rating
         if improvement is not None:
             score = 0.5 * rating + 0.5 * improvement
-        
+
         self.interaction_matrix[student_id][content_id] = score
-    
+
     def add_student_profile(
         self,
         student_id: str,
@@ -446,7 +471,7 @@ class CollaborativeRecommender:
             "ability": ability,
             "weak_topics": set(weak_topics),
         }
-    
+
     def recommend(
         self,
         student_id: str,
@@ -454,7 +479,7 @@ class CollaborativeRecommender:
         top_k: int = 5,
     ) -> List[Tuple[str, float, str]]:
         """협업 필터링 추천
-        
+
         Returns
         -------
         List[Tuple[str, float, str]]
@@ -462,39 +487,43 @@ class CollaborativeRecommender:
         """
         if student_id not in self.student_profiles:
             return []
-        
+
         # 유사한 학생 찾기
         similar_students = self._find_similar_students(student_id, top_k=10)
-        
+
         # 유사 학생들이 좋아한 콘텐츠 집계
         content_scores: Dict[str, float] = {}
         content_counts: Dict[str, int] = {}
-        
+
         for similar_id, similarity in similar_students:
             if similar_id in self.interaction_matrix:
                 for content_id, score in self.interaction_matrix[similar_id].items():
                     # 이미 본 콘텐츠는 제외
-                    if student_id in self.interaction_matrix and \
-                       content_id in self.interaction_matrix[student_id]:
+                    if (
+                        student_id in self.interaction_matrix
+                        and content_id in self.interaction_matrix[student_id]
+                    ):
                         continue
-                    
-                    content_scores[content_id] = content_scores.get(content_id, 0.0) + score * similarity
+
+                    content_scores[content_id] = (
+                        content_scores.get(content_id, 0.0) + score * similarity
+                    )
                     content_counts[content_id] = content_counts.get(content_id, 0) + 1
-        
+
         # 평균 점수 계산
         recommendations = []
         for content_id, total_score in content_scores.items():
             count = content_counts[content_id]
             avg_score = total_score / count
-            
+
             reason = f"유사한 학생 {count}명이 이 콘텐츠로 학습 효과를 보았습니다"
             recommendations.append((content_id, avg_score, reason))
-        
+
         # 점수 순으로 정렬
         recommendations.sort(key=lambda x: x[1], reverse=True)
-        
+
         return recommendations[:top_k]
-    
+
     def _find_similar_students(
         self,
         student_id: str,
@@ -503,37 +532,37 @@ class CollaborativeRecommender:
         """유사한 학생 찾기"""
         if student_id not in self.student_profiles:
             return []
-        
+
         target_profile = self.student_profiles[student_id]
         similarities = []
-        
+
         for other_id, other_profile in self.student_profiles.items():
             if other_id == student_id:
                 continue
-            
+
             # 유사도 계산: 능력치 차이 + 취약 토픽 겹침
             ability_diff = abs(target_profile["ability"] - other_profile["ability"])
             ability_sim = 1.0 / (1.0 + ability_diff)
-            
+
             # Jaccard 유사도 (취약 토픽)
             target_topics = target_profile["weak_topics"]
             other_topics = other_profile["weak_topics"]
-            
+
             if len(target_topics) == 0 or len(other_topics) == 0:
                 topic_sim = 0.0
             else:
                 intersection = len(target_topics & other_topics)
                 union = len(target_topics | other_topics)
                 topic_sim = intersection / union if union > 0 else 0.0
-            
+
             # 종합 유사도
             similarity = 0.4 * ability_sim + 0.6 * topic_sim
-            
+
             similarities.append((other_id, similarity))
-        
+
         # 유사도 순으로 정렬
         similarities.sort(key=lambda x: x[1], reverse=True)
-        
+
         return similarities[:top_k]
 
 
@@ -541,12 +570,13 @@ class CollaborativeRecommender:
 # Hybrid Recommender (Phase 4)
 # ==============================================================================
 
+
 class HybridRecommender:
     """하이브리드 추천 엔진
-    
+
     규칙 기반, 콘텐츠 기반, 협업 필터링을 결합합니다.
     """
-    
+
     def __init__(
         self,
         contents: List[LearningContent],
@@ -557,18 +587,18 @@ class HybridRecommender:
         self.use_rules = use_rules
         self.use_content = use_content
         self.use_collaborative = use_collaborative
-        
+
         if use_rules:
             self.rule_recommender = RuleBasedRecommender(contents)
-        
+
         if use_content:
             self.content_recommender = ContentBasedRecommender(contents)
-        
+
         if use_collaborative:
             self.collab_recommender = CollaborativeRecommender()
-        
+
         self.contents_map = {c.content_id: c for c in contents}
-    
+
     def recommend(
         self,
         student_id: str,
@@ -578,7 +608,7 @@ class HybridRecommender:
     ) -> List[Recommendation]:
         """하이브리드 추천"""
         all_recommendations: Dict[str, Recommendation] = {}
-        
+
         # 1. 규칙 기반 추천
         if self.use_rules:
             rule_recs = self.rule_recommender.recommend(
@@ -589,7 +619,7 @@ class HybridRecommender:
                 if cid not in all_recommendations:
                     all_recommendations[cid] = rec
                     rec.score *= 0.4  # 가중치
-        
+
         # 2. 콘텐츠 기반 추천
         if self.use_content:
             content_recs = self.content_recommender.recommend(
@@ -602,7 +632,7 @@ class HybridRecommender:
                 else:
                     all_recommendations[cid] = rec
                     rec.score *= 0.4
-        
+
         # 3. 협업 필터링 추천
         if self.use_collaborative:
             collab_recs = self.collab_recommender.recommend(
@@ -611,8 +641,10 @@ class HybridRecommender:
             for content_id, score, reason in collab_recs:
                 if content_id in self.contents_map:
                     content = self.contents_map[content_id]
-                    match_topics = [w.topic for w in weaknesses if w.topic in content.topics]
-                    
+                    match_topics = [
+                        w.topic for w in weaknesses if w.topic in content.topics
+                    ]
+
                     if content_id in all_recommendations:
                         all_recommendations[content_id].score += score * 0.2
                     else:
@@ -622,14 +654,14 @@ class HybridRecommender:
                             reason=reason,
                             match_topics=match_topics,
                         )
-        
+
         # 점수 순으로 정렬
         final_recs = sorted(
             all_recommendations.values(),
             key=lambda r: r.score,
             reverse=True,
         )
-        
+
         return final_recs[:top_k]
 
     def recommend_text(
@@ -643,10 +675,14 @@ class HybridRecommender:
 
         예) "확률의 기본 개념 (video) - '확률' 기본 개념 학습이 필요합니다 (정답률 30%)"
         """
-        recs = self.recommend(student_id, weaknesses, student_ability=student_ability, top_k=top_k)
+        recs = self.recommend(
+            student_id, weaknesses, student_ability=student_ability, top_k=top_k
+        )
         lines: List[str] = []
         for r in recs:
-            ctype = getattr(r.content.content_type, "value", str(r.content.content_type))
+            ctype = getattr(
+                r.content.content_type, "value", str(r.content.content_type)
+            )
             title = r.content.title
             reason = r.reason
             lines.append(f"{title} ({ctype}) - {reason}")
@@ -664,4 +700,3 @@ __all__ = [
     "CollaborativeRecommender",
     "HybridRecommender",
 ]
-

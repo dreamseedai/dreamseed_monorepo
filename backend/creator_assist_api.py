@@ -8,6 +8,7 @@ load_dotenv()
 
 try:
     import openai  # type: ignore
+
     openai.api_key = os.getenv("OPENAI_API_KEY")
     _HAS_OPENAI = True
 except Exception:
@@ -29,7 +30,9 @@ def creator_assist(req: CreatorAssistRequest):
     # 모듈이 없거나 API 키가 설정되지 않은 경우 데모 응답으로 폴백
     api_key = os.getenv("OPENAI_API_KEY") or getattr(openai, "api_key", None)
     if (not _HAS_OPENAI) or (not api_key):
-        return {"reply": "[데모] OPENAI_API_KEY 미설정 – 예시 전략:\n1) 타깃 청중 포맷 고정\n2) 라이브 상호작용 유도\n3) 하이라이트 클립 재활용"}
+        return {
+            "reply": "[데모] OPENAI_API_KEY 미설정 – 예시 전략:\n1) 타깃 청중 포맷 고정\n2) 라이브 상호작용 유도\n3) 하이라이트 클립 재활용"
+        }
     try:
         response = openai.ChatCompletion.create(  # type: ignore[attr-defined]
             model="gpt-4",

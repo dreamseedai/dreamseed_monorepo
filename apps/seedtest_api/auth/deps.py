@@ -24,7 +24,9 @@ class UserContext:
         return f"<UserContext(user_id={self.user_id!r}, tenant_id={self.tenant_id!r}, roles={self.roles})>"
 
 
-def get_current_user(token_data: HTTPAuthorizationCredentials = Depends(bearer)) -> UserContext:
+def get_current_user(
+    token_data: HTTPAuthorizationCredentials = Depends(bearer),
+) -> UserContext:
     """Extract and validate user context from JWT token.
 
     Args:
@@ -67,7 +69,9 @@ def get_current_user(token_data: HTTPAuthorizationCredentials = Depends(bearer))
         )
 
 
-def require_role(*allowed: Literal["student", "teacher", "admin", "owner"]) -> Callable[[UserContext], UserContext]:
+def require_role(
+    *allowed: Literal["student", "teacher", "admin", "owner"]
+) -> Callable[[UserContext], UserContext]:
     """Create dependency that requires specific role(s).
 
     Args:

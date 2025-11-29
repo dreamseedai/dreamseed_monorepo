@@ -4,6 +4,7 @@ R Forecast Plumber Client
 Client for interacting with r-forecast-plumber service.
 Supports Prophet time series forecasting and Survival analysis.
 """
+
 from __future__ import annotations
 
 import os
@@ -310,4 +311,3 @@ class RForecastClient:
 
 
 __all__ = ["RForecastClient"]
-

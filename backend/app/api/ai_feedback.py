@@ -2,6 +2,7 @@
 AI Feedback API for Phase 1 MVP
 Provides AI-powered feedback for student answers using Ollama
 """
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import httpx
@@ -36,7 +37,7 @@ async def generate_feedback_ollama(
     subject: str | None,
 ) -> str:
     """Generate AI feedback using Ollama"""
-    
+
     # Construct prompt
     prompt_parts = [
         f"과목: {subject}" if subject else "",
@@ -48,11 +49,11 @@ async def generate_feedback_ollama(
         "피드백은 한글로 3-5줄 정도로 작성하고, 다음을 포함하세요:",
         "1. 답안의 강점",
         "2. 개선이 필요한 부분",
-        "3. 구체적인 학습 제안"
+        "3. 구체적인 학습 제안",
     ]
-    
+
     prompt = "\n".join([p for p in prompt_parts if p])
-    
+
     payload = {
         "model": MODEL_NAME,
         "prompt": prompt,
@@ -60,9 +61,9 @@ async def generate_feedback_ollama(
         "options": {
             "temperature": 0.7,
             "num_predict": 500,
-        }
+        },
     }
-    
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(OLLAMA_URL, json=payload)
@@ -77,28 +78,30 @@ async def generate_feedback_ollama(
         raise HTTPException(status_code=503, detail="AI 서비스에 연결할 수 없습니다")
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail="피드백 생성 중 오류가 발생했습니다")
+        raise HTTPException(
+            status_code=500, detail="피드백 생성 중 오류가 발생했습니다"
+        )
 
 
 @router.post("/feedback", response_model=FeedbackResponse)
 async def create_feedback(request: FeedbackRequest):
     """
     Generate AI feedback for a student's answer
-    
+
     - **question_id**: Question identifier
     - **question_title**: Title of the question
     - **question_content**: Optional detailed question content
     - **student_answer**: Student's submitted answer
     - **subject**: Optional subject (e.g., math, physics, chemistry)
     """
-    
+
     feedback = await generate_feedback_ollama(
         question_title=request.question_title,
         question_content=request.question_content,
         student_answer=request.student_answer,
         subject=request.subject,
     )
-    
+
     return FeedbackResponse(
         question_id=request.question_id,
         feedback=feedback,
@@ -115,7 +118,7 @@ async def health_check():
             response.raise_for_status()
             models = response.json().get("models", [])
             model_names = [m["name"] for m in models]
-            
+
             return {
                 "status": "healthy",
                 "ollama_available": True,

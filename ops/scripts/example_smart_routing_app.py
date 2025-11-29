@@ -7,7 +7,7 @@ Accept-Language 기반 자동 언어 감지 및 모델 라우팅 데모.
 Usage:
     # 개발 서버 실행
     python ops/scripts/example_smart_routing_app.py
-    
+
     # 또는 uvicorn 사용
     uvicorn ops.scripts.example_smart_routing_app:app --reload --port 8000
 
@@ -33,7 +33,7 @@ from shared.llm.smart_router import smart_chat_from_request, smart_chat
 app = FastAPI(
     title="LLM 스마트 라우팅 데모",
     description="Accept-Language 기반 자동 언어 감지 및 모델 라우팅",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # 미들웨어 추가
@@ -64,8 +64,8 @@ async def root():
             "/chat": "POST - 자동 언어 감지 채팅",
             "/chat/{lang}": "POST - 수동 언어 지정 채팅",
             "/language": "GET - 언어 감지만 테스트",
-            "/docs": "GET - API 문서"
-        }
+            "/docs": "GET - API 문서",
+        },
     }
 
 
@@ -73,16 +73,17 @@ async def root():
 async def detect_language_endpoint(request: Request):
     """
     언어 감지만 테스트하는 엔드포인트.
-    
+
     Accept-Language 헤더를 기반으로 언어를 감지합니다.
     """
     lang = get_request_language(request)
-    
+
     return {
         "detected_language": lang,
         "accept_language": request.headers.get("accept-language"),
-        "forced_lang": request.query_params.get("lang") or request.headers.get("x-lang"),
-        "model_type": "cloud" if lang.startswith("zh-") else "local"
+        "forced_lang": request.query_params.get("lang")
+        or request.headers.get("x-lang"),
+        "model_type": "cloud" if lang.startswith("zh-") else "local",
     }
 
 
@@ -90,38 +91,38 @@ async def detect_language_endpoint(request: Request):
 async def chat_auto(request: Request, body: ChatRequest):
     """
     자동 언어 감지 채팅 엔드포인트.
-    
+
     Accept-Language 헤더를 기반으로 언어를 자동 감지하고,
     적절한 모델로 라우팅합니다.
-    
+
     - ko, en → 로컬 LLM (RTX 5090)
     - zh-Hans, zh-Hant → DeepSeek 클라우드
     """
     lang = get_request_language(request)
-    
+
     try:
         response = await smart_chat_from_request(
             request=request,
             system=body.system,
             user=body.message,
             max_tokens=body.max_tokens,
-            temperature=body.temperature
+            temperature=body.temperature,
         )
-        
+
         return ChatResponse(
             response=response,
             detected_language=lang,
-            model_type="cloud" if lang.startswith("zh-") else "local"
+            model_type="cloud" if lang.startswith("zh-") else "local",
         )
-    
+
     except Exception as e:
         return JSONResponse(
             status_code=500,
             content={
                 "error": str(e),
                 "detected_language": lang,
-                "message": "LLM API 호출 실패"
-            }
+                "message": "LLM API 호출 실패",
+            },
         )
 
 
@@ -129,9 +130,9 @@ async def chat_auto(request: Request, body: ChatRequest):
 async def chat_manual(lang: str, body: ChatRequest):
     """
     수동 언어 지정 채팅 엔드포인트.
-    
+
     URL 경로에서 언어를 직접 지정합니다.
-    
+
     지원 언어:
     - ko: 한국어
     - en: 영어
@@ -145,33 +146,29 @@ async def chat_manual(lang: str, body: ChatRequest):
             status_code=400,
             content={
                 "error": f"지원하지 않는 언어: {lang}",
-                "supported_languages": list(supported)
-            }
+                "supported_languages": list(supported),
+            },
         )
-    
+
     try:
         response = await smart_chat(
             lang=lang,
             system=body.system,
             user=body.message,
             max_tokens=body.max_tokens,
-            temperature=body.temperature
+            temperature=body.temperature,
         )
-        
+
         return ChatResponse(
             response=response,
             detected_language=lang,
-            model_type="cloud" if lang.startswith("zh-") else "local"
+            model_type="cloud" if lang.startswith("zh-") else "local",
         )
-    
+
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={
-                "error": str(e),
-                "language": lang,
-                "message": "LLM API 호출 실패"
-            }
+            content={"error": str(e), "language": lang, "message": "LLM API 호출 실패"},
         )
 
 
@@ -183,17 +180,12 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     print("=" * 60)
     print("LLM 스마트 라우팅 샘플 앱 시작")
     print("=" * 60)
     print("URL: http://localhost:8000")
     print("Docs: http://localhost:8000/docs")
     print("=" * 60)
-    
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=8000,
-        log_level="info"
-    )
+
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")

@@ -107,7 +107,9 @@ app.include_router(wizard_router)  # V1: Tutor onboarding wizard
 app.include_router(auth_jwt_router)  # JWT token issuance for Shiny Dashboard
 app.include_router(analytics_proxy_router)  # Analytics proxy to r-analytics (port 8010)
 app.include_router(analytics_irt_router)  # IRT drift monitoring and analytics
-app.include_router(teacher_dashboard_router)  # Teacher dashboard: class analytics and risk monitoring
+app.include_router(
+    teacher_dashboard_router
+)  # Teacher dashboard: class analytics and risk monitoring
 app.include_router(forecast_router)  # Student growth forecasting API
 
 

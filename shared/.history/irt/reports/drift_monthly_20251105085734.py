@@ -13,11 +13,12 @@ Features:
 
 Usage:
     python -m shared.irt.reports.drift_monthly --window-id 45 --output /tmp/drift_2025_10.pdf
-    
+
     # Or from Python:
     from shared.irt.reports.drift_monthly import generate_monthly_report
     generate_monthly_report(window_id=45, out_path="/tmp/report.pdf")
 """
+
 import os
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +31,7 @@ from sqlalchemy.engine import Connection
 
 try:
     from weasyprint import HTML
+
     WEASYPRINT_AVAILABLE = True
 except ImportError:
     WEASYPRINT_AVAILABLE = False
@@ -47,26 +49,27 @@ TEMPLATE_DIR = Path(__file__).parent / "templates"
 # Report Generator
 # ==============================================================================
 
+
 def generate_monthly_report(
     window_id: int,
     out_path: str,
     format: str = "pdf",
     include_curves: bool = True,
-    max_curves: int = 10
+    max_curves: int = 10,
 ) -> str:
     """
     Generate monthly drift report for a calibration window.
-    
+
     Args:
         window_id: Calibration window ID
         out_path: Output file path
         format: Output format ('html' or 'pdf')
         include_curves: Include item information curves
         max_curves: Maximum number of curves to include
-    
+
     Returns:
         Path to generated report
-    
+
     Example:
         >>> report_path = generate_monthly_report(
         ...     window_id=45,
@@ -75,26 +78,34 @@ def generate_monthly_report(
         >>> print(f"Report saved to {report_path}")
     """
     engine = get_db_engine()
-    
+
     with engine.connect() as db:
         # Load window metadata
-        meta_result = db.execute(
-            text("""
+        meta_result = (
+            db.execute(
+                text(
+                    """
                 SELECT id, label, start_at, end_at, population_tags
                 FROM shared_irt.windows
                 WHERE id = :wid
-            """),
-            {"wid": window_id}
-        ).mappings().first()
-        
+            """
+                ),
+                {"wid": window_id},
+            )
+            .mappings()
+            .first()
+        )
+
         if not meta_result:
             raise ValueError(f"Window {window_id} not found")
-        
+
         meta = dict(meta_result)
-        
+
         # Load statistics
-        stats_result = db.execute(
-            text("""
+        stats_result = (
+            db.execute(
+                text(
+                    """
                 SELECT 
                     COUNT(DISTINCT ic.item_id) AS total_items,
                     COUNT(DISTINCT ic.item_id) FILTER (WHERE ic.drift_flag IS NOT NULL) AS drifted_items,
@@ -106,15 +117,21 @@ def generate_monthly_report(
                 FROM shared_irt.item_calibration ic
                 LEFT JOIN shared_irt.drift_alerts da ON da.window_id = ic.window_id AND da.item_id = ic.item_id
                 WHERE ic.window_id = :wid
-            """),
-            {"wid": window_id}
-        ).mappings().first()
-        
+            """
+                ),
+                {"wid": window_id},
+            )
+            .mappings()
+            .first()
+        )
+
         stats = dict(stats_result) if stats_result else {}
-        
+
         # Load drift alerts
-        alerts_result = db.execute(
-            text("""
+        alerts_result = (
+            db.execute(
+                text(
+                    """
                 SELECT 
                     a.item_id,
                     a.metric,
@@ -142,27 +159,31 @@ def generate_monthly_report(
                     END,
                     a.metric,
                     ABS(a.value) DESC
-            """),
-            {"wid": window_id}
-        ).mappings().all()
-        
+            """
+                ),
+                {"wid": window_id},
+            )
+            .mappings()
+            .all()
+        )
+
         alerts = [dict(row) for row in alerts_result]
-        
+
         # Load item information curves for top drifted items
         curves = []
         if include_curves and alerts:
             # Get unique item IDs from top alerts
-            item_ids = list({alert['item_id'] for alert in alerts})[:max_curves]
-            
+            item_ids = list({alert["item_id"] for alert in alerts})[:max_curves]
+
             if item_ids:
                 curves = fetch_item_info_curves(db, item_ids, steps=41)
-        
+
         # Metric breakdown
         metric_counts = {}
         for alert in alerts:
-            metric = alert['metric']
+            metric = alert["metric"]
             metric_counts[metric] = metric_counts.get(metric, 0) + 1
-        
+
         # Generate report
         report_data = {
             "generated_at": datetime.utcnow(),
@@ -172,11 +193,11 @@ def generate_monthly_report(
             "curves": curves,
             "metric_counts": metric_counts,
             "has_alerts": len(alerts) > 0,
-            "has_curves": len(curves) > 0
+            "has_curves": len(curves) > 0,
         }
-        
+
         html_content = render_report_html(report_data)
-        
+
         # Save output
         if format == "pdf":
             if not WEASYPRINT_AVAILABLE:
@@ -184,41 +205,38 @@ def generate_monthly_report(
                     "WeasyPrint is not installed. "
                     "Install with: pip install weasyprint"
                 )
-            
+
             HTML(string=html_content).write_pdf(out_path)
         else:  # html
             with open(out_path, "w", encoding="utf-8") as f:
                 f.write(html_content)
-        
+
         return out_path
 
 
 def render_report_html(data: dict) -> str:
     """
     Render report HTML from template.
-    
+
     Args:
         data: Report data dictionary
-    
+
     Returns:
         Rendered HTML string
     """
     # Ensure template directory exists
     TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     # Check if template exists
     template_path = TEMPLATE_DIR / "drift_monthly.html"
-    
+
     if not template_path.exists():
         # Use inline template if file doesn't exist
         return render_inline_template(data)
-    
+
     # Load from file
-    env = Environment(
-        loader=FileSystemLoader(str(TEMPLATE_DIR)),
-        autoescape=True
-    )
-    
+    env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=True)
+
     template = env.get_template("drift_monthly.html")
     return template.render(**data)
 
@@ -226,10 +244,10 @@ def render_report_html(data: dict) -> str:
 def render_inline_template(data: dict) -> str:
     """
     Render report using inline HTML template (fallback).
-    
+
     Args:
         data: Report data dictionary
-    
+
     Returns:
         Rendered HTML string
     """
@@ -353,8 +371,8 @@ def render_inline_template(data: dict) -> str:
     
     <h2>Drift Alerts</h2>
 """
-    
-    if data['has_alerts']:
+
+    if data["has_alerts"]:
         html += """
     <table>
         <thead>
@@ -371,7 +389,7 @@ def render_inline_template(data: dict) -> str:
         </thead>
         <tbody>
 """
-        for alert in data['alerts']:
+        for alert in data["alerts"]:
             severity_class = f"severity-{alert['severity']}"
             html += f"""
             <tr>
@@ -391,7 +409,7 @@ def render_inline_template(data: dict) -> str:
 """
     else:
         html += "<p>No drift alerts detected. All items are stable.</p>"
-    
+
     html += """
     <div class="footer">
         <p>Generated by IRT Drift Monitoring System | DreamSeed AI</p>
@@ -399,7 +417,7 @@ def render_inline_template(data: dict) -> str:
 </body>
 </html>
 """
-    
+
     return html
 
 
@@ -407,24 +425,19 @@ def render_inline_template(data: dict) -> str:
 # CLI
 # ==============================================================================
 
+
 @click.command()
-@click.option("--window-id", required=True, type=int,
-              help="Calibration window ID")
-@click.option("--output", "-o", required=True, type=str,
-              help="Output file path")
-@click.option("--format", type=click.Choice(["html", "pdf"]), default="pdf",
-              help="Output format (default: pdf)")
-@click.option("--no-curves", is_flag=True,
-              help="Exclude item information curves")
-@click.option("--max-curves", default=10,
-              help="Maximum number of curves to include")
-def main(
-    window_id: int,
-    output: str,
-    format: str,
-    no_curves: bool,
-    max_curves: int
-):
+@click.option("--window-id", required=True, type=int, help="Calibration window ID")
+@click.option("--output", "-o", required=True, type=str, help="Output file path")
+@click.option(
+    "--format",
+    type=click.Choice(["html", "pdf"]),
+    default="pdf",
+    help="Output format (default: pdf)",
+)
+@click.option("--no-curves", is_flag=True, help="Exclude item information curves")
+@click.option("--max-curves", default=10, help="Maximum number of curves to include")
+def main(window_id: int, output: str, format: str, no_curves: bool, max_curves: int):
     """
     Generate monthly IRT drift report.
     
@@ -439,17 +452,18 @@ def main(
             out_path=output,
             format=format,
             include_curves=not no_curves,
-            max_curves=max_curves
+            max_curves=max_curves,
         )
-        
+
         print(f"✓ Report generated successfully: {report_path}")
-        
+
         # Print summary
         from pathlib import Path
+
         file_size = Path(report_path).stat().st_size
         print(f"  File size: {file_size / 1024:.1f} KB")
         print(f"  Format: {format.upper()}")
-        
+
     except Exception as e:
         print(f"✗ Error generating report: {e}")
         raise

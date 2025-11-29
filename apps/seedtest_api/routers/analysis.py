@@ -289,38 +289,40 @@ async def get_irt_theta(
     response_model=Dict[str, Any],
 )
 async def update_user_theta(
-    body: Dict = Body(..., description="{user_id, session_id?, lookback_days?, model?, version?}"),
+    body: Dict = Body(
+        ..., description="{user_id, session_id?, lookback_days?, model?, version?}"
+    ),
     _user: Dict = Depends(_require_scopes_any("analysis:run", "exam:write")),
 ) -> Dict[str, Any]:
     """Update user ability (θ) based on recent attempts.
-    
+
     This endpoint is typically called after session completion to update
     the user's ability estimate using EAP/MI estimation via R IRT service.
-    
+
     Request body:
     - user_id (required): User identifier
     - session_id (optional): Session ID for logging
     - lookback_days (optional): Days to look back for attempts (default: 30)
     - model (optional): IRT model type (default: 2PL)
     - version (optional): Parameter version (default: v1)
-    
+
     Returns:
     - theta: Updated ability estimate
     - se: Standard error
     - updated_at: Timestamp of update
     """
     from ..services.irt_update_service import update_ability_async
-    
+
     try:
         user_id = str(body.get("user_id") or "").strip()
         if not user_id:
             raise HTTPException(400, "invalid body: user_id required")
-        
+
         session_id = body.get("session_id")
         lookback_days = int(body.get("lookback_days", 30))
         model = body.get("model", "2PL")
         version = body.get("version", "v1")
-        
+
         # Trigger async update
         result = await update_ability_async(
             user_id=user_id,
@@ -329,7 +331,7 @@ async def update_user_theta(
             model=model,
             version=version,
         )
-        
+
         if result is None:
             # Return 200 with status="noop" instead of 404 for better client handling
             return {
@@ -337,7 +339,7 @@ async def update_user_theta(
                 "user_id": user_id,
                 "message": "theta_update_failed: no attempts found or R IRT service unavailable",
             }
-        
+
         theta, se = result
         return {
             "status": "ok",
@@ -348,7 +350,7 @@ async def update_user_theta(
             "version": version,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:

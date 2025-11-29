@@ -1,8 +1,8 @@
 """Metrics for DreamSeedAI governance policy layer.
 
-This module defines Prometheus metrics for monitoring policy evaluations, 
-policy decisions, content filtering, approval workflows, data access, 
-AI tutor sessions, and other governance-related events. Each metric includes 
+This module defines Prometheus metrics for monitoring policy evaluations,
+policy decisions, content filtering, approval workflows, data access,
+AI tutor sessions, and other governance-related events. Each metric includes
 a descriptive help string and relevant labels for dimensional analysis.
 
 Metrics:
@@ -14,7 +14,7 @@ Metrics:
 - Approval workflow metrics: track approval request counts and pending approvals.
 - Data protection metrics: track data access attempts.
 
-All metrics are defined using prometheus_client and are registered on import. 
+All metrics are defined using prometheus_client and are registered on import.
 The FastAPI app should expose these on a /metrics endpoint.
 """
 
@@ -26,7 +26,7 @@ from prometheus_client import Counter, Histogram, Gauge
 policy_evaluations_total = Counter(
     "governance_policy_evaluations_total",
     "Total number of policy evaluations",
-    ["policy", "result"]
+    ["policy", "result"],
 )
 # Tracks the number of times any policy has been evaluated.
 # Labels:
@@ -36,7 +36,7 @@ policy_evaluations_total = Counter(
 policy_deny_total = Counter(
     "governance_policy_deny_total",
     "Total number of policy denials",
-    ["policy", "user_role"]
+    ["policy", "user_role"],
 )
 # Tracks the number of policy evaluation outcomes that resulted in a denial.
 # Labels:
@@ -46,7 +46,7 @@ policy_deny_total = Counter(
 policy_errors_total = Counter(
     "governance_policy_errors_total",
     "Total number of policy evaluation errors",
-    ["policy"]
+    ["policy"],
 )
 # Counts the number of policy evaluation attempts that resulted in an error (e.g., OPA or system errors).
 # Labels:
@@ -55,7 +55,7 @@ policy_errors_total = Counter(
 policy_evaluation_duration_seconds = Histogram(
     "governance_policy_evaluation_duration_seconds",
     "Policy evaluation duration in seconds",
-    ["policy"]
+    ["policy"],
 )
 # Measures the duration of policy evaluations (performance of the policy engine).
 # Labels:
@@ -65,24 +65,23 @@ policy_evaluation_duration_seconds = Histogram(
 policy_bundle_reload_total = Counter(
     "governance_policy_bundle_reload_total",
     "Total number of policy bundle reloads",
-    ["status"]
+    ["status"],
 )
 # Counts attempts to reload the policy bundle (hot-reload events).
 # Labels:
 #   status: The outcome of the reload attempt (e.g., "success", "error").
 
 policy_bundle_version = Gauge(
-    "governance_policy_bundle_version",
-    "Current policy bundle version"
+    "governance_policy_bundle_version", "Current policy bundle version"
 )
-# Tracks the current version of the loaded policy bundle. 
+# Tracks the current version of the loaded policy bundle.
 # This gauge should be updated whenever a new policy bundle is successfully loaded.
 
 # AI content filtering metrics
 ai_content_filtered_total = Counter(
     "governance_ai_content_filtered_total",
     "Total number of AI content filtered",
-    ["filter_type", "severity"]
+    ["filter_type", "severity"],
 )
 # Counts instances where AI-generated content was filtered or blocked due to content policy.
 # Labels:
@@ -93,7 +92,7 @@ ai_content_filtered_total = Counter(
 ai_tutor_sessions_total = Counter(
     "governance_ai_tutor_sessions_total",
     "Total number of AI tutor sessions",
-    ["user_role", "status"]
+    ["user_role", "status"],
 )
 # Tracks events related to AI tutor sessions.
 # Labels:
@@ -103,15 +102,14 @@ ai_tutor_sessions_total = Counter(
 ai_tutor_session_duration_seconds = Histogram(
     "governance_ai_tutor_session_duration_seconds",
     "Duration of AI tutor sessions in seconds",
-    ["user_role"]
+    ["user_role"],
 )
 # Measures the duration of AI tutor sessions.
 # Labels:
 #   user_role: The role of the user for the session. This histogram tracks how long each session lasted.
 
 ai_tutor_sessions_active = Gauge(
-    "governance_ai_tutor_sessions_active",
-    "Current number of active AI tutor sessions"
+    "governance_ai_tutor_sessions_active", "Current number of active AI tutor sessions"
 )
 # Tracks the current number of ongoing AI tutor sessions.
 # This gauge is incremented when a session starts and decremented when a session ends.
@@ -120,7 +118,7 @@ ai_tutor_sessions_active = Gauge(
 approval_requests_total = Counter(
     "governance_approval_requests_total",
     "Total number of approval requests",
-    ["action_type", "status"]
+    ["action_type", "status"],
 )
 # Counts events in the approval workflow.
 # Labels:
@@ -128,10 +126,7 @@ approval_requests_total = Counter(
 #   status: The status of the approval event (e.g., "pending", "approved", "denied").
 # Increment with status="pending" when a request is created, and with "approved"/"denied" when resolved.
 
-approval_pending = Gauge(
-    "governance_approval_pending",
-    "Number of pending approvals"
-)
+approval_pending = Gauge("governance_approval_pending", "Number of pending approvals")
 # Tracks the current number of approval requests that are pending (awaiting decision).
 # This gauge increases when a new approval request is created and decreases when a request is approved or denied.
 
@@ -139,7 +134,7 @@ approval_pending = Gauge(
 data_access_total = Counter(
     "governance_data_access_total",
     "Total number of data access attempts",
-    ["data_type", "result"]
+    ["data_type", "result"],
 )
 # Counts attempts to access protected or sensitive data.
 # Labels:
@@ -149,38 +144,38 @@ data_access_total = Counter(
 # AI behavior policy enforcement metrics
 ai_response_truncated_total = Counter(
     "governance_ai_response_truncated_total",
-    "Total number of AI responses truncated due to length policy"
+    "Total number of AI responses truncated due to length policy",
 )
 # Counts how many times an AI response was truncated because it exceeded the allowed length.
 
 ai_external_links_blocked_total = Counter(
     "governance_ai_external_links_blocked_total",
-    "Total number of external links blocked in AI responses"
+    "Total number of external links blocked in AI responses",
 )
 # Counts how many times an external link was removed or blocked from an AI-generated response due to policy.
 
 ai_academic_misconduct_prevented_total = Counter(
     "governance_ai_academic_misconduct_prevented_total",
-    "Total number of academic misconduct attempts prevented by AI policy"
+    "Total number of academic misconduct attempts prevented by AI policy",
 )
 # Counts instances where the AI refused a user request due to academic integrity policy (e.g., not solving an exam or assignment for the user).
 
 # Rate limiting policy metrics
 api_call_limit_exceeded_total = Counter(
     "governance_rate_limit_api_call_exceeded_total",
-    "Total number of times API call rate limit was exceeded"
+    "Total number of times API call rate limit was exceeded",
 )
 # Counts the number of user API calls that were blocked because the API rate limit was exceeded.
 
 session_time_limit_exceeded_total = Counter(
     "governance_rate_limit_session_time_exceeded_total",
-    "Total number of times an AI tutor session time limit was exceeded"
+    "Total number of times an AI tutor session time limit was exceeded",
 )
 # Counts how many AI tutor sessions were terminated or blocked due to exceeding the allowed session duration.
 
 resource_quota_exceeded_total = Counter(
     "governance_rate_limit_resource_quota_exceeded_total",
-    "Total number of times a resource quota was exceeded"
+    "Total number of times a resource quota was exceeded",
 )
 # Counts the number of times a user exceeded a resource usage quota (e.g., storage quota), resulting in a denial.
 
@@ -227,7 +222,7 @@ def increment_policy_error(policy: str) -> None:
 def record_policy_bundle_reload(status: str, version: Optional[float] = None) -> None:
     """Record a policy bundle reload attempt.
 
-    Increments the policy bundle reload counter with the given status. 
+    Increments the policy bundle reload counter with the given status.
     If a new version is provided on a successful reload, updates the bundle version gauge.
 
     Args:

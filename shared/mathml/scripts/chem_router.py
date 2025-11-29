@@ -1,5 +1,7 @@
 """화학식 mhchem 강제 변환"""
+
 import re
+
 
 def ensure_mhchem(tex: str) -> str:
     """화학식을 \ce{...}로 강제 변환"""

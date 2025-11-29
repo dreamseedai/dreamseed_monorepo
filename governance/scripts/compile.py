@@ -11,6 +11,7 @@ import glob
 import sys
 import os
 
+
 def compile_policies(bundle_dir=None, output_file=None, version="1.0.0"):
     if bundle_dir is None:
         # 기본 경로: 현재 디렉토리의 ../bundles
@@ -29,16 +30,12 @@ def compile_policies(bundle_dir=None, output_file=None, version="1.0.0"):
         with open(file_path, "r") as f:
             rego_content = f.read()
         encoded = base64.b64encode(rego_content.encode("utf-8")).decode("utf-8")
-        bundles[bundle_name] = {
-            "revision": version,
-            "modules": {
-                file_name: encoded
-            }
-        }
+        bundles[bundle_name] = {"revision": version, "modules": {file_name: encoded}}
     bundle_obj = {"bundles": bundles}
     with open(output_file, "w") as f:
         json.dump(bundle_obj, f, indent=4)
     print(f"Policy bundle compiled to {output_file}")
+
 
 if __name__ == "__main__":
     bundle_dir = None

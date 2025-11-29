@@ -34,8 +34,15 @@ class ClassSummary(Base):
     )
 
     __table_args__ = (
-        Index("ix_class_summary_classroom_week", "classroom_id", "week_start", unique=True),
-        Index("ix_class_summary_tenant_classroom_week", "tenant_id", "classroom_id", "week_start"),
+        Index(
+            "ix_class_summary_classroom_week", "classroom_id", "week_start", unique=True
+        ),
+        Index(
+            "ix_class_summary_tenant_classroom_week",
+            "tenant_id",
+            "classroom_id",
+            "week_start",
+        ),
     )
 
     def __repr__(self) -> str:

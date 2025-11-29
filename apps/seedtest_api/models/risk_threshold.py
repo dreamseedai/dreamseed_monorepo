@@ -48,5 +48,9 @@ class RiskThreshold(Base):
     __table_args__ = (Index("ix_threshold_tenant_type", "tenant_id", "type"),)
 
     def __repr__(self) -> str:
-        scope = f"class={self.class_id}" if self.class_id else (f"grade={self.grade}" if self.grade else "tenant")
+        scope = (
+            f"class={self.class_id}"
+            if self.class_id
+            else (f"grade={self.grade}" if self.grade else "tenant")
+        )
         return f"<RiskThreshold(type={self.type!r}, scope={scope})>"

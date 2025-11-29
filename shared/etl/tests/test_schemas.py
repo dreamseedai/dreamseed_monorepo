@@ -9,7 +9,9 @@ def test_plain_from_min_doc():
     """최소 문서 플레인 텍스트 추출"""
     doc = {
         "type": "doc",
-        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "hello"}]}],
+        "content": [
+            {"type": "paragraph", "content": [{"type": "text", "text": "hello"}]}
+        ],
     }
     assert build_plain_text(doc) == "hello"
 

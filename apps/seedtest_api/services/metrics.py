@@ -120,7 +120,9 @@ def _fetch_attempt_view_rows(
         LIMIT 1000
         """
     )
-    return list(session.execute(sql, {"uid": str(uid), "st": start, "en": end}).mappings().all())
+    return list(
+        session.execute(sql, {"uid": str(uid), "st": start, "en": end}).mappings().all()
+    )
 
 
 def _fetch_exam_results_rows(
@@ -138,7 +140,9 @@ def _fetch_exam_results_rows(
         LIMIT 500
         """
     )
-    return list(session.execute(sql, {"uid": user_id, "st": start, "en": end}).mappings().all())
+    return list(
+        session.execute(sql, {"uid": user_id, "st": start, "en": end}).mappings().all()
+    )
 
 
 def load_attempts(
@@ -157,12 +161,32 @@ def load_attempts(
             for r in rows:
                 attempts.append(
                     Attempt(
-                        question_id=(str(r.get("item_id")) if r.get("item_id") is not None else None),
-                        topic_id=(str(r.get("topic_id")) if r.get("topic_id") is not None else None),
-                        is_correct=(bool(r.get("correct")) if r.get("correct") is not None else None),
+                        question_id=(
+                            str(r.get("item_id"))
+                            if r.get("item_id") is not None
+                            else None
+                        ),
+                        topic_id=(
+                            str(r.get("topic_id"))
+                            if r.get("topic_id") is not None
+                            else None
+                        ),
+                        is_correct=(
+                            bool(r.get("correct"))
+                            if r.get("correct") is not None
+                            else None
+                        ),
                         responded_at=r.get("completed_at"),
-                        response_time_ms=(int(r.get("response_time_ms")) if isinstance(r.get("response_time_ms"), (int, float)) else None),
-                        used_hints=(1 if r.get("hint_used") is True else 0 if r.get("hint_used") is False else None),
+                        response_time_ms=(
+                            int(r.get("response_time_ms"))
+                            if isinstance(r.get("response_time_ms"), (int, float))
+                            else None
+                        ),
+                        used_hints=(
+                            1
+                            if r.get("hint_used") is True
+                            else 0 if r.get("hint_used") is False else None
+                        ),
                         session_id=r.get("session_id"),
                         session_duration_s=None,
                     )
@@ -196,7 +220,9 @@ def load_attempts(
                                 else None
                             ),
                             topic_id=(
-                                str(q.get("topic")) if q.get("topic") is not None else None
+                                str(q.get("topic"))
+                                if q.get("topic") is not None
+                                else None
                             ),
                             is_correct=(
                                 bool(q.get("is_correct") or q.get("correct"))
@@ -669,7 +695,7 @@ def compute_goal_attainment_probability(
 
     If METRICS_USE_BAYESIAN=true, attempts to use Bayesian posterior from growth_brms_meta,
     and falls back on Normal approximation when unavailable.
-    
+
     Strategy:
     1. If METRICS_USE_BAYESIAN=true:
        a. Check weekly_kpi.kpis->>'P' (if already computed by fit_bayesian_growth)
@@ -705,7 +731,7 @@ def compute_goal_attainment_probability(
                     pass
         except Exception:
             pass  # Continue to posterior-based computation
-        
+
         # Second, try to load from growth_brms_meta and compute using R client
         try:
             # Load latest posterior from growth_brms_meta
@@ -718,22 +744,23 @@ def compute_goal_attainment_probability(
                 """
             )
             meta_row = session.execute(stmt_meta).mappings().first()
-            
+
             if meta_row and meta_row.get("posterior_summary"):
                 # Get user ability summary for current state
                 mu_sd = load_user_ability_summary(session, user_id)
                 if not mu_sd:
                     return None
                 mu, sd = mu_sd
-                
+
                 # Use R BRMS client to compute probability from posterior
                 from ..app.clients import r_brms as rbrms  # type: ignore
-                
+
                 prob = rbrms.prob_goal(mu=mu, sd=sd, target=target)  # type: ignore[attr-defined]
                 return max(0.0, min(1.0, float(prob)))
         except Exception as e:
             # Log error but continue to Normal fallback
             import logging
+
             logger = logging.getLogger(__name__)
             logger.debug(f"Bayesian path failed, using Normal fallback: {e}")
 

@@ -4,6 +4,7 @@
 정책 평가 이벤트를 구조화된 JSON 로그로 표준 출력에 남기기 위해 로거를 설정하고,
 정책 평가 결과(허용/거부) 및 에러를 로깅하는 함수를 제공합니다.
 """
+
 import os
 import sys
 import json
@@ -36,7 +37,7 @@ def log_policy_evaluation(
     policy_name: str,
     result: str,
     duration_ms: Union[int, float],
-    reason: Optional[str] = None
+    reason: Optional[str] = None,
 ) -> None:
     """
     정책 평가 결과(허용 또는 거부)를 JSON 형식으로 로깅합니다.
@@ -66,7 +67,9 @@ def log_policy_evaluation(
         "resource_method": resource_method,
         "policy_name": policy_name,
         "result": result,
-        "duration_ms": int(duration_ms) if not isinstance(duration_ms, int) else duration_ms
+        "duration_ms": (
+            int(duration_ms) if not isinstance(duration_ms, int) else duration_ms
+        ),
     }
     if reason is not None:
         log_record["reason"] = reason
@@ -80,9 +83,13 @@ def log_policy_evaluation(
     else:
         # Log invalid result as error and raise exception
         log_record["result"] = "error"
-        log_record["reason"] = log_record.get("reason", "") or "Invalid policy evaluation result"
+        log_record["reason"] = (
+            log_record.get("reason", "") or "Invalid policy evaluation result"
+        )
         logger.error(json.dumps(log_record, ensure_ascii=False))
-        raise ValueError(f"Invalid result for log_policy_evaluation: {result}. Use log_policy_error for errors.")
+        raise ValueError(
+            f"Invalid result for log_policy_evaluation: {result}. Use log_policy_error for errors."
+        )
 
 
 def log_policy_error(
@@ -92,7 +99,7 @@ def log_policy_error(
     resource_method: str,
     policy_name: str,
     reason: str,
-    duration_ms: Union[int, float]
+    duration_ms: Union[int, float],
 ) -> None:
     """
     정책 평가 중 발생한 에러를 JSON 형식으로 로깅합니다.
@@ -117,8 +124,10 @@ def log_policy_error(
         "resource_method": resource_method,
         "policy_name": policy_name,
         "result": "error",
-        "duration_ms": int(duration_ms) if not isinstance(duration_ms, int) else duration_ms,
-        "reason": reason
+        "duration_ms": (
+            int(duration_ms) if not isinstance(duration_ms, int) else duration_ms
+        ),
+        "reason": reason,
     }
     # Log at ERROR level
     logger.error(json.dumps(log_record, ensure_ascii=False))
