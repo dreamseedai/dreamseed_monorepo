@@ -44,7 +44,7 @@ def get_db():
         "Replace with actual get_db() from shared.db.session")
 
 
-router = APIRouter(prefix='/api/student', tags=['student'])
+router = APIRouter(prefix="/api/student", tags=["student"])
 
 
 # ============================================================================
@@ -125,11 +125,11 @@ def parse_accept_language(accept_language: Optional[str]) -> str:
 # Endpoints
 # ============================================================================
 
-@router.get('/dashboard', response_model=DashboardOut)
+@router.get("/dashboard", response_model=DashboardOut)
 async def get_dashboard(
     db: Session = Depends(get_db),
     user: UserContext = Depends(require_student),
-    accept_language: Optional[str] = Header(None, alias='Accept-Language")
+    accept_language: Optional[str] = Header(None, alias="Accept-Language"),
 ):
     """
     Get student dashboard summary with LLM-generated AI message.

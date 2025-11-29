@@ -49,7 +49,7 @@ def get_db():
         "Replace with actual get_db() from shared.db.session")
 
 
-router = APIRouter(prefix='/api/student', tags=['student'])
+router = APIRouter(prefix="/api/student", tags=["student"])
 
 
 # ============================================================================
@@ -94,11 +94,11 @@ class GoalIn(BaseModel):
 # Endpoints
 # ============================================================================
 
-@router.get('/dashboard', response_model=DashboardOut)
+@router.get("/dashboard", response_model=DashboardOut)
 async def get_dashboard(
     db: Session = Depends(get_db),
     user: UserContext = Depends(require_student),
-    accept_language: Optional[str] = Header(None, alias='Accept-Language")
+    accept_language: Optional[str] = Header(None, alias="Accept-Language"),
 ):
     """
     Get student dashboard summary with hybrid LLM routing.

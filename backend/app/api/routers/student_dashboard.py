@@ -38,11 +38,10 @@ from shared.analytics.ai_empathy import make_message
 
 def get_db():
     """Placeholder for DB session dependency. Replace with actual implementation."""
-    raise NotImplementedError(
-        "Replace with actual get_db() from shared.db.session")
+    raise NotImplementedError("Replace with actual get_db() from shared.db.session")
 
 
-router = APIRouter(prefix='/api/student', tags=['student'])
+router = APIRouter(prefix="/api/student", tags=["student"])
 
 
 # ============================================================================
@@ -87,7 +86,7 @@ class GoalIn(BaseModel):
 # Endpoints
 # ============================================================================
 
-@router.get('/dashboard', response_model=DashboardOut)
+@router.get("/dashboard", response_model=DashboardOut)
 def get_dashboard(
     db: Session = Depends(get_db),
     user: UserContext = Depends(require_student),
