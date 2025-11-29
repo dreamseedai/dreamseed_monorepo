@@ -41,7 +41,7 @@ jobs:
     steps:
       - name: Update Project Status -> In Progress
         if: ${{ env.PROJECT_URL != '' && env.PROJECTS_TOKEN != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.PROJECTS_TOKEN }}
           script: |
