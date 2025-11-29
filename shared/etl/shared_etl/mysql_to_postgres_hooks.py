@@ -22,9 +22,10 @@ from sqlalchemy import create_engine, text
 import sys
 from pathlib import Path
 
-# shared/mathml 경로 추가
-mathml_path = Path(__file__).parent.parent / "mathml" / "scripts"
-sys.path.insert(0, str(mathml_path))
+# shared/mathml 경로 추가 (절대 경로로 해결)
+mathml_path = (Path(__file__).parent.parent.parent / "mathml" / "scripts").resolve()
+if mathml_path.exists():
+    sys.path.insert(0, str(mathml_path))
 
 from normalize_tex import normalize_tex
 from convert_wiris import mathml_to_tex

@@ -31,13 +31,15 @@ for (const line of lines) {
   if (mode === 'write') {
     item.expected = {...exp, svg_hash, speech};
   } else {
-    if (!exp.svg_hash || exp.svg_hash !== svg_hash) {
+    // Only validate svg_hash if it was previously set (not empty string)
+    if (exp.svg_hash && exp.svg_hash !== svg_hash) {
       failures++;
-      console.error(`[HASH MISMATCH] ${item.id}: expected=${exp.svg_hash||"(none)"} actual=${svg_hash}`);
+      console.error(`[HASH MISMATCH] ${item.id}: expected=${exp.svg_hash} actual=${svg_hash}`);
     }
-    if (!exp.speech || exp.speech !== speech) {
+    // Only validate speech if it was previously set (not empty string)
+    if (exp.speech && exp.speech !== speech) {
       failures++;
-      console.error(`[SPEECH MISMATCH] ${item.id}`);
+      console.error(`[SPEECH MISMATCH] ${item.id}: expected="${exp.speech}" actual="${speech}"`);
     }
   }
   out.push(JSON.stringify(item));

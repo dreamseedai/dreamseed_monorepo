@@ -2,9 +2,9 @@
 import re
 
 FUNC_TOKENS = r"(sin|cos|tan|log|ln|lim|det|arcsin|arccos|arctan|sinh|cosh|tanh|exp|max|min|sup|inf)"
-FUNC_RE = re.compile(rf"(?<\!\\)\b{FUNC_TOKENS}\b")
+FUNC_RE = re.compile(rf"(?<!\\)\b{FUNC_TOKENS}\b")
 SUB_RE = re.compile(r"([A-Za-z])_([A-Za-z0-9])")
-SQRT_MISS_BRACE = re.compile(r"(\\sqrt)\s*(?\!\{)")
+SQRT_MISS_BRACE = re.compile(r"(\\sqrt)\s*(?!\{)")
 CHEM_LIKE = re.compile(r"(?:[A-Z][a-z]?\d*(?:[+-]?\d*)?){2,}")
 
 def fix_functions(tex: str) -> str:
