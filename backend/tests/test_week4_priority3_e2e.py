@@ -11,13 +11,13 @@ Environment: Local development (port 8001)
 Status: Active (Nov 27, 2025)
 """
 
-import pytest
 import time
 import uuid
 from datetime import datetime
-from httpx import AsyncClient
-import httpx
 
+import httpx
+import pytest
+from httpx import AsyncClient
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Configuration
@@ -139,7 +139,6 @@ def test_duplicate_registration_rejected(sync_client, test_user_data):
     assert "detail" in error_data
 
 
-@pytest.mark.skip(reason="Server does not validate password complexity or role enums")
 def test_invalid_registration_data(sync_client):
     """
     Test that invalid registration data is rejected.
