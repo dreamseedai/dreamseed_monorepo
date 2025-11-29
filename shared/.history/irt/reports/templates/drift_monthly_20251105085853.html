@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Monthly IRT Drift Report</title>
+<style>
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+h1 { margin-bottom: 0; }
+.small { color:#666; font-size: 12px; }
+.table { width:100%; border-collapse: collapse; margin-top:10px; }
+.table th, .table td { border:1px solid #ddd; padding:6px; font-size: 12px; }
+.badge { padding:2px 6px; border-radius:8px; display:inline-block; }
+.badge.high{ background:#ffd1d1;}
+.badge.medium{ background:#ffe7b3;}
+.badge.low{ background:#e6f3ff;}
+.chart { height: 120px; border:1px dashed #ccc; margin:6px 0; }
+</style>
+</head>
+<body>
+<h1>Monthly IRT Drift Report</h1>
+<div class="small">
+Generated at {{ generated_at }} UTC<br/>
+Window: {{ window.label }} ({{ window.start_at }} ~ {{ window.end_at }})
+</div>
+
+<h2>Alerts</h2>
+<table class="table">
+  <thead><tr>
+    <th>Item</th><th>Bank</th><th>Lang</th><th>Metric</th><th>Value</th><th>Threshold</th><th>Severity</th><th>Message</th>
+  </tr></thead>
+  <tbody>
+    {% for a in alerts %}
+    <tr>
+      <td>{{ a.item_id }}</td>
+      <td>{{ a.bank_id }}</td>
+      <td>{{ a.lang }}</td>
+      <td>{{ a.metric }}</td>
+      <td>{{ "%.3f"|format(a.value or 0) }}</td>
+      <td>{{ a.threshold }}</td>
+      <td><span class="badge {{ a.severity }}">{{ a.severity }}</span></td>
+      <td>{{ a.message }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Item Information Curves (Top alerted)</h2>
+{% for c in curves %}
+  <h3>Item {{ c.item_id }}</h3>
+  <div class="chart">
+    <!-- SVG 정보 곡선 렌더링 -->
+    {% set xs = [p.theta for p in c.points] %}
+    {% set ys = [p.info for p in c.points] %}
+    {% set minx = xs|min %}
+    {% set maxx = xs|max %}
+    {% set miny = 0 %}
+    {% set maxy = (ys|max) if (ys|max)>0 else 1 %}
+    <svg viewBox="0 0 600 120" width="100%" height="120" xmlns="http://www.w3.org/2000/svg">
+      <polyline fill="none" stroke="#333" stroke-width="1"
+        points="{% for p in c.points %}{{ ((p.theta - minx)/(maxx-minx))*580 + 10 }},{{ 110 - (p.info/maxy)*100 }}{% if not loop.last %} {% endif %}{% endfor %}"/>
+      <text x="10" y="115" font-size="10">θ</text>
+      <text x="580" y="15" font-size="10">Info</text>
+    </svg>
+  </div>
+{% endfor %}
+</body>
+</html>

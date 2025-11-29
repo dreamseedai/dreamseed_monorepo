@@ -1,0 +1,400 @@
+# Coverage / caches
+.coverage
+**/.coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual env / tools
+.venv/
+.venv-*/
+.venv-tools/
+
+# Build / artifacts
+dist/
+build/
+.DS_Store
+
+# Infra local history
+infra/.history/
+
+# Local projects (ignore)
+CascadeProjects/
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+build/
+*.min.js
+*.min.css
+*.bundle.js
+
+# Cache directories
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Local package/env caches (can be huge)
+.mamba/
+venv/
+.venv/
+env/
+env*/
+db_env/
+dreamseed/backend/venv/
+
+# Local logs and tooling
+.logs/
+.tools/
+server.pid
+.continue/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+dreamseed_*.db
+mpcstudy_*.db
+
+# Documentation files
+# Allow all documentation in specific directories
+!ops/
+!backend/
+!docs/
+
+# Ignore markdown files by default
+*.md
+
+# But allow these specific patterns
+!README.md
+!CHANGELOG.md
+!README_PROJECTS_AUTOMATION.md
+!*_TEMPLATE.md
+!RUNBOOK_*.md
+!DEPLOYMENT_GUIDE_*.md
+!ops/**/*.md
+!backend/**/*.md
+!docs/**/*.md
+
+# Configuration files
+.editorconfig
+.eslintrc.*
+.prettierrc*
+tsconfig.json
+babel.config.*
+webpack.config.*
+rollup.config.*
+
+# Version files
+=*
+version.txt
+
+# Guide files
+*_GUIDE.md
+*_OVERVIEW.md
+*_RULES.md
+*_STATUS.md
+*_GUIDE.md
+*_DEPLOYMENT.md
+*_SETUP.md
+
+# Test files
+test_*.html
+test_*.py
+test_*.js
+*_test.*
+*_spec.*
+
+# Admin files
+admin/*.html
+admin/*.js
+admin/*.css
+admin/doc/
+admin/lib/
+
+# API files
+api/
+portal_api/
+backend/
+apps/
+
+# Allow tracking SeedTest API app (override ignores)
+!apps/
+!apps/seedtest_api/
+!apps/seedtest_api/**
+
+# Static files
+static/
+assets/
+images/
+
+# Scripts
+*.sh
+deploy*.sh
+install*.sh
+run*.sh
+# Allow database scripts to be tracked
+!scripts/db/*.sh
+!scripts/db/README.md
+
+# System files
+systemd-*.service
+nginx-*.conf
+*.service
+
+# Converter files
+*converter*
+*conversion*
+*_converter.*
+
+# OpenResty files
+openresty-*
+
+# Python files
+requirements*.txt
+*.py
+!mock_api.py
+
+# HTML test files
+*test*.html
+*debug*.html
+*simple*.html
+
+# JSON files
+*.json
+!package.json
+!tsconfig.json
+
+# Lua files
+*.lua
+
+# SQL files
+*.sql
+schema.sql
+# Allow RLS SQL
+!db/rls/*.sql
+
+# YAML files
+*.yml
+*.yaml
+!docker-compose.yml
+!.github/workflows/*.yml
+!.github/workflows/*.yaml
+#! Allow tracking Kubernetes manifests under ops/k8s
+!ops/k8s/**/*.yml
+!ops/k8s/**/*.yaml
+!portal_front/ops/k8s/**/*.yml
+!portal_front/ops/k8s/**/*.yaml
+
+# TypeScript files
+*.ts
+*.tsx
+
+# React files
+src/
+
+# Portal front - mostly ignored except K8s manifests
+portal_front/*
+!portal_front/ops/
+portal_front/ops/*
+!portal_front/ops/k8s/
+
+# Tools
+tools/
+kekule_*
+map_*
+search_*
+math_*
+
+# Alembic
+alembic/
+alembic.ini
+
+# Health checks
+health.spec.ts
+
+# Proxy
+proxy_server.js
+
+# Simple servers
+simple_*.py
+simple_*.html
+
+# R workspace/temp
+r/
+*.Rhistory
+*.Rproj.user/
+
+# Real data
+real_*.py
+
+# Final files
+final_*.py
+
+# Checkpoint files
+*checkpoint*
+*_checkpoint.*
+
+# Log files
+*_log_*
+conversion_log_*
+conversion_errors_*
+
+# JSONL files
+*.jsonl
+
+# Index files
+index*.html
+!index.html
+
+# Backup files
+*backup*
+*_backup.*
+
+# Broken files
+*broken*
+*_broken.*
+
+# Clean files
+*clean*
+*_clean.*
+
+# Fixed files
+*fixed*
+*_fixed.*
+
+# Minimal files
+*minimal*
+*_minimal.*
+
+# Ultimate files
+*ultimate*
+*_ultimate.*
+
+# Enhanced files
+*enhanced*
+*_enhanced.*
+
+# Enterprise files
+*enterprise*
+*_enterprise.*
+
+# Plus files
+*plus*
+*_plus.*
+
+# Demo files
+*demo*
+*_demo.*
+
+# Debug files
+*debug*
+*_debug.*
+
+# Simple files
+*simple*
+*_simple.*
+
+# Test files
+*test*
+*_test.*
+
+# HTML files (except main ones)
+*.html
+!question_editor_quill.html
+!index.html
+
+# JavaScript files
+*.js
+!mock_api.py
+
+# CSS files
+*.css
+
+# Other files
+TenantAdminGuard.tsx
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Database environments
+db_env/
+
+# Logrotate configs
+logrotate-*.conf
+
+# TypeScript config (if not needed)
+tsconfig.json
+
+# --- Final overrides: track SeedTest API app ---
+!apps/
+!apps/seedtest_api/
+!apps/seedtest_api/**
+
+# But still ignore common local artifacts within seedtest_api
+apps/seedtest_api/.venv/
+apps/seedtest_api/**/__pycache__/
+apps/seedtest_api/**/*.pyc
+
+# --- Branding assets (track SVGs and docs under assets/branding) ---
+!assets/
+!assets/branding/
+!assets/branding/**
+!assets/branding/**/*.md
+!assets/branding/**/*.svg

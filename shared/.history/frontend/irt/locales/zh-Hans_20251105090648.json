@@ -1,0 +1,20 @@
+{
+  "irt": {
+    "drift": {
+      "title": "每月IRT漂移监测",
+      "alerts_for_window": "窗口警报",
+      "download_pdf": "下载PDF报告",
+      "loading": "加载中...",
+      "no_alerts": "未检测到漂移警报。",
+      "col": {
+        "item": "题目ID",
+        "metric": "指标",
+        "value": "值",
+        "threshold": "阈值",
+        "severity": "严重程度",
+        "message": "消息",
+        "created": "创建时间"
+      }
+    }
+  }
+}

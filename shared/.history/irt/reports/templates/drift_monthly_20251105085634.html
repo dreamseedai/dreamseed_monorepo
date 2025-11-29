@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRT Drift Report - {{ window.label }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 28px;
+        }
+        
+        .header .subtitle {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .metadata {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .metadata p {
+            margin: 8px 0;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 30px 0;
+        }
+        
+        .stat-box {
+            background: white;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2c3e50;
+            line-height: 1;
+        }
+        
+        .stat-label {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+            padding-left: 12px;
+            font-size: 22px;
+        }
+        
+        .alert-summary {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .alert-badge {
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .badge-high {
+            background: #fee;
+            color: #e74c3c;
+            border: 2px solid #e74c3c;
+        }
+        
+        .badge-medium {
+            background: #fef5e7;
+            color: #f39c12;
+            border: 2px solid #f39c12;
+        }
+        
+        .badge-low {
+            background: #f4f6f7;
+            color: #95a5a6;
+            border: 2px solid #95a5a6;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 12px;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px 8px;
+            text-align: left;
+        }
+        
+        th {
+            background: #34495e;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+        
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        tr:hover {
+            background: #ecf0f1;
+        }
+        
+        .severity-high {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .severity-medium {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        
+        .severity-low {
+            color: #95a5a6;
+        }
+        
+        .anchor-badge {
+            background: #3498db;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .no-alerts {
+            background: #d5f4e6;
+            border: 2px solid #27ae60;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .curves-section {
+            page-break-before: always;
+        }
+        
+        .curve-item {
+            margin: 30px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        
+        .curve-header {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .curve-stats {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin: 5px 0;
+        }
+        
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #ecf0f1;
+            text-align: center;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .footer p {
+            margin: 5px 0;
+        }
+        
+        .metric-breakdown {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .metric-box {
+            background: #fff;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            padding: 12px 20px;
+            min-width: 100px;
+        }
+        
+        .metric-name {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+        
+        .metric-count {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>IRT Parameter Drift Monitoring Report</h1>
+        <div class="subtitle">{{ window.label }}</div>
+    </div>
+    
+    <div class="metadata">
+        <p><strong>Window ID:</strong> {{ window.id }}</p>
+        <p><strong>Period:</strong> {{ window.start_at.strftime('%Y-%m-%d') }} to {{ window.end_at.strftime('%Y-%m-%d') }}</p>
+        <p><strong>Population Tags:</strong> {{ window.population_tags | join(', ') }}</p>
+        <p><strong>Report Generated:</strong> {{ generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>
+    </div>
+    
+    <h2>Executive Summary</h2>
+    
+    <div class="stats-grid">
+        <div class="stat-box">
+            <div class="stat-value">{{ stats.total_items or 0 }}</div>
+            <div class="stat-label">Total Items</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value">{{ stats.drifted_items or 0 }}</div>
+            <div class="stat-label">Drifted Items</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value">{{ stats.total_alerts or 0 }}</div>
+            <div class="stat-label">Total Alerts</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value">{{ stats.avg_responses or 0 }}</div>
+            <div class="stat-label">Avg Responses</div>
+        </div>
+    </div>
+    
+    <div class="alert-summary">
+        <div class="alert-badge badge-high">
+            High: {{ stats.high_alerts or 0 }}
+        </div>
+        <div class="alert-badge badge-medium">
+            Medium: {{ stats.medium_alerts or 0 }}
+        </div>
+        <div class="alert-badge badge-low">
+            Low: {{ stats.low_alerts or 0 }}
+        </div>
+    </div>
+    
+    {% if metric_counts %}
+    <h2>Drift by Metric</h2>
+    <div class="metric-breakdown">
+        {% for metric, count in metric_counts.items() %}
+        <div class="metric-box">
+            <div class="metric-name">{{ metric }}</div>
+            <div class="metric-count">{{ count }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <h2>Drift Alerts Detail</h2>
+    
+    {% if has_alerts %}
+    <table>
+        <thead>
+            <tr>
+                <th>Item ID</th>
+                <th>Bank</th>
+                <th>Lang</th>
+                <th>Anchor</th>
+                <th>Metric</th>
+                <th>Value</th>
+                <th>Threshold</th>
+                <th>Severity</th>
+                <th>N</th>
+                <th>Message</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alert in alerts %}
+            <tr>
+                <td>{{ alert.id_str }}</td>
+                <td>{{ alert.bank_id }}</td>
+                <td>{{ alert.lang }}</td>
+                <td>
+                    {% if alert.is_anchor %}
+                    <span class="anchor-badge">ANCHOR</span>
+                    {% endif %}
+                </td>
+                <td>{{ alert.metric }}</td>
+                <td>{{ "%.3f" | format(alert.value) }}</td>
+                <td>{{ "%.3f" | format(alert.threshold) }}</td>
+                <td class="severity-{{ alert.severity }}">{{ alert.severity.upper() }}</td>
+                <td>{{ alert.n_responses or 0 }}</td>
+                <td>{{ alert.message }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="no-alerts">
+        ✓ No drift alerts detected. All item parameters are stable.
+    </div>
+    {% endif %}
+    
+    {% if has_curves %}
+    <div class="curves-section">
+        <h2>Item Information Curves (Top Drifted Items)</h2>
+        
+        {% for curve in curves %}
+        <div class="curve-item">
+            <div class="curve-header">
+                Item {{ curve.item_id }} - {{ curve.model }}
+            </div>
+            <div class="curve-stats">
+                Max Information: {{ "%.3f" | format(curve.max_info) }} at θ = {{ "%.2f" | format(curve.max_info_theta) }}
+            </div>
+            <div class="curve-stats">
+                Points: {{ curve.points | length }} (θ range: {{ "%.1f" | format(curve.points[0].theta) }} to {{ "%.1f" | format(curve.points[-1].theta) }})
+            </div>
+        </div>
+        {% endfor %}
+        
+        <p style="font-size: 12px; color: #7f8c8d; margin-top: 20px;">
+            <em>Note: Item information curves show I(θ) across ability levels. 
+            Higher information indicates better measurement precision at that ability level.</em>
+        </p>
+    </div>
+    {% endif %}
+    
+    <div class="footer">
+        <p><strong>IRT Drift Monitoring System</strong></p>
+        <p>DreamSeed AI | Adaptive Testing Platform</p>
+        <p>This report is auto-generated. For questions, contact your system administrator.</p>
+    </div>
+</body>
+</html>

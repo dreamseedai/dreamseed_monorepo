@@ -1,0 +1,127 @@
+### R Plumber GLMM API Smoke Tests
+### Use with REST Client (VS Code) or curl
+
+@baseUrl = http://localhost:8000
+@internalToken = test-token-12345
+
+###
+# Health Check
+GET {{baseUrl}}/healthz
+
+###
+# GLMM Fit - Simple Example
+POST {{baseUrl}}/glmm/fit
+Content-Type: application/json
+X-Internal-Token: {{internalToken}}
+
+{
+  "observations": [
+    {"student_id": "s1", "item_id": "i1", "correct": 1},
+    {"student_id": "s1", "item_id": "i2", "correct": 0},
+    {"student_id": "s1", "item_id": "i3", "correct": 1},
+    {"student_id": "s2", "item_id": "i1", "correct": 1},
+    {"student_id": "s2", "item_id": "i2", "correct": 1},
+    {"student_id": "s2", "item_id": "i3", "correct": 0},
+    {"student_id": "s3", "item_id": "i1", "correct": 0},
+    {"student_id": "s3", "item_id": "i2", "correct": 1},
+    {"student_id": "s3", "item_id": "i3", "correct": 1}
+  ]
+}
+
+###
+# GLMM Predict
+POST {{baseUrl}}/glmm/predict
+Content-Type: application/json
+X-Internal-Token: {{internalToken}}
+
+{
+  "model": {
+    "formula": "correct ~ 1 + (1|student_id) + (1|item_id)",
+    "fixed_effects": {
+      "(Intercept)": 0.5
+    },
+    "random_effects": {
+      "student_id": {
+        "(Intercept)": {
+          "s1": -0.2,
+          "s2": 0.3,
+          "s3": 0.1
+        }
+      },
+      "item_id": {
+        "(Intercept)": {
+          "i1": 0.1,
+          "i2": -0.05,
+          "i3": 0.15
+        }
+      }
+    }
+  },
+  "newdata": [
+    {"student_id": "s1", "item_id": "i1"},
+    {"student_id": "s2", "item_id": "i2"},
+    {"student_id": "s3", "item_id": "i3"}
+  ]
+}
+
+###
+# Forecast Summary
+POST {{baseUrl}}/forecast/summary
+Content-Type: application/json
+X-Internal-Token: {{internalToken}}
+
+{
+  "mean": 0.7,
+  "sd": 0.1,
+  "target": 0.8
+}
+
+###
+# Model Diagnostics
+POST {{baseUrl}}/glmm/diagnose
+Content-Type: application/json
+X-Internal-Token: {{internalToken}}
+
+{
+  "observations": [
+    {"student_id": "s1", "item_id": "i1", "correct": 1},
+    {"student_id": "s1", "item_id": "i2", "correct": 0},
+    {"student_id": "s2", "item_id": "i1", "correct": 1},
+    {"student_id": "s2", "item_id": "i2", "correct": 1}
+  ]
+}
+
+###
+# Error Case: Empty observations
+POST {{baseUrl}}/glmm/fit
+Content-Type: application/json
+X-Internal-Token: {{internalToken}}
+
+{
+  "observations": []
+}
+
+###
+# Error Case: Missing columns
+POST {{baseUrl}}/glmm/fit
+Content-Type: application/json
+X-Internal-Token: {{internalToken}}
+
+{
+  "observations": [
+    {"student_id": "s1", "correct": 1}
+  ]
+}
+
+###
+# Error Case: Invalid forecast parameters
+POST {{baseUrl}}/forecast/summary
+Content-Type: application/json
+X-Internal-Token: {{internalToken}}
+
+{
+  "mean": 0.7,
+  "sd": -0.1,
+  "target": 0.8
+}
+

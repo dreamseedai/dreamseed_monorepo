@@ -1,0 +1,196 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: glmm-fit-progress-scripts
+  namespace: seedtest
+data:
+  glmm_fit_progress.py: |
+    #!/usr/bin/env python3
+    from __future__ import annotations
+
+    import asyncio
+    import json
+    import os
+    from dataclasses import dataclass
+    from datetime import datetime, timedelta, timezone
+    from typing import Any, Dict, List
+
+    import sqlalchemy as sa
+
+    from ..app.clients.r_glmm import RGlmmClient
+    from ..services.db import get_session
+
+
+    @dataclass
+    class ProgressRow:
+        student: str
+        topic: str
+        week_start: datetime
+        score: float
+
+
+    async def run_glmm_fit(lookback_weeks: int | None = None) -> None:
+        lookback_weeks = int(lookback_weeks or os.getenv("GLMM_LOOKBACK_WEEKS", "12"))
+        formula = os.getenv(
+            "GLMM_FORMULA", "score ~ week + (week|student) + (1|topic)"
+        ).strip()
+        family = os.getenv("GLMM_FAMILY", "gaussian").strip()
+        dry_run = os.getenv("DRY_RUN", "false").lower() == "true"
+
+        since_dt = datetime.now(tz=timezone.utc) - timedelta(weeks=lookback_weeks)
+
+        # Aggregate weekly scores from attempt VIEW
+        stmt = sa.text(
+            """
+            SELECT 
+              student_id::text AS student,
+              COALESCE(NULLIF(topic_id, ''), 'unknown') AS topic,
+              date_trunc('week', completed_at)::date AS week_start,
+              AVG(CASE WHEN correct THEN 1 ELSE 0 END)::float AS score
+            FROM attempt
+            WHERE completed_at >= :since
+            GROUP BY 1,2,3
+            ORDER BY 3,1,2
+            LIMIT 200000
+            """
+        )
+
+        rows: List[ProgressRow] = []
+        with get_session() as s:
+            try:
+                res = s.execute(stmt, {"since": since_dt}).mappings().all()
+                for r in res:
+                    try:
+                        rows.append(
+                            ProgressRow(
+                                student=str(r["student"]),
+                                topic=str(r["topic"]),
+                                week_start=datetime.fromisoformat(str(r["week_start"])),
+                                score=float(r["score"] or 0.0),
+                            )
+                        )
+                    except Exception:
+                        # Skip malformed row
+                        continue
+            except Exception as e:
+                print(f"[ERROR] Failed to read attempt VIEW weekly aggregates: {e}")
+                rows = []
+
+        if not rows:
+            print("No weekly aggregates found; exiting.")
+            return
+
+        # Create contiguous week index starting at 1 from earliest week
+        week_starts_sorted = sorted({r.week_start for r in rows})
+        week_index_map: Dict[datetime, int] = {
+            ws: idx + 1 for idx, ws in enumerate(week_starts_sorted)
+        }
+
+        payload_rows: List[Dict[str, Any]] = [
+            {
+                "student": r.student,
+                "topic": r.topic,
+                "week": int(week_index_map[r.week_start]),
+                "score": float(r.score),
+            }
+            for r in rows
+        ]
+
+        if dry_run:
+            print(
+                f"[DRY_RUN] Would fit GLMM with {len(payload_rows)} rows, lookback_weeks={lookback_weeks}, formula='{formula}', family='{family}'"
+            )
+            return
+
+        client = RGlmmClient()
+        result = await client.fit_progress(
+            rows=payload_rows, formula=formula, family=family
+        )
+
+        # Persist meta result
+        meta = result.get("fit_meta") or {}
+        run_id = meta.get("run_id") or f"glmm-{datetime.now(tz=timezone.utc).isoformat()}"
+        model_spec = {
+            "formula": formula,
+            "family": family,
+            "lookback_weeks": lookback_weeks,
+            "rows_count": len(payload_rows),
+        }
+        # include any model components returned
+        metrics = result.get("metrics") or result
+
+        up_meta = sa.text(
+            """
+            INSERT INTO growth_glmm_meta (run_id, model_spec, metrics, fitted_at)
+            VALUES (:run_id, CAST(:model_spec::text AS jsonb), CAST(:metrics::text AS jsonb), NOW())
+            ON CONFLICT (run_id) DO UPDATE
+            SET model_spec = EXCLUDED.model_spec,
+                metrics = EXCLUDED.metrics,
+                fitted_at = NOW()
+            """
+        )
+
+        with get_session() as s:
+            s.execute(
+                up_meta,
+                {
+                    "run_id": str(run_id),
+                    "model_spec": json.dumps(model_spec),
+                    "metrics": json.dumps(metrics),
+                },
+            )
+            s.commit()
+
+        print(f"GLMM fit stored: run_id={run_id}; rows={len(payload_rows)}")
+
+
+    async def main() -> None:
+        await run_glmm_fit()
+
+
+    if __name__ == "__main__":
+        asyncio.run(main())
+  r_glmm.py: |
+    from __future__ import annotations
+
+    import os
+    from typing import Any, Dict, List, Optional
+
+    import httpx
+
+
+    class RGlmmClient:
+        def __init__(
+            self,
+            base_url: Optional[str] = None,
+            timeout: Optional[float] = None,
+            token: Optional[str] = None,
+        ) -> None:
+            self.base_url = (base_url or os.getenv("R_GLMM_BASE_URL") or "").rstrip("/")
+            self.timeout = float(timeout or os.getenv("GLMM_TIMEOUT_SECS", "30"))
+            self.token = token or os.getenv("R_GLMM_INTERNAL_TOKEN") or None
+            if not self.base_url:
+                raise RuntimeError("R_GLMM_BASE_URL is not configured")
+
+        def _headers(self) -> Dict[str, str]:
+            headers = {"Content-Type": "application/json"}
+            if self.token:
+                headers["Authorization"] = f"Bearer {self.token}"
+            return headers
+
+        async def fit_progress(
+            self,
+            rows: List[Dict[str, Any]],
+            *,
+            formula: str = "score ~ week + (week|student) + (1|topic)",
+            family: str = "gaussian",
+        ) -> Dict[str, Any]:
+            url = f"{self.base_url}/glmm/fit_progress"
+            payload: Dict[str, Any] = {"rows": rows, "formula": formula, "family": family}
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                r = await client.post(url, json=payload, headers=self._headers())
+                r.raise_for_status()
+                return r.json()
+
+
+    __all__ = ["RGlmmClient"]

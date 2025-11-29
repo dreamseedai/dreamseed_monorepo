@@ -1,0 +1,11 @@
+{
+  "venvPath": "../",
+  "venv": ".venv",
+  "reportMissingImports": true,
+  "executionEnvironments": [
+    {
+      "root": "../",
+      "extraPaths": ["../"]
+    }
+  ]
+}

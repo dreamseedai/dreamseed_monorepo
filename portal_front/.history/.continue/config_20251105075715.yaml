@@ -1,0 +1,13 @@
+name: dreamseed-config
+version: "1.0.0"
+
+models:
+  - name: gpt-4
+    provider: continue-proxy
+    model: gpt-4
+    apiKey: ""
+    orgScopeId: ""
+    onPremProxyUrl: ""
+
+
+

@@ -1,0 +1,64 @@
+{
+    "telemetry.machineId": "203284de48c864ccb20db71794c8458037a0cb8d2204abc1cef746953a85920d",
+    "telemetry.macMachineId": "d21b495564a53a509b26630b13b7c62a82da61bfce545b3563bd093ca8b375c0",
+    "telemetry.sqmId": "{82C8C333-A1F5-44C8-801E-CC1395FBD4C0}",
+    "telemetry.devDeviceId": "14fbd9e5-04de-42bc-a582-2a26130fee97",
+    "backupWorkspaces": {
+        "workspaces": [],
+        "folders": [],
+        "emptyWindows": [
+            {
+                "backupFolder": "1759195238211"
+            }
+        ]
+    },
+    "windowControlHeight": 35,
+    "profileAssociations": {
+        "workspaces": {},
+        "emptyWindows": {
+            "1759195238211": "__default__profile__"
+        }
+    },
+    "theme": "vs-dark",
+    "themeBackground": "#181818",
+    "windowSplash": {
+        "zoomLevel": 0,
+        "baseTheme": "vs-dark",
+        "colorInfo": {
+            "foreground": "rgba(228, 228, 228, 0.92)",
+            "background": "#181818",
+            "editorBackground": "#181818",
+            "titleBarBackground": "#141414",
+            "titleBarBorder": "rgba(228, 228, 228, 0.07)",
+            "activityBarBackground": "#141414",
+            "sideBarBackground": "#141414",
+            "sideBarBorder": "rgba(228, 228, 228, 0.07)",
+            "statusBarBackground": "#141414",
+            "statusBarBorder": "rgba(228, 228, 228, 0.07)",
+            "statusBarNoFolderBackground": "#141414"
+        },
+        "layoutInfo": {
+            "sideBarSide": "left",
+            "editorPartMinWidth": 220,
+            "titleBarHeight": 35,
+            "activityBarWidth": 0,
+            "sideBarWidth": 260,
+            "auxiliarySideBarWidth": 0,
+            "statusBarHeight": 22,
+            "windowBorder": false
+        }
+    },
+    "windowsState": {
+        "lastActiveWindow": {
+            "backupPath": "C:\\Users\\KwangilWon\\Documents\\cursor-profile\\Backups\\1759195238211",
+            "uiState": {
+                "mode": 1,
+                "x": 2470,
+                "y": 142,
+                "width": 1200,
+                "height": 800
+            }
+        },
+        "openedWindows": []
+    }
+}

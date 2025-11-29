@@ -1,0 +1,158 @@
+# Assignment Template Configuration
+# Maps θ buckets to specific assignment templates/catalogs
+
+templates:
+  very_low:
+    id: "remedial_basics"
+    title: "기본 개념 보정 과제"
+    description: "기초 개념을 다시 학습하고 연습문제를 풉니다."
+    difficulty: "easy"
+    estimated_minutes: 30
+    content_tags:
+      - "기본개념"
+      - "보정학습"
+      - "기초문제"
+    catalog_ids:
+      - "CAT_BASIC_001"
+      - "CAT_BASIC_002"
+      - "CAT_REMEDIAL_MATH_001"
+
+  low:
+    id: "supplementary_review"
+    title: "보충 복습 과제"
+    description: "최근 학습 내용을 복습하고 유사 문제를 풉니다."
+    difficulty: "medium"
+    estimated_minutes: 45
+    content_tags:
+      - "복습"
+      - "보충학습"
+      - "응용문제"
+    catalog_ids:
+      - "CAT_REVIEW_001"
+      - "CAT_SUPP_MATH_001"
+
+  mid:
+    id: "core_practice"
+    title: "핵심 연습 과제"
+    description: "핵심 개념을 강화하고 다양한 유형을 연습합니다."
+    difficulty: "medium"
+    estimated_minutes: 60
+    content_tags:
+      - "핵심개념"
+      - "문제유형"
+      - "실전연습"
+    catalog_ids:
+      - "CAT_CORE_001"
+      - "CAT_CORE_002"
+      - "CAT_PRACTICE_001"
+
+  high:
+    id: "challenge_advanced"
+    title: "상향 도전 과제"
+    description: "심화 문제를 풀고 상위 수준 개념을 학습합니다."
+    difficulty: "hard"
+    estimated_minutes: 75
+    content_tags:
+      - "심화학습"
+      - "도전문제"
+      - "상위개념"
+    catalog_ids:
+      - "CAT_ADV_001"
+      - "CAT_CHALLENGE_001"
+
+  very_high:
+    id: "enrichment_extension"
+    title: "심화 확장 과제"
+    description: "확장 주제를 탐구하고 창의적 문제를 해결합니다."
+    difficulty: "advanced"
+    estimated_minutes: 90
+    content_tags:
+      - "확장학습"
+      - "창의문제"
+      - "탐구활동"
+    catalog_ids:
+      - "CAT_ENRICH_001"
+      - "CAT_EXTENSION_001"
+      - "CAT_PROJECT_001"
+
+# Role-based permissions for assignment actions
+permissions:
+  admin:
+    can_assign: true
+    can_view_all_classes: true
+    can_modify_thresholds: true
+  
+  teacher:
+    can_assign: true
+    can_view_all_classes: false
+    can_modify_thresholds: false
+  
+  counselor:
+    can_assign: true
+    can_view_all_classes: false
+    can_modify_thresholds: false
+  
+  viewer:
+    can_assign: false
+    can_view_all_classes: false
+    can_modify_thresholds: false
+
+# IdP/Proxy header mapping examples
+idp_header_mappings:
+  # Keycloak example
+  keycloak:
+    user: "X-Auth-Request-User"
+    org: "X-Auth-Request-Org-Id"
+    roles: "X-Auth-Request-Groups"
+  
+  # Auth0 example
+  auth0:
+    user: "X-Forwarded-User"
+    org: "X-Organization-Id"
+    roles: "X-Auth-Roles"
+  
+  # Generic OAuth2 Proxy
+  oauth2_proxy:
+    user: "X-Auth-Request-Email"
+    org: "X-Auth-Request-Org"
+    roles: "X-Auth-Request-Groups"
+  
+  # Custom
+  custom:
+    user: "X-User"
+    org: "X-Org-Id"
+    roles: "X-Roles"
+
+# Role canonicalization rules
+role_mappings:
+  admin:
+    - "admin"
+    - "관리자"
+    - "principal"
+    - "교장"
+    - "head"
+    - "administrator"
+    - "super_admin"
+  
+  teacher:
+    - "teacher"
+    - "교사"
+    - "instructor"
+    - "tutor"
+    - "educator"
+    - "faculty"
+  
+  counselor:
+    - "counselor"
+    - "상담"
+    - "상담교사"
+    - "adviser"
+    - "mentor"
+  
+  viewer:
+    - "viewer"
+    - "read"
+    - "analyst"
+    - "조회"
+    - "observer"
+    - "guest"

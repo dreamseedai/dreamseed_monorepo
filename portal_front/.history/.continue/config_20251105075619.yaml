@@ -1,0 +1,116 @@
+name: dreamseed-config
+version: 1.0.0
+
+models:
+  - name: gpt5
+    provider: continue-proxy
+    model: gpt-5
+    apiKey: ${env:OPENAI_API_KEY}
+    orgScopeId: ""
+    onPremProxyUrl: ""
+  - name: llama3-local
+    provider: openai-compatible
+    apiBase: http://127.0.0.1:11434/v1
+    apiKey: EMPTY
+    model: llama3:70b-instruct
+
+context:
+  providers:
+    - name: code
+      params:
+        nRetrieve: 25
+        nFinal: 5
+    - name: docs
+      params:
+        sites:
+          - https://docs.continue.dev
+    - name: folder
+      params:
+        folders:
+          - apps/seedtest_api
+          - apps/seedtest-api
+          - ops/k8s
+          - r-plumber
+
+commands:
+  - name: "Review diff"
+    prompt: "Review this diff and comment on risks, security, and test gaps."
+    useSelection: true
+  - name: "Write K8s manifest"
+    prompt: "Generate Kubernetes manifests (Deployment/Service/HPA/NP/Ingress) for this component following our seedtest namespace and security baselines."
+    toolChoice: auto
+
+  - name: "K8s overlay 생성"
+    prompt: |
+      현재 컴포넌트(선택 영역 또는 컨텍스트 기준)의 Kubernetes 배포 구성을 seedtest 네임스페이스 표준에 맞춰 overlays를 생성하세요.
+      요구사항:
+      - base: Deployment/Service/ServiceMonitor/HPA/NetworkPolicy/ConfigMap/ExternalSecret를 최소 구성으로 생성
+      - overlays:
+        - overlays/internal: Ingress 제거, NetworkPolicy로 app=seedtest-api만 허용, 이미지 태그/리소스/replicas 오버라이드, namespace=seedtest
+        - overlays/prod: Ingress(TLS, cert-manager cluster-issuer), 이미지 태그/리소스 상향, HPA 목표치 설정, ServiceMonitor 스크레이프 주기 설정
+      - 파일 구조/경로 예: ops/k8s/<component>/{kustomization.yaml, deployment.yaml, service.yaml, servicemonitor.yaml, hpa.yaml, networkpolicy.yaml}
+        + ops/k8s/<component>/overlays/{internal,prod}/kustomization.yaml 및 필요한 패치 파일(patches/*.yaml)
+      - 보안/운영 기준: Ingress 미노출(내부용), X-Internal-Token 헤더(선택), ExternalSecret, Resource requests/limits, readiness/liveness
+      - 출력: 생성/수정될 모든 파일의 경로와 YAML 콘텐츠를 파일별로 제시
+    toolChoice: auto
+    useSelection: false
+
+  - name: "ArgoCD App-of-Apps 등록"
+    prompt: |
+      App-of-Apps 패턴으로 Argo CD 구성을 생성/갱신하세요.
+      요구사항:
+      - 루트 앱: ops/argocd/root-app.yaml (namespace: argocd)
+      - 자식 앱(Apps):
+        - seedtest-api (ops/k8s/seedtest-api/overlays/prod 또는 internal)
+        - r-plumber-internal (ops/k8s/r-plumber/overlays/internal)
+        - r-irt-plumber-internal (ops/k8s/r-irt-plumber/overlays/internal)
+        - r-brms-plumber-internal (ops/k8s/r-brms-plumber/overlays/internal)
+      - syncPolicy: automated(prune, selfHeal), syncOptions(ServerSideApply=true 등)
+      - ignoreDifferences: 일부 필드(Deployment replicas/HPA status/annotation) 무시 규칙 예시 포함
+      - 출력: root-app.yaml 및 필요한 child App YAML을 파일별 경로와 함께 제시
+    toolChoice: auto
+    useSelection: false
+
+  - name: "Alembic migration 스켈레톤 작성"
+    prompt: |
+      Alembic 마이그레이션 스켈레톤을 생성하세요.
+      요구사항:
+      - 경로: apps/seedtest_api/alembic/versions/<timestamp>_<slug>.py
+      - 포함 내용:
+        - upgrade(): op.create_table, op.create_index/op.create_unique_constraint, 기본값/NOT NULL/ForeignKey, 타입(Postgres) 명시
+        - downgrade(): drop 순서 역순, 인덱스/제약/테이블 정리
+      - 샘플 케이스:
+        1) IRT: mirt_item_params(item_id PK, model, params JSON, version, fitted_at), mirt_ability(user_id, theta, se, version, fitted_at), mirt_fit_meta(run_id, model_spec, metrics_json)
+        2) Mastery: knowledge_concept(id, name, subject, parent_id FK), question_concept_map(question_id, concept_id), student_mastery(user_id, concept_id, mastery_score, updated_at)
+      - 출력: 파일명(권장 revision id/slug)과 전체 파이썬 코드
+    toolChoice: auto
+    useSelection: true
+
+  - name: "Make Dev Contract"
+    prompt: |
+      Convert given design into a Dev Contract with:
+      - Goal (one line)
+      - Change summary (3-5 bullets)
+      - Files (relative paths, create/modify)
+      - Public Interfaces (function/endpoint signatures, params, returns, errors)
+      - IO Examples (short)
+      - Constraints / Non-goals
+      - Tests checklist (unit/integration/e2e)
+    useSelection: true
+
+  - name: "Implement per Contract"
+    prompt: |
+      Implement EXACTLY as per the following Dev Contract.
+      Constraints:
+      - Only modify/create the listed files
+      - No new dependencies
+      - Keep public signatures stable
+      - Show a compact diff per file at the end
+    useSelection: true
+
+keybindings:
+  - key: "ctrl+shift+;"
+    command: "continue.chat"
+  - key: "ctrl+shift+'"
+    command: "continue.edit"
+

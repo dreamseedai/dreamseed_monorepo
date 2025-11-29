@@ -1,0 +1,94 @@
+# cSpell:ignore univprepai glmm
+# One-time Job for GLMM fit_progress (manual trigger)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: glmm-fit-progress-now
+  namespace: seedtest
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: seedtest-api
+      containers:
+        - name: glmm-fit-progress
+          image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:latest
+          imagePullPolicy: Always
+          workingDir: /app
+          volumeMounts:
+            - name: glmm-fit-scripts
+              mountPath: /app/apps/seedtest_api/jobs/glmm_fit_progress.py
+              subPath: glmm_fit_progress.py
+            - name: glmm-fit-scripts
+              mountPath: /app/apps/seedtest_api/app/clients/r_glmm.py
+              subPath: r_glmm.py
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Cloud SQL Proxy to be ready..."
+              sleep 5
+              echo "Starting GLMM fit_progress..."
+              echo "PYTHONPATH: $PYTHONPATH"
+              echo "Looking for seedtest_api:"
+              find /app -type d -name "seedtest_api" | head -5
+              echo "Checking for glmm_fit_progress.py:"
+              find /app -name "glmm_fit_progress.py" 2>/dev/null | head -5
+              if [ -f "/app/apps/seedtest_api/jobs/glmm_fit_progress.py" ]; then
+                echo "Found /app/apps/seedtest_api/jobs/glmm_fit_progress.py, using apps path"
+                cd /app
+                python3 -m apps.seedtest_api.jobs.glmm_fit_progress
+              elif [ -f "/app/seedtest_api/jobs/glmm_fit_progress.py" ]; then
+                echo "Found /app/seedtest_api/jobs/glmm_fit_progress.py, using seedtest_api path"
+                cd /app
+                python3 -m seedtest_api.jobs.glmm_fit_progress
+              else
+                echo "Error: glmm_fit_progress.py not found in expected locations"
+                echo "Listing available jobs:"
+                ls -la /app/seedtest_api/jobs/ 2>/dev/null | grep -E "\.py$" | head -10 || echo "No jobs directory found"
+                exit 1
+              fi
+          env:
+            - name: PYTHONPATH
+              value: "/app:/app/apps"
+            - name: GLMM_LOOKBACK_WEEKS
+              value: "12"  # 12 weeks of data
+            - name: R_GLMM_BASE_URL
+              value: "http://r-glmm-plumber.seedtest.svc.cluster.local:8000"
+            - name: R_GLMM_TIMEOUT_SECS
+              value: "600"  # 10 minutes timeout
+            - name: DRY_RUN
+              value: "false"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-db-credentials
+                  key: DATABASE_URL
+                  optional: false
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+      volumes:
+        - name: glmm-fit-scripts
+          configMap:
+            name: glmm-fit-progress-scripts
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+          imagePullPolicy: IfNotPresent
+          args:
+            - --structured-logs
+            - --port=5432
+            - univprepai:asia-northeast3:seedtest-staging
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              ephemeral-storage: "1Gi"
+      terminationGracePeriodSeconds: 300

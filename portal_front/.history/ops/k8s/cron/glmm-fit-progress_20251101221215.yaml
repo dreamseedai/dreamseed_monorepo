@@ -1,0 +1,88 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: glmm-fit-progress-weekly
+  namespace: seedtest
+spec:
+  # Every Monday at 03:20 UTC
+  schedule: "20 3 * * 1"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: seedtest-api
+          containers:
+            - name: glmm-fit-progress
+              image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:f830ff9c2-with-env
+              imagePullPolicy: Always
+              workingDir: /app
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "Waiting for Cloud SQL Proxy to be ready..."
+                  sleep 5
+                  echo "Starting GLMM fit for progress..."
+                  if [ -f "/app/apps/seedtest_api/jobs/glmm_fit_progress.py" ]; then
+                    cd /app
+                    python3 -m apps.seedtest_api.jobs.glmm_fit_progress
+                  elif [ -f "/app/seedtest_api/jobs/glmm_fit_progress.py" ]; then
+                    cd /app
+                    python3 -m seedtest_api.jobs.glmm_fit_progress
+                  else
+                    echo "Error: glmm_fit_progress.py not found in expected locations"
+                    exit 1
+                  fi
+              env:
+                - name: PYTHONPATH
+                  value: "/app:/app/apps"
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-db-credentials
+                      key: DATABASE_URL
+                      optional: false
+                - name: GLMM_LOOKBACK_WEEKS
+                  value: "12"
+                - name: GLMM_FORMULA
+                  value: "score ~ week + (week|student) + (1|topic)"
+                - name: GLMM_FAMILY
+                  value: "gaussian"
+                - name: DRY_RUN
+                  value: "false"
+                - name: R_GLMM_BASE_URL
+                  value: "http://r-irt-plumber.seedtest.svc.cluster.local:80"
+                - name: GLMM_TIMEOUT_SECS
+                  value: "300"
+                - name: R_GLMM_INTERNAL_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: r-irt-credentials
+                      key: token
+                      optional: true
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "200m"
+                limits:
+                  memory: "2Gi"
+                  cpu: "2000m"
+            - name: cloud-sql-proxy
+              image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+              imagePullPolicy: IfNotPresent
+              args:
+                - --structured-logs
+                - --port=5432
+                - univprepai:asia-northeast3:seedtest-staging
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  ephemeral-storage: "1Gi"
+          terminationGracePeriodSeconds: 300

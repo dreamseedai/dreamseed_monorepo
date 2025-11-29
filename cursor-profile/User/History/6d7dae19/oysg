@@ -1,0 +1,26 @@
+# 공통 기본값
+Host *
+    PubkeyAuthentication yes
+    IdentitiesOnly yes
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    GSSAPIAuthentication no
+    GSSAPIDelegateCredentials no
+    PreferredAuthentications publickey
+
+# 메인 접속 (IDE/터미널에서 이 별칭 사용 권장)
+Host dreamseed
+    HostName 192.168.68.116
+    User won
+    IdentityFile C:/Users/KwangilWon/.ssh/id_ed25519
+    ForwardAgent yes
+    StrictHostKeyChecking accept-new
+    ConnectTimeout 5
+    IPQoS throughput
+    RequestTTY no
+    BatchMode yes
+    LogLevel ERROR
+    ControlMaster auto
+    ControlPath C:/Users/KwangilWon/.ssh/control-%h-%p-%r
+    ControlPersist 10m
+

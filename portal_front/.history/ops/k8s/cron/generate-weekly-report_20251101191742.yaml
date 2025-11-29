@@ -1,0 +1,61 @@
+# cSpell:ignore univprepai
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: generate-weekly-report
+  namespace: seedtest
+spec:
+  schedule: "0 4 * * 1" # Every Monday at 04:00 UTC (generate last week's report)
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          terminationGracePeriodSeconds: 300
+          restartPolicy: Never
+          containers:
+            - name: generate-weekly-report
+              # Use Quarto-enabled image (needs Quarto + R installed)
+              # Note: Build and push image first: docker build -f Dockerfile.quarto-runner -t gcr.io/univprepai/seedtest-report-runner:latest .
+              image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-report-runner:latest
+              imagePullPolicy: Always
+              command: ["python3", "-m", "apps.seedtest_api.jobs.generate_weekly_report"]
+              env:
+                - name: PYTHONPATH
+                  value: "/app"
+                - name: REPORT_FORMAT
+                  value: "pdf"
+                - name: S3_BUCKET
+                  value: "seedtest-reports"
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-s3-credentials
+                      key: AWS_ACCESS_KEY_ID
+                      optional: true
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-s3-credentials
+                      key: AWS_SECRET_ACCESS_KEY
+                      optional: true
+                - name: AWS_REGION
+                  value: "ap-northeast-2"
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-db-credentials
+                      key: DATABASE_URL
+                      optional: false
+              resources:
+                requests:
+                  memory: "2Gi"
+                  cpu: "1000m"
+                limits:
+                  memory: "4Gi"
+                  cpu: "2000m"
+              # Timeout after 2 hours
+

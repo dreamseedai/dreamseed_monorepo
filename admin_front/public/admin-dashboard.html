@@ -1,0 +1,2267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>DreamSeedAI Admin Panel - GPT Access</title>
+    
+    <!-- 강력한 캐시 방지 스크립트 -->
+    <script>
+        // 서비스 워커 제거
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
+        
+        // 캐시 완전 삭제
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                for (let name of names) {
+                    caches.delete(name);
+                }
+            });
+        }
+        
+        // 강제 새로고침 체크 + 강력한 캐시 무력화
+        (function() {
+            const currentVersion = '2025-10-07-final-unified';
+            const storedVersion = localStorage.getItem('admin_version');
+            
+            // 첫 로드 시 캐시 완전 초기화
+            if (storedVersion !== currentVersion) {
+                console.log('🔄 새 버전 감지:', currentVersion);
+                localStorage.clear();
+                sessionStorage.clear();
+                localStorage.setItem('admin_version', currentVersion);
+                
+                // 첫 로드가 아니면 강제 새로고침
+                if (storedVersion) {
+                    console.log('🔄 강제 새로고침 실행');
+                    window.location.reload(true);
+                }
+            }
+            
+            console.log('✅ 캐시 초기화 완료 - 버전:', currentVersion);
+        })();
+    </script>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --dark-color: #34495e;
+            --light-color: #ecf0f1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        .gpt-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .admin-container {
+            display: flex;
+            min-height: calc(100vh - 50px);
+        }
+
+        .sidebar {
+            width: 250px;
+            background: var(--primary-color);
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            height: calc(100vh - 50px);
+            overflow-y: auto;
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 250px;
+            padding: 20px;
+        }
+
+        .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 12px 20px;
+            display: block;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: white;
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .realtime-clickable {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .realtime-clickable:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            background-color: #f8f9fa;
+        }
+
+        .realtime-clickable:active {
+            transform: translateY(0);
+        }
+
+        .btn-group .btn {
+            margin-right: 5px;
+        }
+
+        .table th {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        .map-container {
+            position: relative;
+            height: 400px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #worldMap {
+            height: 100%;
+            width: 100%;
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+
+        .map-legend {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .real-time-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--success-color);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Statistics Panel Styles */
+        .stat-box {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px 8px;
+            text-align: center;
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+
+        .stat-box:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .stat-box.total {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .stat-box.total:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+
+        .stat-box .stat-number {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .stat-box.total .stat-number {
+            color: white;
+        }
+
+        .stat-box .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .stat-box.total .stat-label {
+            color: rgba(255,255,255,0.9);
+        }
+
+        .stat-box h6 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .stat-box .text-primary { color: #007bff !important; }
+        .stat-box .text-success { color: #28a745 !important; }
+        .stat-box .text-warning { color: #ffc107 !important; }
+        .stat-box .text-danger { color: #dc3545 !important; }
+
+        /* Clickable stat boxes */
+        .stat-box.clickable {
+            cursor: pointer;
+        }
+
+        .stat-box.clickable:hover {
+            background: #007bff;
+            color: white;
+        }
+
+        .stat-box.clickable:active {
+            transform: translateY(0);
+        }
+
+        .stat-box.total.clickable:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+
+        .stat-box.active {
+            background: #007bff !important;
+            color: white !important;
+            transform: scale(1.05);
+        }
+
+        .stat-box.total.active {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%) !important;
+        }
+
+        .gpt-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- GPT 접근 배너 -->
+    <div class="gpt-banner">
+        <i class="fas fa-robot me-2"></i>
+        GPT 접근 모드 - 자동 로그인 활성화
+    </div>
+
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="px-3">
+                <h4 class="text-white mb-4">
+                    <i class="fas fa-seedling me-2"></i>
+                    DreamSeedAI
+                </h4>
+                <small class="text-white-50">GPT 관리자 접근</small>
+            </div>
+
+            <ul class="nav flex-column mt-4">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#" data-section="dashboard">
+                        <i class="fas fa-tachometer-alt"></i>
+                        대시보드
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-section="problems">
+                        <i class="fas fa-question-circle"></i>
+                        문제 관리
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-section="users">
+                        <i class="fas fa-users"></i>
+                        사용자 관리
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-section="ai-chat">
+                        <i class="fas fa-robot"></i>
+                        AI 챗봇 관리
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-section="mathml">
+                        <i class="fas fa-calculator"></i>
+                        MathML 변환
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-section="editor">
+                        <i class="fas fa-edit"></i>
+                        문제 에디터
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-section="analytics">
+                        <i class="fas fa-chart-line"></i>
+                        분석 및 통계
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-section="settings">
+                        <i class="fas fa-cog"></i>
+                        시스템 설정
+                    </a>
+                </li>
+            </ul>
+
+            <div class="mt-4 pt-3 border-top border-white-50 px-3">
+                <div class="text-center">
+                    <small class="text-white-50">GPT 접근 모드</small>
+                    <br>
+                    <button class="btn btn-outline-light btn-sm mt-2" onclick="window.close()">
+                        <i class="fas fa-times me-1"></i>닫기
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Navigation -->
+            <nav class="navbar navbar-expand-lg">
+                <div class="container-fluid">
+                    <span class="navbar-brand mb-0 h1" id="pageTitle">대시보드</span>
+                    <div class="d-flex">
+                        <span class="badge bg-success me-2">
+                            <i class="fas fa-circle me-1"></i>GPT 접근 모드
+                        </span>
+                        <span class="text-muted" id="currentTime"></span>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- GPT 접근 정보 -->
+            <div class="gpt-info">
+                <h5><i class="fas fa-info-circle me-2"></i>GPT 접근 모드 안내</h5>
+                <p class="mb-0">이 페이지는 GPT가 관리자 시스템에 접근할 수 있도록 특별히 구성되었습니다. 로그인 없이 모든 기능에 접근할 수 있습니다.</p>
+            </div>
+
+            <!-- Dashboard Section -->
+            <div id="dashboard" class="content-section active">
+                <!-- Real-time Stats -->
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalUsers">1,247</div>
+                        <div class="stat-label">총 사용자 수</div>
+                        <div class="real-time-indicator"></div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="onlineUsers">89</div>
+                        <div class="stat-label">현재 온라인</div>
+                        <div class="real-time-indicator"></div>
+                    </div>
+                    <div class="stat-item realtime-clickable" onclick="refreshRealtimeData()" title="클릭하여 실시간 데이터 새로고침">
+                        <div class="stat-number" id="realtimeUsers">45</div>
+                        <div class="stat-label">지금 사용 중 🔄</div>
+                        <div class="real-time-indicator"></div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalProblems">2,456</div>
+                        <div class="stat-label">총 문제 수</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="solvedToday">1,234</div>
+                        <div class="stat-label">오늘 해결된 문제</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="aiInteractions">5,678</div>
+                        <div class="stat-label">AI 상호작용</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="convertedMathML">12,340</div>
+                        <div class="stat-label">변환된 MathML</div>
+                    </div>
+                </div>
+
+                <!-- World Map -->
+                <div class="row mb-4">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-globe me-2"></i>
+                                    전 세계 사용자 분포
+                                </h5>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="forceInitMap()" title="지도 강제 초기화">
+                                        🗺️ 지도 초기화
+                                    </button>
+                                    <span class="real-time-indicator me-2"></span>
+                                    <small class="text-muted">실시간 업데이트</small>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="map-container">
+                                    <div id="worldMap"></div>
+                                    <div class="map-overlay">
+                                        <h6 class="mb-2">현재 시간</h6>
+                                        <div id="mapCurrentTime" class="fw-bold"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Statistics Panel -->
+                    <div class="col-lg-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-pie me-2"></i>
+                                    상세 통계
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <!-- 무료 사용자 -->
+                                <div class="mb-4">
+                                    <h6 class="text-primary mb-3">
+                                        <i class="fas fa-users me-2"></i>무료 사용자
+                                    </h6>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('free', 'realtime')">
+                                                <div class="stat-number" id="freeRealtime">145</div>
+                                                <div class="stat-label">실시간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('free', 'daily')">
+                                                <div class="stat-number" id="freeDaily">1,234</div>
+                                                <div class="stat-label">일간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('free', 'weekly')">
+                                                <div class="stat-number" id="freeWeekly">8,567</div>
+                                                <div class="stat-label">주간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('free', 'monthly')">
+                                                <div class="stat-number" id="freeMonthly">34,891</div>
+                                                <div class="stat-label">월간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('free', 'quarterly')">
+                                                <div class="stat-number" id="freeQuarterly">98,456</div>
+                                                <div class="stat-label">분기별</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('free', 'yearly')">
+                                                <div class="stat-number" id="freeYearly">387,234</div>
+                                                <div class="stat-label">년간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="stat-box total clickable" onclick="filterMapByUserType('free', 'total')">
+                                                <div class="stat-number" id="freeTotal">387,234</div>
+                                                <div class="stat-label">총계</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 유료 사용자 -->
+                                <div class="mb-4">
+                                    <h6 class="text-success mb-3">
+                                        <i class="fas fa-crown me-2"></i>유료 사용자
+                                    </h6>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('paid', 'realtime')">
+                                                <div class="stat-number" id="paidRealtime">89</div>
+                                                <div class="stat-label">실시간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('paid', 'daily')">
+                                                <div class="stat-number" id="paidDaily">567</div>
+                                                <div class="stat-label">일간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('paid', 'weekly')">
+                                                <div class="stat-number" id="paidWeekly">3,456</div>
+                                                <div class="stat-label">주간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('paid', 'monthly')">
+                                                <div class="stat-number" id="paidMonthly">12,345</div>
+                                                <div class="stat-label">월간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('paid', 'quarterly')">
+                                                <div class="stat-number" id="paidQuarterly">34,567</div>
+                                                <div class="stat-label">분기별</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('paid', 'yearly')">
+                                                <div class="stat-number" id="paidYearly">125,678</div>
+                                                <div class="stat-label">년간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="stat-box total clickable" onclick="filterMapByUserType('paid', 'total')">
+                                                <div class="stat-number" id="paidTotal">125,678</div>
+                                                <div class="stat-label">총계</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 프레미엄 사용자 -->
+                                <div class="mb-4">
+                                    <h6 class="text-warning mb-3">
+                                        <i class="fas fa-gem me-2"></i>프레미엄 사용자
+                                    </h6>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('premium', 'realtime')">
+                                                <div class="stat-number" id="premiumRealtime">27</div>
+                                                <div class="stat-label">실시간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('premium', 'daily')">
+                                                <div class="stat-number" id="premiumDaily">189</div>
+                                                <div class="stat-label">일간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('premium', 'weekly')">
+                                                <div class="stat-number" id="premiumWeekly">1,234</div>
+                                                <div class="stat-label">주간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('premium', 'monthly')">
+                                                <div class="stat-number" id="premiumMonthly">4,567</div>
+                                                <div class="stat-label">월간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('premium', 'quarterly')">
+                                                <div class="stat-number" id="premiumQuarterly">12,345</div>
+                                                <div class="stat-label">분기별</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box clickable" onclick="filterMapByUserType('premium', 'yearly')">
+                                                <div class="stat-number" id="premiumYearly">45,678</div>
+                                                <div class="stat-label">년간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="stat-box total clickable" onclick="filterMapByUserType('premium', 'total')">
+                                                <div class="stat-number" id="premiumTotal">45,678</div>
+                                                <div class="stat-label">총계</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 수익 통계 -->
+                                <div>
+                                    <h6 class="text-danger mb-3">
+                                        <i class="fas fa-dollar-sign me-2"></i>수익 통계
+                                    </h6>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <div class="stat-box">
+                                                <div class="stat-number" id="revenueRealtime">$127</div>
+                                                <div class="stat-label">실시간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box">
+                                                <div class="stat-number" id="revenueDaily">$1,234</div>
+                                                <div class="stat-label">일간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box">
+                                                <div class="stat-number" id="revenueWeekly">$8,567</div>
+                                                <div class="stat-label">주간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stat-box">
+                                                <div class="stat-number" id="revenueMonthly">$34,890</div>
+                                                <div class="stat-label">월간</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="stat-box total">
+                                                <div class="stat-number" id="revenueTotal">$125,678</div>
+                                                <div class="stat-label">총 수익</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="row">
+                    <!-- User Growth Chart -->
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-line me-2"></i>
+                                    누적 사용자 증가
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="userGrowthChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Daily Activity Chart -->
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-bar me-2"></i>
+                                    일일 활동량
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="dailyActivityChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Countries Row -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-flag me-2"></i>
+                                    상위 국가별 사용자 분포
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row" id="topCountries">
+                                    <div class="col-md-2 mb-3">
+                                        <div class="text-center p-3 bg-light rounded">
+                                            <div class="h4 mb-2">🇰🇷</div>
+                                            <div class="fw-bold">대한민국</div>
+                                            <div class="badge bg-primary mt-2">456명</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2 mb-3">
+                                        <div class="text-center p-3 bg-light rounded">
+                                            <div class="h4 mb-2">🇺🇸</div>
+                                            <div class="fw-bold">미국</div>
+                                            <div class="badge bg-primary mt-2">234명</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2 mb-3">
+                                        <div class="text-center p-3 bg-light rounded">
+                                            <div class="h4 mb-2">🇯🇵</div>
+                                            <div class="fw-bold">일본</div>
+                                            <div class="badge bg-primary mt-2">189명</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2 mb-3">
+                                        <div class="text-center p-3 bg-light rounded">
+                                            <div class="h4 mb-2">🇨🇳</div>
+                                            <div class="fw-bold">중국</div>
+                                            <div class="badge bg-primary mt-2">156명</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2 mb-3">
+                                        <div class="text-center p-3 bg-light rounded">
+                                            <div class="h4 mb-2">🇬🇧</div>
+                                            <div class="fw-bold">영국</div>
+                                            <div class="badge bg-primary mt-2">98명</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2 mb-3">
+                                        <div class="text-center p-3 bg-light rounded">
+                                            <div class="h4 mb-2">🇩🇪</div>
+                                            <div class="fw-bold">독일</div>
+                                            <div class="badge bg-primary mt-2">87명</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Problems Management Section -->
+            <div id="problems" class="content-section">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-question-circle me-2"></i>
+                            문제 관리
+                        </h5>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-primary" onclick="openProblemModal()">
+                                <i class="fas fa-plus me-2"></i>새 문제 추가
+                            </button>
+                            <button class="btn btn-success" onclick="openQuestionEditor()" title="새 창에서 문제 편집기를 엽니다">
+                                <i class="fas fa-edit me-2"></i>문제 편집기
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="problemsManagementSystem" style="border: 1px solid #e5e7eb; border-radius: 8px; height: 600px; overflow: hidden;">
+                            <!-- 문제 관리 시스템이 여기에 로드됩니다 -->
+                            <div style="padding: 20px; text-align: center;">
+                                <h4>문제 관리 시스템 로딩 중...</h4>
+                                <p>새로운 문제 관리 시스템을 준비하고 있습니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other sections would go here -->
+            <div id="users" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-users me-2"></i>
+                            사용자 관리
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p>사용자 관리 기능이 여기에 표시됩니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ai-chat" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-robot me-2"></i>
+                            AI 챗봇 관리
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p>AI 챗봇 관리 기능이 여기에 표시됩니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="mathml" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calculator me-2"></i>
+                            MathML 변환
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p>MathML 변환 기능이 여기에 표시됩니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="editor" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-edit me-2"></i>
+                            데이터 변환 확인 에디터
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="problemId" class="form-label">문제 번호 (mpcstudy_db.sql)</label>
+                            <input type="text" class="form-control" id="problemId" placeholder="문제 번호를 입력하세요" value="1">
+                        </div>
+                        <button class="btn btn-primary" onclick="loadProblem()">
+                            <i class="fas fa-download me-1"></i>문제 로드
+                        </button>
+                        <button class="btn btn-success ms-2" onclick="saveProblem()">
+                            <i class="fas fa-save me-1"></i>변환 결과 저장
+                        </button>
+                        <button class="btn btn-info ms-2" onclick="previewProblem()">
+                            <i class="fas fa-eye me-1"></i>미리보기
+                        </button>
+                        <button class="btn btn-warning ms-2" onclick="compareWithOriginal()">
+                            <i class="fas fa-balance-scale me-1"></i>원본 비교
+                        </button>
+                        
+                    <div class="mt-4">
+                        <div id="questionManagementSystem" style="border: 1px solid #ddd; border-radius: 8px; height: 700px; overflow: hidden;">
+                            <!-- 문제 관리 시스템이 여기에 로드됩니다 -->
+                            <div style="padding: 20px; text-align: center;">
+                                <h4>문제 관리 시스템 로딩 중...</h4>
+                                <p>새로운 문제 관리 시스템을 준비하고 있습니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="analytics" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-line me-2"></i>
+                            분석 및 통계
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p>분석 및 통계 기능이 여기에 표시됩니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="settings" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cog me-2"></i>
+                            시스템 설정
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p>시스템 설정 기능이 여기에 표시됩니다.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let worldMap;
+        let mapMarkers = [];
+
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            // 캐시 방지를 위한 강제 새로고침 체크
+            const lastModified = localStorage.getItem('adminPageLastModified');
+            const currentTime = Date.now();
+            
+            if (!lastModified || (currentTime - parseInt(lastModified)) > 300000) { // 5분마다 체크
+                localStorage.setItem('adminPageLastModified', currentTime.toString());
+                // 페이지가 오래된 경우 강제 새로고침
+                if (lastModified && (currentTime - parseInt(lastModified)) > 600000) { // 10분 이상
+                    window.location.reload(true);
+                    return;
+                }
+            }
+            
+            initializeAdminPanel();
+            updateCurrentTime();
+            setInterval(updateCurrentTime, 1000);
+            
+            // 차트 초기화 (Chart.js 로드 확인 후)
+            setTimeout(() => {
+                if (typeof Chart !== 'undefined') {
+                    initializeCharts();
+                } else {
+                    console.warn('[CHARTS] Chart.js 라이브러리가 아직 로드되지 않았습니다. 3초 후 재시도...');
+                    setTimeout(() => {
+                        if (typeof Chart !== 'undefined') {
+                            initializeCharts();
+                        }
+                    }, 3000);
+                }
+            }, 1000);
+            
+            // 지도 강제 초기화 (모든 초기화 완료 후)
+            setTimeout(() => {
+                console.log('[FORCE] 강제 지도 초기화 시작...');
+                try {
+                    if (typeof L !== 'undefined') {
+                        forceInitMap();
+                    } else {
+                        console.error('[FORCE] Leaflet 라이브러리 없음');
+                    }
+                } catch (error) {
+                    console.error('[FORCE] 지도 초기화 실패:', error);
+                }
+            }, 2000);
+        });
+
+        // 관리자 패널 초기화
+        function initializeAdminPanel() {
+            // 사이드바 네비게이션 이벤트 리스너
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const section = this.getAttribute('data-section');
+                    showSection(section);
+
+                    // 활성 링크 업데이트
+                    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            // 초기 데이터 로드
+            loadSampleData();
+
+            // 기본으로 대시보드 섹션 표시
+            showSection('dashboard');
+            document.querySelector('[data-section="dashboard"]').classList.add('active');
+
+            // 지도 즉시 초기화 (대시보드가 기본이므로)
+            setTimeout(() => {
+                console.log('[INIT] 페이지 로드 시 지도 초기화 시작...');
+                initWorldMap();
+            }, 500);
+
+            // 실시간 데이터 로드 (30초마다)
+            setInterval(loadRealtimeData, 30000);
+        }
+
+        // 섹션 표시
+        function showSection(sectionName) {
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+
+            document.getElementById(sectionName).classList.add('active');
+
+            // 대시보드 섹션이 표시될 때 지도 초기화
+            if (sectionName === 'dashboard') {
+                setTimeout(() => {
+                    initWorldMap();
+                }, 100);
+            }
+
+            // 에디터 섹션이 표시될 때 문제 관리 시스템 초기화
+            if (sectionName === 'editor') {
+                setTimeout(() => {
+                    initQuestionManagementSystem();
+                }, 100);
+            }
+
+            // 문제 관리 섹션이 표시될 때 문제 관리 시스템 초기화
+            if (sectionName === 'problems') {
+                setTimeout(() => {
+                    initProblemsManagementSystem();
+                }, 100);
+            }
+
+            // 페이지 제목 업데이트
+            const titles = {
+                'dashboard': '대시보드',
+                'problems': '문제 관리',
+                'users': '사용자 관리',
+                'ai-chat': 'AI 챗봇 관리',
+                'mathml': 'MathML 변환',
+                'editor': '문제 에디터',
+                'analytics': '분석 및 통계',
+                'settings': '시스템 설정'
+            };
+
+            document.getElementById('pageTitle').textContent = titles[sectionName] || '관리자 패널';
+        }
+
+        // 현재 시간 업데이트
+        function updateCurrentTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            document.getElementById('currentTime').textContent = timeString;
+            document.getElementById('mapCurrentTime').textContent = timeString;
+        }
+
+        // 세계 지도 초기화
+        function initWorldMap() {
+            console.log('[MAP] 🗺️ 지도 초기화 시작');
+            
+            try {
+                const mapEl = document.getElementById('worldMap');
+                if (!mapEl) {
+                    console.error('[MAP] ❌ worldMap 컨테이너 없음');
+                    return;
+                }
+                
+                if (typeof L === 'undefined') {
+                    console.error('[MAP] ❌ Leaflet 라이브러리 없음');
+                    // Leaflet 동적 로드 시도
+                    loadLeafletDynamically();
+                    return;
+                }
+                
+                console.log('[MAP] ✅ Leaflet 버전:', L.version);
+                
+                // 기존 지도 제거
+                if (worldMap) {
+                    console.log('[MAP] 🗑️ 기존 지도 제거');
+                    worldMap.remove();
+                    worldMap = null;
+                }
+                
+                // 컨테이너 초기화
+                mapEl.innerHTML = '';
+                
+                // 지도 생성
+                worldMap = L.map('worldMap').setView([39.8283, -98.5795], 4);
+                console.log('[MAP] ✅ 지도 객체 생성 완료');
+                
+                // 타일 레이어 추가
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 18
+                }).addTo(worldMap);
+                console.log('[MAP] ✅ 타일 레이어 추가 완료');
+                
+                // 마커 데이터
+                const cities = [
+                    [40.7128, -74.0060, '🗽 New York', 1247],
+                    [34.0522, -118.2437, '🌴 Los Angeles', 892],
+                    [43.6532, -79.3832, '🍁 Toronto', 387],
+                    [37.7749, -122.4194, '🌉 San Francisco', 567],
+                    [41.8781, -87.6298, '🏙️ Chicago', 634]
+                ];
+                
+                // 마커 추가
+                mapMarkers = [];
+                cities.forEach(([lat, lng, name, users]) => {
+                    const marker = L.marker([lat, lng])
+                        .addTo(worldMap)
+                        .bindPopup(`<strong>${name}</strong><br>활성 사용자: ${users}명`);
+                    mapMarkers.push(marker);
+                });
+                
+                console.log('[MAP] ✅ 마커 추가 완료:', cities.length, '개');
+                console.log('[MAP] 🎉 지도 초기화 성공!');
+                
+                // 크기 재조정
+                setTimeout(() => {
+                    if (worldMap) {
+                        worldMap.invalidateSize();
+                        console.log('[MAP] 🔄 지도 크기 재조정 완료');
+                    }
+                }, 500);
+                
+            } catch (error) {
+                console.error('[MAP] ❌ 초기화 실패:', error);
+                // 대체 지도 표시
+                showFallbackMap();
+            }
+        }
+        
+        // Leaflet 동적 로드 함수
+        function loadLeafletDynamically() {
+            console.log('[MAP] 🔄 Leaflet 동적 로드 시도...');
+            
+            const css = document.createElement('link');
+            css.rel = 'stylesheet';
+            css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+            document.head.appendChild(css);
+            
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+            script.onload = function() {
+                console.log('[MAP] ✅ Leaflet 동적 로드 성공');
+                setTimeout(initWorldMap, 500);
+            };
+            script.onerror = function() {
+                console.error('[MAP] ❌ Leaflet 동적 로드 실패');
+                showFallbackMap();
+            };
+            document.head.appendChild(script);
+        }
+        
+        // 대체 지도 표시
+        function showFallbackMap() {
+            console.log('[MAP] 🔄 대체 지도 표시');
+            const mapEl = document.getElementById('worldMap');
+            if (mapEl) {
+                mapEl.innerHTML = `
+                    <div style="height: 100%; background: linear-gradient(to bottom, #87CEEB, #98FB98); 
+                                display: flex; align-items: center; justify-content: center; 
+                                flex-direction: column; color: #333; font-size: 16px; padding: 20px;">
+                        <div style="background: white; padding: 25px; border-radius: 15px; 
+                                    box-shadow: 0 8px 16px rgba(0,0,0,0.2); text-align: center; max-width: 400px;">
+                            <h3 style="margin: 0 0 15px 0; color: #2c3e50;">🗺️ 사용자 분포 지도</h3>
+                            <div style="margin: 10px 0;">📍 <strong>New York</strong>: 1,247명</div>
+                            <div style="margin: 10px 0;">📍 <strong>Los Angeles</strong>: 892명</div>
+                            <div style="margin: 10px 0;">📍 <strong>Toronto</strong>: 387명</div>
+                            <div style="margin: 10px 0;">📍 <strong>San Francisco</strong>: 567명</div>
+                            <div style="margin: 10px 0;">📍 <strong>Chicago</strong>: 634명</div>
+                            <hr style="margin: 15px 0;">
+                            <small style="color: #7f8c8d;">🔄 실시간 업데이트</small>
+                        </div>
+                    </div>
+                `;
+                console.log('[MAP] ✅ 대체 지도 표시 완료');
+            }
+        }
+
+        // 통계 박스 클릭 시 지도 필터링 함수
+        function filterMapByUserType(userType, timeFilter) {
+            console.log(`[STATS] 필터 적용: ${userType} 사용자, ${timeFilter} 기간`);
+            
+            // 모든 stat-box에서 active 클래스 제거
+            document.querySelectorAll('.stat-box').forEach(box => {
+                box.classList.remove('active');
+            });
+            
+            // 클릭된 박스에 active 클래스 추가
+            if (event && event.target) {
+                event.target.closest('.stat-box').classList.add('active');
+            }
+            
+            // 지도 업데이트
+            updateMapTitle(userType, timeFilter);
+            
+            // 실시간 데이터 시뮬레이션
+            if (timeFilter === 'realtime') {
+                startRealtimeUpdate(userType);
+            }
+        }
+        
+        // 지도 제목 업데이트
+        function updateMapTitle(userType, timeFilter) {
+            const mapHeader = document.querySelector('#worldMap').closest('.card').querySelector('.card-header h5');
+            const userTypeText = {
+                'free': '무료',
+                'paid': '유료', 
+                'premium': '프리미엄'
+            }[userType] || userType;
+            
+            const timeFilterText = {
+                'realtime': '실시간',
+                'daily': '일간',
+                'weekly': '주간', 
+                'monthly': '월간',
+                'quarterly': '분기별',
+                'yearly': '년간',
+                'total': '전체'
+            }[timeFilter];
+            
+            if (mapHeader) {
+                mapHeader.innerHTML = `<i class="fas fa-globe me-2"></i>${userTypeText} 사용자 분포 (${timeFilterText})`;
+            }
+        }
+        
+        // 실시간 업데이트 시뮬레이션
+        function startRealtimeUpdate(userType) {
+            const elementId = userType + 'Realtime';
+            const element = document.getElementById(elementId);
+            
+            if (element) {
+                setInterval(() => {
+                    const currentValue = parseInt(element.textContent);
+                    const newValue = currentValue + Math.floor(Math.random() * 5) - 2; // -2~+2 변화
+                    element.textContent = Math.max(0, newValue);
+                }, 3000);
+            }
+        }
+
+        // 강제 지도 초기화 (단순 버전)
+        function forceInitMap() {
+            console.log('[FORCE] 강제 지도 초기화 시작');
+            
+            try {
+                const mapEl = document.getElementById('worldMap');
+                if (!mapEl) {
+                    console.error('[FORCE] worldMap 엘리먼트 없음');
+                    return;
+                }
+                
+                if (worldMap) {
+                    worldMap.remove();
+                    worldMap = null;
+                }
+                
+                worldMap = L.map('worldMap').setView([39.8283, -98.5795], 4);
+                
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap'
+                }).addTo(worldMap);
+                
+                L.marker([40.7128, -74.0060]).addTo(worldMap).bindPopup('🗽 New York');
+                L.marker([34.0522, -118.2437]).addTo(worldMap).bindPopup('🌴 Los Angeles');
+                L.marker([43.6532, -79.3832]).addTo(worldMap).bindPopup('🍁 Toronto');
+                
+                console.log('[FORCE] 강제 지도 초기화 완료!');
+                
+            } catch (error) {
+                console.error('[FORCE] 강제 초기화 실패:', error);
+            }
+        }
+
+        // 샘플 데이터 로드
+        function loadSampleData() {
+            // 대시보드 통계 업데이트
+            document.getElementById('totalUsers').textContent = '1,247';
+            document.getElementById('onlineUsers').textContent = '89';
+            document.getElementById('realtimeUsers').textContent = '45';
+            document.getElementById('totalProblems').textContent = '2,456';
+            document.getElementById('solvedToday').textContent = '1,234';
+            document.getElementById('aiInteractions').textContent = '5,678';
+            document.getElementById('convertedMathML').textContent = '12,340';
+        }
+
+        // 실시간 데이터 로드
+        async function loadRealtimeData() {
+            try {
+                console.log('실시간 데이터 로드 시도...');
+                
+                // 실제 API 호출 대신 시뮬레이션된 실시간 데이터 사용
+                const realtimeUserData = await fetchRealtimeUserData();
+                
+                // 대시보드 통계 업데이트
+                updateDashboardStats(realtimeUserData);
+                
+                // 지도 마커 업데이트
+                updateMapUserData(realtimeUserData);
+                
+            } catch (error) {
+                console.error('실시간 데이터 로드 실패:', error);
+                // 폴백으로 기본 데이터 사용
+                loadSampleData();
+            }
+        }
+
+        // 실시간 사용자 데이터 가져오기 (시뮬레이션)
+        async function fetchRealtimeUserData() {
+            // 실제 환경에서는 API 호출: await fetch('/api/admin/realtime-users')
+            
+            // 시뮬레이션: 실시간 변동되는 사용자 수
+            const baseData = {
+                'New York': { base: 1247, variance: 50 },
+                'Los Angeles': { base: 892, variance: 40 },
+                'Chicago': { base: 634, variance: 30 },
+                'Houston': { base: 456, variance: 25 },
+                'Phoenix': { base: 298, variance: 20 },
+                'Toronto': { base: 387, variance: 25 },
+                'Montreal': { base: 234, variance: 15 },
+                'Vancouver': { base: 189, variance: 12 },
+                'San Francisco': { base: 567, variance: 35 },
+                'Seattle': { base: 423, variance: 30 }
+            };
+
+            const realtimeData = {};
+            for (const [city, data] of Object.entries(baseData)) {
+                const variation = Math.floor(Math.random() * data.variance * 2) - data.variance;
+                realtimeData[city] = Math.max(0, data.base + variation);
+            }
+
+            return realtimeData;
+        }
+
+        // 대시보드 통계 업데이트
+        function updateDashboardStats(userData) {
+            const totalUsers = Object.values(userData).reduce((sum, count) => sum + count, 0);
+            const onlineUsers = Math.floor(totalUsers * 0.15); // 15% 온라인 가정
+            const realtimeUsers = Math.floor(onlineUsers * 0.6); // 60% 실시간 활성
+
+            document.getElementById('totalUsers').textContent = totalUsers.toLocaleString();
+            document.getElementById('onlineUsers').textContent = onlineUsers.toLocaleString();
+            document.getElementById('realtimeUsers').textContent = realtimeUsers.toLocaleString();
+        }
+
+        // 지도 마커 사용자 수 업데이트
+        function updateMapUserData(userData) {
+            if (!worldMap || !mapMarkers) return;
+
+            // 팝업 내의 실시간 사용자 수 업데이트
+            document.querySelectorAll('.realtime-users').forEach(element => {
+                const city = element.getAttribute('data-city');
+                if (userData[city]) {
+                    element.textContent = userData[city].toLocaleString();
+                }
+            });
+
+            console.log('[worldMap] 실시간 사용자 데이터 업데이트 완료');
+        }
+
+        // 실시간 데이터 즉시 새로고침 (버튼 클릭 시)
+        async function refreshRealtimeData() {
+            try {
+                // 로딩 표시
+                const realtimeElement = document.getElementById('realtimeUsers');
+                const originalText = realtimeElement.textContent;
+                realtimeElement.textContent = '...';
+                realtimeElement.style.opacity = '0.6';
+
+                console.log('실시간 데이터 즉시 새로고침...');
+                
+                // 실시간 데이터 가져오기
+                const realtimeUserData = await fetchRealtimeUserData();
+                
+                // 대시보드 및 지도 업데이트
+                updateDashboardStats(realtimeUserData);
+                updateMapUserData(realtimeUserData);
+                
+                // 로딩 완료
+                realtimeElement.style.opacity = '1';
+                
+                // 성공 피드백 (일시적으로 색상 변경)
+                realtimeElement.style.color = '#27ae60';
+                setTimeout(() => {
+                    realtimeElement.style.color = '';
+                }, 1000);
+
+                console.log('[realtime] 즉시 새로고침 완료');
+                
+            } catch (error) {
+                console.error('실시간 데이터 즉시 새로고침 실패:', error);
+                
+                // 에러 시 원래 상태로 복원
+                const realtimeElement = document.getElementById('realtimeUsers');
+                realtimeElement.style.opacity = '1';
+                realtimeElement.style.color = '#e74c3c';
+                setTimeout(() => {
+                    realtimeElement.style.color = '';
+                }, 2000);
+            }
+        }
+
+        // 문제 관리 함수들
+        function openProblemModal() {
+            alert('새 문제 추가 모달이 열립니다.');
+        }
+
+        function openQuestionEditor() {
+            try {
+                // 새 창에서 dreamseed_editor.html 열기
+                const editorWindow = window.open('http://192.168.68.116:9000/dreamseed_editor.html', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+
+                if (!editorWindow) {
+                    alert('팝업이 차단되었습니다. 브라우저 설정에서 팝업을 허용해주세요.');
+                } else {
+                    // 창이 성공적으로 열렸는지 확인
+                    editorWindow.addEventListener('load', function() {
+                        console.log('문제 편집기가 성공적으로 열렸습니다.');
+                    });
+
+                    editorWindow.addEventListener('error', function() {
+                        alert('문제 편집기를 열 수 없습니다. 서버가 실행 중인지 확인해주세요.');
+                    });
+                }
+            } catch (error) {
+                console.error('문제 편집기 열기 오류:', error);
+                alert('문제 편집기를 열 수 없습니다. 잠시 후 다시 시도해주세요.');
+            }
+        }
+
+        // 문제 관리 시스템 상태
+        let questionManagementSystem = null;
+        let currentQuestions = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        let selectedQuestion = null;
+
+        // 문제 관리 시스템 초기화 (에디터용)
+        function initQuestionManagementSystem() {
+            const container = document.getElementById('questionManagementSystem');
+            if (!container) return;
+
+            container.innerHTML = `
+                <div style="display: flex; height: 100%;">
+                    <!-- 왼쪽: 문제 목록 -->
+                    <div style="width: 400px; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column;">
+                        <div style="padding: 16px; border-bottom: 1px solid #e5e7eb;">
+                            <h4 style="margin: 0 0 16px 0; display: flex; align-items: center;">
+                                📚 변환된 문제 목록
+                            </h4>
+                            
+                            <!-- 검색 -->
+                            <div style="margin-bottom: 12px;">
+                                <div style="position: relative;">
+                                    <input type="text" id="questionSearch" placeholder="문제 검색..." 
+                                           style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; padding-left: 36px;">
+                                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280;">🔍</span>
+                                </div>
+                            </div>
+
+                            <!-- 필터 -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                                <select id="subjectFilter" style="font-size: 12px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+                                    <option value="">전체 과목</option>
+                                    <option value="mathematics">수학</option>
+                                    <option value="physics">물리</option>
+                                    <option value="chemistry">화학</option>
+                                    <option value="biology">생물</option>
+                                </select>
+                                
+                                <select id="gradeFilter" style="font-size: 12px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+                                    <option value="">전체 학년</option>
+                                    <option value="G6">6학년</option>
+                                    <option value="G7">7학년</option>
+                                    <option value="G8">8학년</option>
+                                    <option value="G9">9학년</option>
+                                    <option value="G10">10학년</option>
+                                    <option value="G11">11학년</option>
+                                    <option value="G12">12학년</option>
+                                </select>
+                                
+                                <select id="difficultyFilter" style="font-size: 12px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+                                    <option value="">전체 난이도</option>
+                                    <option value="beginner">초급</option>
+                                    <option value="intermediate">중급</option>
+                                    <option value="advanced">고급</option>
+                                    <option value="expert">전문가</option>
+                                </select>
+                            </div>
+
+                            <button onclick="searchQuestions()" 
+                                    style="width: 100%; background: #3b82f6; color: white; padding: 8px; border: none; border-radius: 6px; cursor: pointer;">
+                                검색
+                            </button>
+                        </div>
+
+                        <!-- 문제 목록 -->
+                        <div id="questionsList" style="flex: 1; overflow-y: auto; padding: 8px;">
+                            <div style="text-align: center; padding: 20px;">로딩 중...</div>
+                        </div>
+
+                        <!-- 페이지네이션 -->
+                        <div style="padding: 12px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 12px; color: #6b7280;">
+                                총 <span id="totalCount">0</span>개 문제
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button onclick="changePage(${currentPage - 1})" id="prevBtn" 
+                                        style="padding: 4px; border: none; background: none; cursor: pointer;" disabled>
+                                    ◀
+                                </button>
+                                <span style="font-size: 12px;">
+                                    <span id="currentPage">1</span> / <span id="totalPages">1</span>
+                                </span>
+                                <button onclick="changePage(${currentPage + 1})" id="nextBtn" 
+                                        style="padding: 4px; border: none; background: none; cursor: pointer;" disabled>
+                                    ▶
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 오른쪽: 에디터 -->
+                    <div style="flex: 1; display: flex; flex-direction: column;">
+                        <div style="padding: 16px; border-bottom: 1px solid #e5e7eb;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <h4 style="margin: 0; display: flex; align-items: center;">
+                                    ✏️ 문제 편집기
+                                </h4>
+                                <div style="display: flex; gap: 8px;">
+                                    <button onclick="showQuestionAttributes()" 
+                                            style="display: flex; align-items: center; padding: 6px 12px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer;">
+                                        ℹ️ 속성 정보
+                                    </button>
+                                    <button onclick="saveCurrentQuestion()" 
+                                            style="display: flex; align-items: center; padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                        💾 저장
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="questionInfo" style="background: #f9fafb; padding: 12px; border-radius: 6px; font-size: 14px; color: #6b7280;">
+                                문제를 선택하세요
+                            </div>
+                        </div>
+
+                        <!-- 에디터 영역 -->
+                        <div style="flex: 1; padding: 16px;">
+                            <div id="editorContent" 
+                                 contenteditable="true" 
+                                 style="min-height: 400px; padding: 16px; border: 1px solid #d1d5db; border-radius: 6px; outline: none;"
+                                 placeholder="문제 내용을 입력하세요...">
+                                문제를 선택하면 여기에 내용이 표시됩니다.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 이벤트 리스너 추가
+            document.getElementById('questionSearch').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchQuestions();
+                }
+            });
+
+            // 초기 데이터 로드
+            loadQuestions();
+        }
+
+        // 문제 관리 시스템 초기화 (문제 관리용)
+        function initProblemsManagementSystem() {
+            const container = document.getElementById('problemsManagementSystem');
+            if (!container) return;
+
+            container.innerHTML = `
+                <div style="display: flex; height: 100%;">
+                    <!-- 왼쪽: 문제 목록 -->
+                    <div style="width: 100%; display: flex; flex-direction: column;">
+                        <div style="padding: 16px; border-bottom: 1px solid #e5e7eb;">
+                            <h4 style="margin: 0 0 16px 0; display: flex; align-items: center;">
+                                📚 변환된 문제 목록 (최신순)
+                            </h4>
+                            
+                            <!-- 검색 -->
+                            <div style="margin-bottom: 12px;">
+                                <div style="position: relative;">
+                                    <input type="text" id="problemsSearch" placeholder="문제 검색..." 
+                                           style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; padding-left: 36px;">
+                                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280;">🔍</span>
+                                </div>
+                            </div>
+
+                            <!-- 필터 -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                                <select id="problemsSubjectFilter" style="font-size: 12px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+                                    <option value="">전체 과목</option>
+                                    <option value="mathematics">수학</option>
+                                    <option value="physics">물리</option>
+                                    <option value="chemistry">화학</option>
+                                    <option value="biology">생물</option>
+                                </select>
+                                
+                                <select id="problemsGradeFilter" style="font-size: 12px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+                                    <option value="">전체 학년</option>
+                                    <option value="G6">6학년</option>
+                                    <option value="G7">7학년</option>
+                                    <option value="G8">8학년</option>
+                                    <option value="G9">9학년</option>
+                                    <option value="G10">10학년</option>
+                                    <option value="G11">11학년</option>
+                                    <option value="G12">12학년</option>
+                                </select>
+                                
+                                <select id="problemsDifficultyFilter" style="font-size: 12px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+                                    <option value="">전체 난이도</option>
+                                    <option value="beginner">초급</option>
+                                    <option value="intermediate">중급</option>
+                                    <option value="advanced">고급</option>
+                                    <option value="expert">전문가</option>
+                                </select>
+                            </div>
+
+                            <button onclick="searchProblems()" 
+                                    style="width: 100%; background: #3b82f6; color: white; padding: 8px; border: none; border-radius: 6px; cursor: pointer;">
+                                검색
+                            </button>
+                        </div>
+
+                        <!-- 문제 목록 -->
+                        <div id="problemsList" style="flex: 1; overflow-y: auto; padding: 8px;">
+                            <div style="text-align: center; padding: 20px;">로딩 중...</div>
+                        </div>
+
+                        <!-- 페이지네이션 -->
+                        <div style="padding: 12px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 12px; color: #6b7280;">
+                                총 <span id="problemsTotalCount">0</span>개 문제
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button onclick="changeProblemsPage(${currentPage - 1})" id="problemsPrevBtn" 
+                                        style="padding: 4px; border: none; background: none; cursor: pointer;" disabled>
+                                    ◀
+                                </button>
+                                <span style="font-size: 12px;">
+                                    <span id="problemsCurrentPage">1</span> / <span id="problemsTotalPages">1</span>
+                                </span>
+                                <button onclick="changeProblemsPage(${currentPage + 1})" id="problemsNextBtn" 
+                                        style="padding: 4px; border: none; background: none; cursor: pointer;" disabled>
+                                    ▶
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 이벤트 리스너 추가
+            document.getElementById('problemsSearch').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchProblems();
+                }
+            });
+
+            // 초기 데이터 로드 (마지막 레코드부터)
+            loadProblems();
+        }
+
+        // 문제 목록 로드 (에디터용)
+        async function loadQuestions(page = 1) {
+            try {
+                const params = new URLSearchParams({
+                    page: page.toString(),
+                    page_size: '100'
+                });
+
+                const response = await fetch(`http://localhost:8006/api/admin/questions?${params}`);
+                const data = await response.json();
+                
+                currentQuestions = data.questions;
+                currentPage = data.page;
+                totalPages = data.total_pages;
+                
+                renderQuestionsList();
+                updatePagination();
+            } catch (error) {
+                console.error('문제 목록 로드 실패:', error);
+                document.getElementById('questionsList').innerHTML = '<div style="text-align: center; padding: 20px; color: #dc2626;">로딩 실패</div>';
+            }
+        }
+
+        // 문제 목록 로드 (문제 관리용 - 마지막 레코드부터)
+        async function loadProblems(page = 1) {
+            try {
+                const params = new URLSearchParams({
+                    page: page.toString(),
+                    page_size: '100'
+                });
+
+                const response = await fetch(`http://localhost:8006/api/admin/questions?${params}`);
+                const data = await response.json();
+                
+                // 마지막 레코드부터 표시하기 위해 역순으로 정렬
+                const reversedQuestions = data.questions.reverse();
+                
+                currentQuestions = reversedQuestions;
+                currentPage = data.page;
+                totalPages = data.total_pages;
+                
+                renderProblemsList();
+                updateProblemsPagination();
+            } catch (error) {
+                console.error('문제 목록 로드 실패:', error);
+                document.getElementById('problemsList').innerHTML = '<div style="text-align: center; padding: 20px; color: #dc2626;">로딩 실패</div>';
+            }
+        }
+
+        // 문제 목록 렌더링 (에디터용)
+        function renderQuestionsList() {
+            const container = document.getElementById('questionsList');
+            if (!container) return;
+
+            if (currentQuestions.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px;">문제가 없습니다</div>';
+                return;
+            }
+
+            const html = currentQuestions.map(question => `
+                <div onclick="selectQuestion('${question.id}')" 
+                     style="padding: 12px; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;"
+                     onmouseover="this.style.borderColor='#3b82f6'; this.style.backgroundColor='#eff6ff';"
+                     onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='white';">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 16px;">${getSubjectIcon(question.subject)}</span>
+                            <span style="font-weight: 500; font-size: 14px;">${question.title}</span>
+                        </div>
+                        <span style="padding: 2px 8px; border-radius: 12px; font-size: 11px; ${getDifficultyColor(question.difficulty_level)}">
+                            ${getDifficultyName(question.difficulty_level)}
+                        </span>
+                    </div>
+                    
+                    <div style="font-size: 12px; color: #6b7280; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                        <div>ID: ${question.legacy_id}</div>
+                        <div>과목: ${getSubjectName(question.subject)}</div>
+                        <div>학년: ${question.grade_code}</div>
+                        <div>유형: ${getQuestionTypeName(question.question_type)}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = html;
+        }
+
+        // 문제 목록 렌더링 (문제 관리용)
+        function renderProblemsList() {
+            const container = document.getElementById('problemsList');
+            if (!container) return;
+
+            if (currentQuestions.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px;">문제가 없습니다</div>';
+                return;
+            }
+
+            const html = currentQuestions.map(question => `
+                <div style="padding: 12px; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; transition: all 0.2s;"
+                     onmouseover="this.style.borderColor='#3b82f6'; this.style.backgroundColor='#eff6ff';"
+                     onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='white';">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 16px;">${getSubjectIcon(question.subject)}</span>
+                            <span style="font-weight: 500; font-size: 14px;">${question.title}</span>
+                        </div>
+                        <div style="display: flex; gap: 4px;">
+                            <span style="padding: 2px 8px; border-radius: 12px; font-size: 11px; ${getDifficultyColor(question.difficulty_level)}">
+                                ${getDifficultyName(question.difficulty_level)}
+                            </span>
+                            <button onclick="editProblemFromList('${question.id}')" 
+                                    style="padding: 4px 8px; background: #3b82f6; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                                편집
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div style="font-size: 12px; color: #6b7280; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+                        <div>ID: ${question.legacy_id}</div>
+                        <div>과목: ${getSubjectName(question.subject)}</div>
+                        <div>학년: ${question.grade_code}</div>
+                        <div>유형: ${getQuestionTypeName(question.question_type)}</div>
+                        <div>생성일: ${new Date(question.created_at).toLocaleDateString()}</div>
+                        <div>수정일: ${new Date(question.updated_at).toLocaleDateString()}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = html;
+        }
+
+        // 페이지네이션 업데이트 (에디터용)
+        function updatePagination() {
+            document.getElementById('totalCount').textContent = currentQuestions.length * totalPages;
+            document.getElementById('currentPage').textContent = currentPage;
+            document.getElementById('totalPages').textContent = totalPages;
+            
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+        }
+
+        // 페이지네이션 업데이트 (문제 관리용)
+        function updateProblemsPagination() {
+            document.getElementById('problemsTotalCount').textContent = currentQuestions.length * totalPages;
+            document.getElementById('problemsCurrentPage').textContent = currentPage;
+            document.getElementById('problemsTotalPages').textContent = totalPages;
+            
+            document.getElementById('problemsPrevBtn').disabled = currentPage === 1;
+            document.getElementById('problemsNextBtn').disabled = currentPage === totalPages;
+        }
+
+        // 페이지 변경 (에디터용)
+        function changePage(page) {
+            if (page >= 1 && page <= totalPages) {
+                loadQuestions(page);
+            }
+        }
+
+        // 페이지 변경 (문제 관리용)
+        function changeProblemsPage(page) {
+            if (page >= 1 && page <= totalPages) {
+                loadProblems(page);
+            }
+        }
+
+        // 문제 선택
+        async function selectQuestion(questionId) {
+            try {
+                const response = await fetch(`http://localhost:8006/api/admin/questions/${questionId}`);
+                const question = await response.json();
+                
+                selectedQuestion = question;
+                
+                // 문제 정보 표시
+                document.getElementById('questionInfo').innerHTML = `
+                    <div><strong>제목:</strong> ${question.title}</div>
+                    <div><strong>과목:</strong> ${getSubjectName(question.subject)}</div>
+                    <div><strong>학년:</strong> ${question.grade_code}</div>
+                    <div><strong>난이도:</strong> ${getDifficultyName(question.difficulty_level)}</div>
+                `;
+                
+                // 에디터에 내용 로드
+                document.getElementById('editorContent').innerHTML = question.content_question_mj;
+                
+            } catch (error) {
+                console.error('문제 상세 정보 로드 실패:', error);
+                alert('문제 로드에 실패했습니다.');
+            }
+        }
+
+        // 검색 (에디터용)
+        function searchQuestions() {
+            // 검색 기능은 나중에 구현
+            loadQuestions(1);
+        }
+
+        // 검색 (문제 관리용)
+        function searchProblems() {
+            // 검색 기능은 나중에 구현
+            loadProblems(1);
+        }
+
+        // 문제 목록에서 편집
+        function editProblemFromList(questionId) {
+            // 문제 에디터 섹션으로 이동하여 해당 문제 로드
+            showSection('editor');
+            setTimeout(() => {
+                selectQuestion(questionId);
+            }, 200);
+        }
+
+        // 문제 저장
+        async function saveCurrentQuestion() {
+            if (!selectedQuestion) {
+                alert('저장할 문제를 선택해주세요.');
+                return;
+            }
+
+            try {
+                const content = document.getElementById('editorContent').innerHTML;
+                const updatedQuestion = {
+                    ...selectedQuestion,
+                    content_question_mj: content
+                };
+
+                const response = await fetch(`http://localhost:8006/api/admin/questions/${selectedQuestion.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updatedQuestion)
+                });
+
+                if (response.ok) {
+                    alert('문제가 성공적으로 저장되었습니다.');
+                    loadQuestions(currentPage); // 목록 새로고침
+                } else {
+                    alert('문제 저장에 실패했습니다.');
+                }
+            } catch (error) {
+                console.error('문제 저장 실패:', error);
+                alert('문제 저장 중 오류가 발생했습니다.');
+            }
+        }
+
+        // 속성 정보 표시
+        function showQuestionAttributes() {
+            if (!selectedQuestion) {
+                alert('속성을 확인할 문제를 선택해주세요.');
+                return;
+            }
+
+            const attributes = `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+                    <div style="background: white; border-radius: 8px; padding: 24px; max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <h3 style="margin: 0;">문제 속성 정보</h3>
+                            <button onclick="this.closest('.modal').remove()" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 14px;">
+                            <div><strong>ID:</strong> ${selectedQuestion.id}</div>
+                            <div><strong>Legacy ID:</strong> ${selectedQuestion.legacy_id}</div>
+                            <div><strong>제목:</strong> ${selectedQuestion.title}</div>
+                            <div><strong>과목:</strong> ${getSubjectName(selectedQuestion.subject)}</div>
+                            <div><strong>코스:</strong> ${selectedQuestion.course}</div>
+                            <div><strong>학년:</strong> ${selectedQuestion.grade_code}</div>
+                            <div><strong>교육 수준:</strong> ${selectedQuestion.education_level}</div>
+                            <div><strong>난이도:</strong> ${getDifficultyName(selectedQuestion.difficulty_level)}</div>
+                            <div><strong>난이도 점수:</strong> ${selectedQuestion.difficulty_score}/10</div>
+                            <div><strong>문제 유형:</strong> ${getQuestionTypeName(selectedQuestion.question_type)}</div>
+                            <div><strong>MathML 포함:</strong> ${selectedQuestion.has_mathml ? '예' : '아니오'}</div>
+                            <div><strong>수학 복잡도:</strong> ${selectedQuestion.math_complexity}</div>
+                        </div>
+                        
+                        <div style="margin-top: 16px;">
+                            <strong>스킬 태그:</strong>
+                            <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;">
+                                ${selectedQuestion.skill_tags.map(tag => 
+                                    `<span style="padding: 2px 8px; background: #dbeafe; color: #1e40af; border-radius: 12px; font-size: 12px;">${tag}</span>`
+                                ).join('')}
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 16px;">
+                            <strong>LaTeX 표현식:</strong>
+                            <div style="margin-top: 8px;">
+                                ${selectedQuestion.latex_expressions.map(expr => 
+                                    `<div style="background: #f3f4f6; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 4px;">${expr}</div>`
+                                ).join('')}
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 16px; font-size: 12px; color: #6b7280;">
+                            <div><strong>생성일:</strong> ${new Date(selectedQuestion.created_at).toLocaleString()}</div>
+                            <div><strong>수정일:</strong> ${new Date(selectedQuestion.updated_at).toLocaleString()}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', attributes);
+        }
+
+        // 유틸리티 함수들
+        function getSubjectIcon(subject) {
+            const icons = {
+                'mathematics': '🔢',
+                'physics': '⚛️',
+                'chemistry': '🧪',
+                'biology': '🧬'
+            };
+            return icons[subject] || '📚';
+        }
+
+        function getSubjectName(subject) {
+            const names = {
+                'mathematics': '수학',
+                'physics': '물리',
+                'chemistry': '화학',
+                'biology': '생물'
+            };
+            return names[subject] || subject;
+        }
+
+        function getDifficultyName(difficulty) {
+            const names = {
+                'beginner': '초급',
+                'intermediate': '중급',
+                'advanced': '고급',
+                'expert': '전문가'
+            };
+            return names[difficulty] || difficulty;
+        }
+
+        function getDifficultyColor(difficulty) {
+            const colors = {
+                'beginner': 'background: #dcfce7; color: #166534;',
+                'intermediate': 'background: #fef3c7; color: #92400e;',
+                'advanced': 'background: #fed7aa; color: #c2410c;',
+                'expert': 'background: #fecaca; color: #dc2626;'
+            };
+            return colors[difficulty] || 'background: #f3f4f6; color: #374151;';
+        }
+
+        function getQuestionTypeName(type) {
+            const names = {
+                'multiple_choice': '객관식',
+                'problem_solving': '문제해결',
+                'proof': '증명',
+                'explanation': '설명'
+            };
+            return names[type] || type;
+        }
+
+        // 에디터 관련 함수들 (기존 호환성 유지)
+        function loadProblem() {
+            const problemId = document.getElementById('problemId').value;
+            if (!problemId) {
+                alert('문제 번호를 입력해주세요.');
+                return;
+            }
+            
+            // 새로운 시스템에서 문제 로드
+            selectQuestion(`q-${problemId.padStart(4, '0')}`);
+        }
+
+        function saveProblem() {
+            saveCurrentQuestion();
+        }
+
+        function previewProblem() {
+            if (!selectedQuestion) {
+                alert('미리보기할 문제를 선택해주세요.');
+                return;
+            }
+            alert('미리보기 기능은 준비 중입니다.');
+        }
+
+        function compareWithOriginal() {
+            if (!selectedQuestion) {
+                alert('비교할 문제를 선택해주세요.');
+                return;
+            }
+            alert('원본 비교 기능은 준비 중입니다.');
+        }
+
+        // iframe과의 통신을 위한 메시지 리스너
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.action) {
+                switch (event.data.action) {
+                    case 'problemLoaded':
+                        console.log('문제가 로드되었습니다:', event.data.problemId);
+                        break;
+                    case 'problemSaved':
+                        console.log('변환 결과가 저장되었습니다:', event.data.problemId);
+                        alert('변환 결과가 성공적으로 저장되었습니다.');
+                        break;
+                    case 'previewReady':
+                        console.log('미리보기가 준비되었습니다.');
+                        break;
+                    case 'comparisonReady':
+                        console.log('원본 비교가 준비되었습니다.');
+                        break;
+                    case 'error':
+                        console.error('에디터 오류:', event.data.message);
+                        alert('오류가 발생했습니다: ' + event.data.message);
+                        break;
+                }
+            }
+        });
+
+        function editProblem(id) {
+            alert(`문제 ${id} 편집 모달이 열립니다.`);
+        }
+
+        function deleteProblem(id) {
+            if (confirm(`문제 ${id}를 삭제하시겠습니까?`)) {
+                alert(`문제 ${id}가 삭제되었습니다.`);
+            }
+        }
+
+        // 차트 초기화 함수들
+        function initializeCharts() {
+            console.log('[CHARTS] 차트 초기화 시작');
+            
+            // Chart.js가 로드되었는지 확인
+            if (typeof Chart === 'undefined') {
+                console.error('[CHARTS] Chart.js 라이브러리가 로드되지 않았습니다.');
+                return;
+            }
+            
+            // 사용자 증가 차트
+            initUserGrowthChart();
+            
+            // 일일 활동량 차트  
+            initDailyActivityChart();
+        }
+
+        function initUserGrowthChart() {
+            const ctx = document.getElementById('userGrowthChart');
+            if (!ctx) {
+                console.log('[CHARTS] userGrowthChart 캔버스를 찾을 수 없습니다');
+                return;
+            }
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월'],
+                    datasets: [{
+                        label: '무료 사용자',
+                        data: [1200, 1900, 3000, 5000, 7500, 12000, 18000, 25000, 35000, 45000],
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        tension: 0.1
+                    }, {
+                        label: '유료 사용자',
+                        data: [100, 250, 500, 800, 1200, 2000, 3500, 5500, 8000, 12000],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        tension: 0.1
+                    }, {
+                        label: '프리미엄 사용자',
+                        data: [50, 120, 200, 350, 550, 800, 1200, 1800, 2500, 3500],
+                        borderColor: 'rgb(255, 205, 86)',
+                        backgroundColor: 'rgba(255, 205, 86, 0.1)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+            console.log('[CHARTS] 사용자 증가 차트 초기화 완료');
+        }
+
+        function initDailyActivityChart() {
+            const ctx = document.getElementById('dailyActivityChart');
+            if (!ctx) {
+                console.log('[CHARTS] dailyActivityChart 캔버스를 찾을 수 없습니다');
+                return;
+            }
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['월', '화', '수', '목', '금', '토', '일'],
+                    datasets: [{
+                        label: '접속자 수',
+                        data: [1200, 1900, 2300, 2100, 2800, 1500, 900],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 205, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(153, 102, 255, 0.8)',
+                            'rgba(255, 159, 64, 0.8)',
+                            'rgba(199, 199, 199, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 205, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)',
+                            'rgba(199, 199, 199, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+            console.log('[CHARTS] 일일 활동량 차트 초기화 완료');
+        }
+    </script>
+</body>
+</html>

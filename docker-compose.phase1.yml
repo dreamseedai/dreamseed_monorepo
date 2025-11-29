@@ -1,0 +1,124 @@
+version: '3.8'
+
+# Phase 1 Alpha Launch - Student Frontend + Backend API
+# Minimal production-ready setup for dreamseedai.com
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: dreamseed-postgres-phase1
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-dreamseed}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - dreamseed-phase1
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: dreamseed-redis-phase1
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - dreamseed-phase1
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dreamseed-backend-phase1
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dreamseed}
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_RESET_TOKEN_SECRET=${AUTH_RESET_TOKEN_SECRET}
+      - AUTH_VERIFICATION_TOKEN_SECRET=${AUTH_VERIFICATION_TOKEN_SECRET}
+      - CORS_ORIGINS=http://localhost:3001,https://dreamseedai.com,https://www.dreamseedai.com
+      - ENVIRONMENT=production
+      - EMAIL_MODE=${EMAIL_MODE:-smtp}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./backend/logs:/app/logs
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - dreamseed-phase1
+
+  # Next.js Student Frontend
+  student-front:
+    build:
+      context: ./apps/student_front
+      dockerfile: Dockerfile
+    container_name: dreamseed-student-front-phase1
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://backend:8000
+      - NODE_ENV=production
+    ports:
+      - "${STUDENT_FRONT_PORT:-3001}:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - dreamseed-phase1
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: dreamseed-nginx-phase1
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/phase1.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - student-front
+    restart: unless-stopped
+    networks:
+      - dreamseed-phase1
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  dreamseed-phase1:
+    driver: bridge

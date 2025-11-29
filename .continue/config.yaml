@@ -1,0 +1,567 @@
+name: "DreamSeed Continue Config"
+version: 0.1.0
+schema: v1
+
+# 모델 정의: 첫 번째 chat 모델이 기본 채팅 모델로 사용됩니다.
+models:
+  # --- Fast Default: Gemini 2.0 Flash ---
+  - name: "Gemini 2.0 Flash (기본 - 빠른 응답)"
+    provider: gemini
+    model: gemini-2.0-flash-exp
+    contextLength: 1000000  # 1M 토큰
+    apiKey: ${GEMINI_API_KEY}
+    completionOptions:
+      temperature: 0.2
+      maxTokens: 8192
+    roles:
+      - chat
+      - edit
+      - apply
+    # 용도: 코드 자동완성, 간단한 수정, 빠른 피드백
+
+  # --- Deep Reasoning: Gemini 1.5 Pro ---
+  - name: "Gemini 1.5 Pro (복잡한 추론 - 2M)"
+    provider: gemini
+    model: gemini-1.5-pro
+    contextLength: 2000000  # 2M 토큰 (최대 컨텍스트!)
+    apiKey: ${GEMINI_API_KEY}
+    completionOptions:
+      temperature: 0.2
+      maxTokens: 8192
+    roles:
+      - chat
+      - edit
+      - apply
+    # 용도: 대규모 리팩토링, 프로젝트 분석, 긴 컨텍스트
+
+  # --- Alternative: OpenAI & Claude ---
+  - name: "GPT-o1 (추론 특화)"
+    provider: openai
+    model: o1-preview
+    contextLength: 128000  # 128K 토큰
+    completionOptions:
+      # o1 모델은 temperature 설정 불가 (자동 조정)
+      maxTokens: 32768  # 긴 추론 가능
+    roles:
+      - chat
+      - edit
+      - apply
+    # 용도: 복잡한 알고리즘, 수학적 증명, 디버깅
+
+  - name: "GPT-4o (범용)"
+    provider: openai
+    model: gpt-4o
+    contextLength: 128000  # 128K 토큰
+    completionOptions:
+      temperature: 0.2
+      maxTokens: 8192
+    roles:
+      - chat
+      - edit
+      - apply
+
+  - name: "Claude Sonnet 4.5 (코드 품질)"
+    provider: anthropic
+    model: claude-3.5-sonnet
+    contextLength: 200000  # 200K 토큰
+    completionOptions:
+      temperature: 0.2
+      maxTokens: 8192
+    roles:
+      - chat
+      - edit
+      - apply
+
+  # --- Local (5090 / Ollama) ---
+  - name: "Local Coder (Qwen2.5 14B - 자동완성)"
+    provider: ollama
+    model: qwen2.5-coder:14b-q4_0
+    contextLength: 32768  # 32K 토큰
+    roles:
+      - autocomplete
+    autocompleteOptions:
+      debounceDelay: 200  # 더 빠른 응답
+      maxPromptTokens: 2048
+      temperature: 0.1
+
+  - name: "Local General (Llama 3.1 8B)"
+    provider: ollama
+    model: llama3.1:8b-instruct-q4_0
+    contextLength: 131072  # 128K 토큰
+    completionOptions:
+      temperature: 0.2
+    roles:
+      - chat
+      - edit
+
+  # --- Optional: DeepSeek (중국어 특화/원하실 때만) ---
+  # - name: "DeepSeek Chat"
+  #   provider: openai
+  #   apiBase: https://api.deepseek.com/v1
+  #   model: deepseek-chat
+  #   roles:
+  #     - chat
+  #     - edit
+  #     - apply
+
+# 전역 행동 규칙(에이전트/채팅/에디트에 공통 적용)
+rules:
+  - "Always respond in Korean by default unless the user explicitly requests another language."
+  - "Prefer minimal, working code with clear diffs and migration steps."
+  - "When editing multiple files, propose a step-by-step plan first."
+  - "Be concise; show only the essential code hunks."
+  - "Respect project language choice (EN/KR/ZH). Keep comments in the user's language."
+  - "Never leak secrets. Prefer local tools when possible."
+
+# Agent Mode 설정 (실험적)
+experimental:
+  agentMode:
+    enabled: true  # 자율 에이전트 활성화
+    maxIterations: 5  # 최대 반복 횟수
+    tools:
+      - "file_edit"  # 파일 수정
+      - "terminal"   # 터미널 실행
+      - "search"     # 코드 검색
+      - "test"       # 테스트 실행
+
+# /명령으로 호출 가능한 프롬프트들
+prompts:
+  - name: "ko"
+    description: "한국어 답변 고정 (고난도 한국어/기획/분석)"
+    prompt: |
+      이후 답변은 한국어로. 간결하고 실행 가능하게.
+
+  - name: "zh"
+    description: "중국어/중국 컨텍스트 우선"
+    prompt: |
+      从现在开始，请用简体中文回答，并考虑中国本地语境。
+
+  - name: "flash"
+    description: "Gemini 2.0 Flash로 빠른 작업 (UI/API/단순 수정)"
+    prompt: |
+      현재 작업을 Gemini 2.0 Flash로 처리합니다.
+      - 빠른 응답 우선
+      - 코드 자동완성/간단한 수정
+      - 함수 단위 리팩터링
+      - API 스켈레톤 생성
+      간결하고 실행 가능한 코드만 제공하세요.
+
+  - name: "pro"
+    description: "Gemini 1.5 Pro로 복잡한 추론 (리팩터/분석/설계)"
+    prompt: |
+      현재 작업을 Gemini 1.5 Pro로 처리합니다.
+      - 대규모 리팩토링
+      - 프로젝트 전체 분석
+      - 복잡한 알고리즘 설계
+      - 긴 컨텍스트 처리 (수만~수십만 토큰)
+      단계별 계획과 상세한 설명을 포함하세요.
+
+  - name: "dreamseed-design"
+    description: "DreamSeed 프로젝트 상세 설계 문서 작성"
+    prompt: |
+      DreamSeedAI 프로젝트의 상세 설계 문서를 작성합니다.
+      다음 구조를 따르세요:
+      1. 기능 개요 (비즈니스 요구사항)
+      2. 데이터 모델 (ERD, 스키마)
+      3. API 설계 (엔드포인트, 요청/응답)
+      4. 알고리즘 설계 (IRT, CAT, 리스크 엔진 등)
+      5. 성능 고려사항 (쿼리 최적화, 캐싱)
+      6. 테스트 전략
+      한국어로 작성하며, 코드 예시는 영어 주석 포함.
+
+  - name: "dreamseed-api"
+    description: "FastAPI 엔드포인트 스켈레톤 생성"
+    prompt: |
+      FastAPI 엔드포인트를 생성합니다.
+      - Pydantic 모델 (Request/Response)
+      - SQLAlchemy 쿼리 (async)
+      - 에러 핸들링 (HTTPException)
+      - OpenAPI 문서화 (summary, description)
+      - 타입 힌트 완전히 포함
+      DreamSeed 프로젝트 컨벤션을 따르세요.
+      
+      @apply  # 자동으로 파일에 적용
+
+  - name: "dreamseed-irt"
+    description: "IRT/CAT 알고리즘 구현 (PyMC/brms)"
+    prompt: |
+      IRT/CAT 알고리즘을 구현합니다.
+      - 3PL 모델 (a, b, c 파라미터)
+      - Bayesian 추정 (PyMC 또는 R brms)
+      - Anchor-based equating
+      - DIF 분석
+      - 정보 함수 계산
+      수학적 근거와 코드 예시를 함께 제공하세요.
+
+  - name: "local"
+    description: "로컬 모델로 코드 리팩터/주석/요약"
+    prompt: |
+      코드를 빠르게 요약/리팩터/주석화. 바뀐 부분만 간결히.
+
+  - name: "refactor"
+    description: "다중 파일 리팩터 계획→패치"
+    prompt: |
+      1) 영향 범위와 위험도를 표로 정리
+      2) 리팩터 계획(단계별 롤백 포인트 포함)
+      3) 각 파일별 최소 패치(diff) 제안
+      4) 로컬 테스트 명령과 확인 포인트
+
+  - name: "tests"
+    description: "빠른 테스트 보일러플레이트 생성"
+    prompt: |
+      대상 코드의 public API 기준으로 단위테스트 스켈레톤을 생성하라.
+      목/픽스처 최소화, 실패 케이스 2개 이상 포함.
+      pytest + FastAPI TestClient 사용.
+
+  - name: "perf"
+    description: "성능 프로파일링/최적화 체크리스트"
+    prompt: |
+      병목 추정, O( ) 분석, 캐시/스트리밍/배치 전략을 제안하고 
+      실제 측정 커맨드와 벤치마크 기준을 제공하라.
+      PostgreSQL 쿼리 최적화, 인덱스 전략 포함.
+
+# 코드 컨텍스트 제공자 (자동 활성화)
+contextProviders:
+  - name: "file"
+    params:
+      ignore:
+        - "*.pyc"
+        - "__pycache__"
+        - "node_modules"
+        - ".git"
+  - name: "folder"
+    params:
+      nResults: 10
+  - name: "code"
+    params:
+      nResults: 5
+  - name: "diff"
+  - name: "terminal"
+  - name: "problems"  # VS Code 문제 탭
+  - name: "url"  # 웹페이지 내용
+
+# 참고:
+# - YAML 스키마(v1)에 맞춰 상단 name/version/schema와 models.name/provider/model/roles를 사용합니다.
+# - 기본 채팅 모델은 models에서 chat 역할을 가진 첫 번째 모델입니다 (Gemini 2.0 Flash).
+# - 자동완성은 roles에 autocomplete가 지정된 모델이 사용됩니다 (Local Qwen2.5).
+#
+# 모델 선택 전략:
+# 1. Gemini 2.0 Flash (기본) → 빠른 작업: API 스켈레톤, UI 컴포넌트, 간단한 수정
+# 2. Gemini 1.5 Pro → 복잡한 작업: 상세 설계, 대규모 리팩터링, IRT 알고리즘
+# 3. GPT-o1 → 수학/알고리즘: IRT 3PL 모델, Bayesian 추정, 복잡한 디버깅
+# 4. Claude Sonnet 4.5 → 코드 품질 중시: 테스트 작성, 프로덕션 코드 리뷰
+# 5. GPT-4o → 범용: 문서화, 일반적인 코딩 작업
+# 6. Local Qwen2.5 → 자동완성: 실시간 코드 제안 (오프라인 가능)
+#
+# DreamSeedAI 프로젝트 적용 예시:
+# - 상세 설계 문서 작성: /pro 또는 Gemini 1.5 Pro 수동 선택
+# - API 스켈레톤 생성: /dreamseed-api (기본 Flash로 빠르게)
+# - IRT 드리프트 알고리즘: /dreamseed-irt + GPT-o1 또는 Gemini 1.5 Pro
+# - Bayesian 수식 검증: GPT-o1 (수학 증명)
+# - UI 컴포넌트 스타일링: 기본 Flash (빠른 피드백)
+# - 대규모 리팩터링: /refactor + Gemini 1.5 Pro
+# - IRT 드리프트 알고리즘: /dreamseed-irt + Gemini 1.5 Pro
+# - UI 컴포넌트 스타일링: 기본 Flash (빠른 피드백)
+# - 대규모 리팩터링: /refactor + Gemini 1.5 Pro
+
+name: "DreamSeed Continue Config"
+version: 1.0.0
+schema: v1
+
+######################################################################
+# 1) MODEL DEFINITIONS (Continue will use these models for tasks)
+######################################################################
+
+models:
+  # --- Fast Default: Gemini Flash ---
+  - name: "Gemini 2.0 Flash"
+    provider: gemini
+    model: gemini-2.0-flash-exp
+    contextLength: 1000000
+    apiKey: ${GEMINI_API_KEY}
+    completionOptions:
+      temperature: 0.2
+      maxTokens: 8192
+    roles:
+      - chat
+      - edit
+      - apply
+
+  # --- Deep Reasoning: Gemini Pro ---
+  - name: "Gemini 1.5 Pro"
+    provider: gemini
+    model: gemini-1.5-pro
+    contextLength: 2000000
+    apiKey: ${GEMINI_API_KEY}
+    completionOptions:
+      temperature: 0.2
+      maxTokens: 8192
+    roles:
+      - chat
+      - edit
+      - apply
+
+  # --- GPT-o1: Math / Logic / Algorithm ---
+  - name: "GPT-o1"
+    provider: openai
+    model: o1-preview
+    contextLength: 128000
+    completionOptions:
+      maxTokens: 32768
+    roles:
+      - chat
+      - edit
+      - apply
+
+  # --- GPT-4o: High-quality Code / API ---
+  - name: "GPT-4o"
+    provider: openai
+    model: gpt-4o
+    contextLength: 128000
+    completionOptions:
+      temperature: 0.2
+      maxTokens: 8192
+    roles:
+      - chat
+      - edit
+      - apply
+
+  # --- Claude: Best Architecture + Long Repo Reasoning ---
+  - name: "Claude Sonnet"
+    provider: anthropic
+    model: claude-3.5-sonnet
+    contextLength: 200000
+    completionOptions:
+      temperature: 0.2
+      maxTokens: 8192
+    roles:
+      - chat
+      - edit
+      - apply
+
+  # --- Local models (optional) ---
+  - name: "Local Qwen2.5 Coder"
+    provider: ollama
+    model: qwen2.5-coder:14b-q4_0
+    contextLength: 32768
+    roles:
+      - autocomplete
+    autocompleteOptions:
+      debounceDelay: 200
+      maxPromptTokens: 2048
+      temperature: 0.1
+
+  - name: "Local Llama3.1"
+    provider: ollama
+    model: llama3.1:8b-instruct-q4_0
+    contextLength: 131072
+    completionOptions:
+      temperature: 0.2
+    roles:
+      - chat
+      - edit
+
+######################################################################
+# 2) GLOBAL RULES (Safety + Behavior)
+######################################################################
+
+rules:
+  # 기본 행동 규칙
+  - "Always respond in Korean unless the user asks for another language."
+  - "Prefer minimal, working code with clear diffs and migration steps."
+  - "Respect DreamSeedAI style conventions."
+
+  # 안전 규칙 — 레포 보호
+  - "Never modify more than one file unless explicitly allowed."
+  - "Never rename or move directories unless explicitly approved."
+  - "Never touch editor/, shared/auth/, shared/curriculum/, or core logic unless directed."
+  - "Always propose a step-by-step plan before multi-file edits."
+  - "Always show diffs before applying changes."
+  - "Never perform project-wide refactors automatically."
+  - "Never delete files unless explicitly approved."
+
+######################################################################
+# 3) AGENT MODE (Optional, limited)
+######################################################################
+
+experimental:
+  agentMode:
+    enabled: true
+    maxIterations: 4
+    tools:
+      - "file_edit"
+      - "terminal"
+      - "search"
+      - "test"
+
+######################################################################
+# 4) SLASH COMMANDS (DreamSeedAI Special Commands)
+######################################################################
+
+slashCommands:
+  - name: "/analyze-repo"
+    prompt: "레포 전체 아키텍처 분석. 핵심 모듈/흐름/문제점 정리."
+
+  - name: "/trace-flow"
+    prompt: "백엔드→프론트엔드 데이터 흐름을 추적하고 누락된 연결을 찾아라."
+
+  - name: "/editor-debug"
+    prompt: "문제 에디터 기능이 왜 동작하지 않는지 데이터 흐름에서 끊긴 지점을 찾아라."
+
+  - name: "/api-map"
+    prompt: "FastAPI 라우터 전체와 서비스/DB 연결을 도식화하라."
+
+  - name: "/db-flow"
+    prompt: "PostgreSQL → SQLAlchemy → Pydantic → API → 프론트 흐름 분석."
+
+  - name: "/risk-engine"
+    prompt: "Risk Engine 로직과 계산 흐름을 분석하라."
+
+  - name: "/irt-analysis"
+    prompt: "IRT/CAT 알고리즘 분석 및 drift detection."
+
+  - name: "/refactor-plan"
+    prompt: "리팩터링 단계별 계획 및 롤백 포인트 제시."
+
+  - name: "/performance"
+    prompt: "병목 지점 및 성능 최적화 전략 도출."
+
+  - name: "/doc"
+    prompt: "설계/아키텍처 문서를 자동 생성하라."
+
+######################################################################
+# 5) TASK TEMPLATES (Model Roles)
+######################################################################
+
+taskTemplates:
+  # 1) Full code work
+  - name: "Code Task (GPT-4o)"
+    model: "GPT-4o"
+    description: "정밀 코드 생성/수정 전용."
+    template: |
+      [GPT4o: Code Task]
+      You are responsible ONLY for precise coding tasks.
+      Provide minimal diffs and no repo-wide changes.
+
+      {{prompt}}
+
+  # 2) Repo Analysis
+  - name: "Deep Repo Analysis (Claude)"
+    model: "Claude Sonnet"
+    description: "레포 전체 구조/흐름/문제 분석."
+    template: |
+      [Claude: Repo Analysis]
+      Perform architecture-level analysis ONLY.
+      No code generation unless requested.
+
+      {{prompt}}
+
+  # 3) Data Transform
+  - name: "Data Transform (Gemini Pro)"
+    model: "Gemini 1.5 Pro"
+    description: "JSON/스키마 변환 및 데이터 구조화."
+    template: |
+      [Data Transform]
+      Extract structures, tables, schemas clearly.
+
+      {{prompt}}
+
+  # 4) Flash quick tasks
+  - name: "Flash Code Utility"
+    model: "Gemini 2.0 Flash"
+    description: "빠른 스켈레톤/단일 파일 수정."
+    template: |
+      [Flash Utility]
+      Small, single-file tasks only.
+
+      {{prompt}}
+
+  # 5) UI Tasks
+  - name: "UI Task (React/TS)"
+    model: "Gemini 2.0 Flash"
+    description: "React/TS 컴포넌트 전용."
+    template: |
+      [UI Task]
+      Only touch UI components.
+
+      {{prompt}}
+
+  # 6) Backend API
+  - name: "Backend API Task"
+    model: "GPT-4o"
+    description: "FastAPI/Pydantic/SQLAlchemy 생성."
+    template: |
+      [Backend API Task]
+      Follow DreamSeed conventions.
+
+      {{prompt}}
+
+  # 7) Database Migration
+  - name: "DB Migration Task"
+    model: "GPT-4o"
+    description: "Alembic 마이그레이션 전용."
+    template: |
+      [DB Migration]
+      Only generate DB migrations.
+
+      {{prompt}}
+
+  # 8) Algorithms (IRT / Risk)
+  - name: "Algorithm Task"
+    model: "GPT-o1"
+    description: "IRT/CAT/Bayesian/Risk Engine 전용."
+    template: |
+      [Algorithm Task]
+      Provide math + reasoning + code.
+
+      {{prompt}}
+
+  # 9) Flow Trace
+  - name: "Flow Trace"
+    model: "Claude Sonnet"
+    description: "백엔드→프론트 흐름 추적."
+    template: |
+      [Flow Trace]
+      Produce diagrams + missing link analysis.
+
+      {{prompt}}
+
+  # 10) Architecture Documentation
+  - name: "Architecture Doc"
+    model: "Claude Sonnet"
+    description: "아키텍처 문서 자동 생성."
+    template: |
+      [Architecture Documentation]
+      Professional architecture write-up.
+
+      {{prompt}}
+
+######################################################################
+# 6) CONTEXT PROVIDERS
+######################################################################
+
+contextProviders:
+  - name: "file"
+    params:
+      ignore:
+        - "*.pyc"
+        - "__pycache__"
+        - "node_modules"
+        - ".git"
+
+  - name: "folder"
+    params:
+      nResults: 10
+
+  - name: "code"
+    params:
+      nResults: 5
+
+  - name: "diff"
+
+  - name: "terminal"
+
+  - name: "problems"
+
+  - name: "url"
+

@@ -1,0 +1,158 @@
+version: '3.8'
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DreamSeed Phase 0.5 - Docker Compose Configuration
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# Services:
+#   - postgres: PostgreSQL 15 database
+#   - redis: Redis 7 (for CAT engine state)
+#   - backend: FastAPI application
+#   - pgadmin: PostgreSQL admin UI (optional)
+#
+# Usage:
+#   docker-compose -f docker-compose.phase0.5.yml up -d
+#   docker-compose -f docker-compose.phase0.5.yml logs -f
+#   docker-compose -f docker-compose.phase0.5.yml down
+#
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+services:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # PostgreSQL Database
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  postgres:
+    image: postgres:15-alpine
+    container_name: dreamseed_postgres_phase05
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dreamseed_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-DreamSeedAi0908}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_phase05_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-dreamseed_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - dreamseed_phase05_network
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Redis Cache
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  redis:
+    image: redis:7-alpine
+    container_name: dreamseed_redis_phase05
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis_phase05_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - dreamseed_phase05_network
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # FastAPI Backend
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dreamseed_backend_phase05
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-DreamSeedAi0908}@postgres:5432/${POSTGRES_DB:-dreamseed_dev}
+      
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      
+      # Application
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      
+      # Environment
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-true}
+      
+      # CORS
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-["http://localhost:3000","http://localhost:3031","http://localhost:5172"]}
+      
+      # Seed data flag
+      AUTO_SEED_DATA: ${AUTO_SEED_DATA:-false}
+    ports:
+      - "${BACKEND_PORT:-8001}:8000"
+    volumes:
+      - ./backend:/app
+      - ./scripts:/scripts
+      - /app/.venv  # Exclude venv from mount
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - dreamseed_phase05_network
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # pgAdmin (Optional - Database Admin UI)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dreamseed_pgadmin_phase05
+    restart: unless-stopped
+    profiles:
+      - admin  # Only start with: docker-compose --profile admin up
+    depends_on:
+      - postgres
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@dreamseed.ai}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5051}:80"
+    volumes:
+      - pgadmin_phase05_data:/var/lib/pgadmin
+    networks:
+      - dreamseed_phase05_network
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Networks
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+networks:
+  dreamseed_phase05_network:
+    driver: bridge
+    name: dreamseed_phase05_network
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Volumes
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+volumes:
+  postgres_phase05_data:
+    name: dreamseed_postgres_phase05_data
+  redis_phase05_data:
+    name: dreamseed_redis_phase05_data
+  pgadmin_phase05_data:
+    name: dreamseed_pgadmin_phase05_data

@@ -1,0 +1,1 @@
+../infra/deploy/deploy_admin_front.sh

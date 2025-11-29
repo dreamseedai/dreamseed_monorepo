@@ -1,0 +1,33 @@
+[Unit]
+Description=DreamSeed Admin Frontend (Next.js)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=won
+Group=won
+WorkingDirectory=/home/won/projects/dreamseed_monorepo/admin_front
+Environment="NODE_ENV=production"
+Environment="PORT=3031"
+Environment="NEXT_PUBLIC_API_BASE_URL=https://dreamseedai.com/api/admin"
+
+# Use npm start which runs the Next.js production server
+ExecStart=/usr/bin/npm start
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=0
+
+# Logging
+StandardOutput=append:/var/log/admin-front.log
+StandardError=append:/var/log/admin-front-error.log
+SyslogIdentifier=admin-front
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

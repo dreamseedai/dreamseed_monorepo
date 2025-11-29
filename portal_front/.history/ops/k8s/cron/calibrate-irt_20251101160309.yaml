@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: calibrate-irt-weekly
+  namespace: seedtest
+spec:
+  # Every Sunday at 03:10 UTC
+  schedule: "10 3 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: calibrate-irt
+              image: gcr.io/univprepai/seedtest-api:latest
+              imagePullPolicy: IfNotPresent
+              command: ["python3", "-m", "apps.seedtest_api.jobs.mirt_calibrate"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-db-credentials
+                      key: DATABASE_URL
+                      optional: false
+                - name: IRT_CALIB_LOOKBACK_DAYS
+                  value: "30"
+                - name: IRT_MODEL
+                  value: "2PL"
+                - name: R_IRT_BASE_URL
+                  value: "http://r-irt-plumber.seedtest.svc.cluster.local:8000"
+                # Optional: Token if your r-irt-plumber enforces auth
+                - name: R_IRT_INTERNAL_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: r-irt-credentials
+                      key: token
+                      optional: true
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "200m"
+                limits:
+                  memory: "2Gi"
+                  cpu: "2000m"

@@ -1,0 +1,42 @@
+# cSpell:ignore kpis univprepai LOOKBACK
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: compute-daily-kpis
+  namespace: seedtest
+spec:
+  schedule: "10 2 * * *" # daily at 02:10 UTC (before aggregate-features-daily)
+  concurrencyPolicy: Forbid # prevent overlapping runs
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: compute-daily-kpis
+              image: gcr.io/univprepai/seedtest-api:latest
+              imagePullPolicy: IfNotPresent
+              command: ["python3", "-m", "seedtest_api.jobs.compute_daily_kpis"]
+              env:
+                - name: KPI_LOOKBACK_DAYS
+                  value: "30"
+                - name: METRICS_DEFAULT_TARGET
+                  value: "0.0"
+                - name: METRICS_USE_BAYESIAN
+                  value: "false"
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-db-credentials
+                      key: DATABASE_URL
+                      optional: false
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"

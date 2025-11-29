@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-run-as-nonroot
+  annotations:
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/description: Require runAsNonRoot at pod and container level
+    policies.kyverno.io/severity: medium
+spec:
+  # Template: keep Audit by default so you can try it safely; move to Enforce when ready.
+  validationFailureAction: Audit
+  background: false
+  rules:
+    - name: require-run-as-nonroot
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+      validate:
+        message: "Containers must set securityContext.runAsNonRoot=true"
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+            =(initContainers):
+              - securityContext:
+                  runAsNonRoot: true
+            containers:
+              - securityContext:
+                  runAsNonRoot: true

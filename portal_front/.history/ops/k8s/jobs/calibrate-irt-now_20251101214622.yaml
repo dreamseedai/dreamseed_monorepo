@@ -1,0 +1,67 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: calibrate-irt-now
+  namespace: seedtest
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: seedtest-api
+      containers:
+        - name: calibrate-irt
+          image: gcr.io/univprepai/seedtest-api:latest
+          imagePullPolicy: Always
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Cloud SQL Proxy to be ready..."
+              sleep 5
+              python3 -m seedtest_api.jobs.mirt_calibrate
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seedtest-db-credentials
+                  key: DATABASE_URL
+                  optional: false
+            - name: MIRT_LOOKBACK_DAYS
+              value: "7"
+            - name: MIRT_MODEL
+              value: "2PL"
+            - name: MIRT_MAX_OBS
+              value: "200000"
+            - name: DRY_RUN
+              value: "false"
+            - name: R_IRT_BASE_URL
+              value: "http://r-irt-plumber.seedtest.svc.cluster.local:80"
+            - name: R_IRT_TIMEOUT_SECS
+              value: "60"
+            - name: R_IRT_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: r-irt-credentials
+                  key: token
+                  optional: true
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+          imagePullPolicy: IfNotPresent
+          args:
+            - --structured-logs
+            - --port=5432
+            - univprepai:asia-northeast3:seedtest-staging
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              ephemeral-storage: "1Gi"

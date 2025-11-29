@@ -1,0 +1,142 @@
+# ============================================================
+# PRIORITY 1: NEVER IGNORE THESE - Project Documentation
+# ============================================================
+# These must be at the TOP to override all other rules below
+
+# Track ALL files in these critical directories
+!ops/
+!ops/**
+!docs/
+!docs/**
+
+# Track backend documentation
+!backend/*.md
+!backend/**/*.md  
+!backend/**/*.sh
+
+# ============================================================
+# PRIORITY 2: Standard ignores (Python, Node, etc.)
+# ============================================================
+
+# Coverage / caches
+.coverage
+**/.coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual env / tools
+.venv/
+.venv-*/
+.venv-tools/
+
+# Build / artifacts
+dist/
+build/
+.DS_Store
+
+# Infra local history
+infra/.history/
+
+# Local projects (ignore)
+CascadeProjects/
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+
+# Environments
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDEs
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+dreamseed_*.db
+mpcstudy_*.db
+
+# Test files
+test_*.html
+*_test.*
+*_spec.*
+
+# Admin files
+admin/*.html
+admin/*.js
+admin/*.css
+admin/doc/
+admin/lib/
+
+# API files
+api/
+portal_api/
+
+# Static files (but allow tracking in specific cases)
+static/
+assets/
+images/
+
+# Allow specific asset directories
+!assets/branding/
+!assets/branding/**
+
+# Configuration files (generated)
+.editorconfig
+.eslintrc.*
+.prettierrc*
+tsconfig.json
+babel.config.*
+webpack.config.*
+rollup.config.*
+
+# Version files
+=*
+version.txt
+
+# ============================================================
+# PRIORITY 3: Generated documentation (node_modules, venv)
+# ============================================================
+# Only ignore markdown/scripts in dependency directories
+
+**/node_modules/**/*.md
+**/node_modules/**/*.sh
+**/.venv/**/*.md
+**/.venv/**/*.sh
+**/.pytest_cache/**/*.md
+**/venv/**/*.md
+**/venv/**/*.sh
+**/__pycache__/**/*.md
