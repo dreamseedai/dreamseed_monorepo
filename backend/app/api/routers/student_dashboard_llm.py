@@ -111,14 +111,14 @@ def parse_accept_language(accept_language: Optional[str]) -> str:
         return 'en'
 
     val = accept_language.lower()
-    if val.startswith('ko"):
-        return 'ko'
-    if val.startswith('zh"):
-        return 'zh'
-    if val.startswith('en"):
-        return 'en'
+    if val.startswith("ko"):
+        return "ko"
+    if val.startswith("zh"):
+        return "zh"
+    if val.startswith("en"):
+        return "en"
 
-    return 'en'
+    return "en"
 
 
 # ============================================================================

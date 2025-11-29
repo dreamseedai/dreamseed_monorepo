@@ -196,12 +196,10 @@ async def get_dashboard(
     if accept_language:
         # Priority 1: Accept-Language header
         lang = pick_accept_language(accept_language)
-    elif hasattr(user, 'lang") and user.lang:
+    elif hasattr(user, "lang") and user.lang:
         # Priority 2: JWT lang field
         lang = user.lang
-    # Priority 3: Default 'en' (already set)
-
-    # Get or generate AI message (cached by day)
+    # Priority 3: Default 'en' (already set)    # Get or generate AI message (cached by day)
     cached_msg = db.execute(
         select(StudentAIMessage)
         .where(
@@ -242,7 +240,7 @@ async def get_dashboard(
                 "lang_source": "header" if accept_language else (
                     "jwt" if hasattr(
                         user,
-                        'lang") and user.lang else "default")})
+                        "lang") and user.lang else "default")})
         db.add(new_msg)
         db.commit()
 
