@@ -437,7 +437,7 @@ jobs:
           fi
 
       - name: Build Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         if: steps.dockerfile_check.outputs.has_dockerfile == 'true'
         with:
           context: .
