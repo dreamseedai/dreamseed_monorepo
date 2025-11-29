@@ -67,6 +67,12 @@ def _get_auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _login_and_get_headers(sync_client, email, password):
+    """Helper: 로그인하여 토큰과 헤더를 함께 반환."""
+    token = _login_user(sync_client, email, password)
+    return token, _get_auth_headers(token)
+
+
 def _verify_token_valid(sync_client, headers):
     """Helper: 토큰이 유효한지 확인."""
     response = sync_client.get("/api/auth/me", headers=headers)
@@ -231,10 +237,9 @@ def test_complete_auth_lifecycle(sync_client, test_user_data):
     """
     # Step 1-2: 회원가입 & 로그인
     _register_user(sync_client, test_user_data)
-    token1 = _login_user(
+    token1, headers1 = _login_and_get_headers(
         sync_client, test_user_data["email"], test_user_data["password"]
     )
-    headers1 = _get_auth_headers(token1)
     print("✅ 첫 번째 로그인")
 
     # Step 3: 보호된 리소스 접근 성공
