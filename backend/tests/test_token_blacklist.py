@@ -21,7 +21,7 @@ def mock_redis():
 @pytest.fixture
 def blacklist_service(mock_redis):
     """TokenBlacklistService 인스턴스."""
-    return TokenBlacklistService(mock_redis)
+    return TokenBlacklistService(mock_redis)  # type: ignore[arg-type]
 
 
 @pytest.mark.asyncio
