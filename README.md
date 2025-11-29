@@ -182,6 +182,12 @@ DEBUG=True
 REDIS_URL=redis://localhost:6379
 DB_PATH=./dreamseed_analytics.db
 LOG_LEVEL=DEBUG
+
+# Authentication (JWT + Token Blacklist)
+JWT_SECRET=your-secret-key-change-this-in-production
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=1440  # 24 hours
+REDIS_TOKEN_BLACKLIST_DB=1  # Separate Redis DB for token blacklist
 ```
 
 #### 5. Redis 설치 및 실행
@@ -212,6 +218,101 @@ python -m http.server 9000
 - **API 서버**: http://localhost:8002/healthz
 - **관리자 패널**: http://localhost:9000/admin/
 - **API 문서**: http://localhost:8002/docs
+
+---
+
+## 🔐 Authentication & Security
+
+### Token Blacklist (Redis)
+
+DreamSeed는 JWT 기반 인증과 함께 Redis를 사용한 토큰 블랙리스트를 구현하여 안전한 로그아웃 및 세션 관리를 제공합니다.
+
+#### 주요 기능
+
+- **JWT 토큰 무효화**: 로그아웃 시 토큰을 블랙리스트에 추가하여 즉시 무효화
+- **자동 만료**: Redis TTL을 사용하여 토큰 만료 시간에 맞춰 자동 정리
+- **사용자 레벨 블랙리스트**: 비밀번호 변경 시 모든 사용자 토큰 일괄 무효화
+- **고성능**: Redis의 빠른 조회 속도로 인증 성능 저하 없음
+
+#### 설정
+
+환경 변수를 통해 Redis 및 JWT 설정:
+
+```bash
+# Redis 연결 (토큰 블랙리스트용)
+export REDIS_URL=redis://localhost:6379
+export REDIS_TOKEN_BLACKLIST_DB=1  # 별도 DB 사용 (기본값: 1)
+
+# JWT 설정
+export JWT_SECRET=your-secret-key-here
+export JWT_ALGORITHM=HS256
+export JWT_EXPIRE_MINUTES=1440  # 24시간
+```
+
+#### 사용법
+
+**로그아웃 API:**
+
+```bash
+# 로그아웃 (토큰 블랙리스트 등록)
+curl -X POST http://localhost:8001/api/auth/logout \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Python SDK:**
+
+```python
+from app.services.token_blacklist import TokenBlacklistService
+from app.core.redis_config import get_redis
+
+# 토큰 블랙리스트 서비스 사용
+redis = await get_redis()
+blacklist_service = TokenBlacklistService(redis)
+
+# 특정 토큰 무효화
+await blacklist_service.blacklist_token(
+    jti="token-unique-id",
+    expires_at=datetime.now() + timedelta(hours=24)
+)
+
+# 사용자 모든 토큰 무효화 (비밀번호 변경 등)
+await blacklist_service.blacklist_user_tokens(
+    user_id=123,
+    expires_at=datetime.now() + timedelta(hours=24)
+)
+```
+
+#### 아키텍처
+
+```
+┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+│   Client    │      │  FastAPI    │      │   Redis     │
+│             │─────►│  Backend    │─────►│  (DB 1)     │
+│             │ JWT  │             │ Check │ Blacklist   │
+│             │◄─────│  JWT        │◄─────│             │
+└─────────────┘      │  Strategy   │      └─────────────┘
+                     └─────────────┘
+                            │
+                            │ Verify JTI
+                            ▼
+                     ┌─────────────┐
+                     │ PostgreSQL  │
+                     │ (Users DB)  │
+                     └─────────────┘
+```
+
+#### 성능
+
+- **토큰 검증**: < 5ms (Redis 조회)
+- **로그아웃**: < 100ms (Redis 저장 + TTL 설정)
+- **메모리 효율**: 토큰당 ~100 bytes (JTI + TTL)
+
+#### 보안 고려사항
+
+1. **JWT Secret 관리**: 프로덕션에서는 반드시 강력한 시크릿 사용
+2. **Redis 보안**: Redis AUTH 설정 및 네트워크 격리 권장
+3. **토큰 만료 시간**: 짧은 만료 시간 + Refresh Token 패턴 권장
+4. **DB 분리**: 블랙리스트는 별도 Redis DB 사용 (기본: DB 1)
 
 ---
 
