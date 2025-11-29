@@ -3,13 +3,8 @@
 
 rules: []
 
-# Ignore Pylance import resolution errors (false positives)
-python:
-  version: "3.11"
-
-# Don't block on import resolution issues
-refactoring:
-  skip_default_rules: []
+# Python version
+python_version: "3.11"
   
 # Quality gate settings
 metrics:
