@@ -92,3 +92,4 @@ export const MathBlock = Node.create({
         };
     },
 });
+//# sourceMappingURL=mathNodes.js.map

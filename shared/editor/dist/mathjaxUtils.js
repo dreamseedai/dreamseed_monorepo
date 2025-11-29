@@ -51,3 +51,4 @@ export async function typesetQueued(root) {
         }
     });
 }
+//# sourceMappingURL=mathjaxUtils.js.map

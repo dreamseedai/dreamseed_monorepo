@@ -12,3 +12,4 @@ export { default as ReactTipTapRenderer } from "./react/TipTapRenderer";
 export { useMathJaxTypeset as useVueMathJaxTypeset } from "./vue/useMathJaxTypeset";
 export * from "./vue/v-mathjax";
 export { default as VueTipTapRenderer } from "./vue/TipTapRenderer.vue";
+//# sourceMappingURL=index.d.ts.map

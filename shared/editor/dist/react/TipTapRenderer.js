@@ -22,3 +22,4 @@ export default function TipTapRenderer({ content }) {
     useMathJaxTypeset([content, editor?.state?.doc], containerRef.current);
     return (_jsx("div", { ref: containerRef, children: _jsx(EditorContent, { editor: editor }) }));
 }
+//# sourceMappingURL=TipTapRenderer.js.map

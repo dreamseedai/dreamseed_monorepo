@@ -15,7 +15,7 @@ export const MathPaste = Extension.create({
       new Plugin({
         key: new PluginKey('mathPaste'),
         props: {
-          handlePaste: (view, event, slice) => {
+          handlePaste: (_view, event, _slice) => {
             const html = event.clipboardData?.getData('text/html')
             const text = event.clipboardData?.getData('text/plain')
 

@@ -21,3 +21,4 @@ declare module "@tiptap/core" {
         };
     }
 }
+//# sourceMappingURL=types.d.ts.map

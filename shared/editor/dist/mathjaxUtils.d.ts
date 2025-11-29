@@ -5,3 +5,4 @@
  */
 export declare function loadMathJaxIfNeeded(): Promise<any>;
 export declare function typesetQueued(root?: HTMLElement | Document): Promise<void>;
+//# sourceMappingURL=mathjaxUtils.d.ts.map

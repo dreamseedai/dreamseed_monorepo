@@ -8,3 +8,4 @@ export function useMathJaxTypeset(elRef, deps = []) {
     onUpdated(() => typesetQueued(elRef.value ?? undefined));
     watch(deps, () => typesetQueued(elRef.value ?? undefined));
 }
+//# sourceMappingURL=useMathJaxTypeset.js.map

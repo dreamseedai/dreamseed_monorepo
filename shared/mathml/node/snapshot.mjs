@@ -7,9 +7,11 @@ import {renderToSvgHashAndSpeech} from './render_math.mjs';
 
 const args = process.argv.slice(2);
 const mode = args.includes('--write') ? 'write' : 'check';
-const file = args[args.indexOf('--write')+1] || args[args.indexOf('--check')+1];
+const writeIdx = args.indexOf('--write');
+const checkIdx = args.indexOf('--check');
+const file = writeIdx >= 0 ? args[writeIdx + 1] : (checkIdx >= 0 ? args[checkIdx + 1] : null);
 
-if (\!file) {
+if (!file) {
   console.error('Usage: snapshot.mjs --write|--check <jsonl>');
   process.exit(2);
 }
@@ -29,11 +31,11 @@ for (const line of lines) {
   if (mode === 'write') {
     item.expected = {...exp, svg_hash, speech};
   } else {
-    if (\!exp.svg_hash || exp.svg_hash \!== svg_hash) {
+    if (!exp.svg_hash || exp.svg_hash !== svg_hash) {
       failures++;
       console.error(`[HASH MISMATCH] ${item.id}: expected=${exp.svg_hash||"(none)"} actual=${svg_hash}`);
     }
-    if (\!exp.speech || exp.speech \!== speech) {
+    if (!exp.speech || exp.speech !== speech) {
       failures++;
       console.error(`[SPEECH MISMATCH] ${item.id}`);
     }

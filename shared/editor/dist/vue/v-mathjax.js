@@ -10,3 +10,4 @@ export const vMathJax = {
         typesetQueued(el);
     },
 };
+//# sourceMappingURL=v-mathjax.js.map

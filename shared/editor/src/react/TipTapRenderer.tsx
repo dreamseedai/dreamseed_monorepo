@@ -2,7 +2,7 @@
  * React TipTap 렌더러 (MathJax 통합)
  */
 
-import React, { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { MathInline, MathBlock } from "../mathNodes";

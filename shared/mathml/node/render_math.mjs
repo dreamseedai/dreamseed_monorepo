@@ -33,6 +33,7 @@ export function renderToSvgHashAndSpeech({texString=null, mathml=null}) {
   }
   const svgOut = adaptor.outerHTML(node);
   const hash = crypto.createHash('sha256').update(svgOut).digest('hex');
-  const speech = SRE.toSpeech(texString ?? adaptor.outerHTML(node));
+  // Always use the MathML representation from the converted node
+  const speech = SRE.toSpeech(adaptor.outerHTML(node));
   return {svg: svgOut, svg_hash: hash, speech};
 }

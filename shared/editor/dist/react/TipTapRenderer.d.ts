@@ -6,3 +6,4 @@ type Props = {
 };
 export default function TipTapRenderer({ content }: Props): import("react/jsx-runtime").JSX.Element;
 export {};
+//# sourceMappingURL=TipTapRenderer.d.ts.map
