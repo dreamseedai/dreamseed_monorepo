@@ -56,13 +56,8 @@ dev = [
 [tool.black]
 line-length = 88
 target-version = ['py311']
-include = '\\.pyi?$'
-extend-exclude = '''
-(
-    (^|/|\\)mock_api\.py$
-    | /(\.eggs|\.git|\.hg|\.mypy_cache|\.tox|\.venv|venv|_build|buck-out|build|dist)/
-)
-'''
+include = '\.pyi?$'
+extend-exclude = '(^|/)mock_api\.py$|/(\.eggs|\.git|\.hg|\.mypy_cache|\.tox|\.venv|venv|_build|buck-out|build|dist)/'
 
 [tool.isort]
 profile = "black"

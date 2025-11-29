@@ -97,12 +97,12 @@ def parse_accept_language(accept_language: Optional[str]) -> str:
         accept_language: Accept-Language header value
 
     Returns:
-        Language code ('ko', 'zh', 'en')
+        Language code ('ko', 'zh', 'en")
 
     Examples:
-        >>> parse_accept_language('ko-KR,ko;q=0.9,en;q=0.8')
+        >>> parse_accept_language('ko-KR,ko;q=0.9,en;q=0.8")
         'ko'
-        >>> parse_accept_language('zh-CN,zh;q=0.9')
+        >>> parse_accept_language('zh-CN,zh;q=0.9")
         'zh'
         >>> parse_accept_language(None)
         'en'
@@ -111,11 +111,11 @@ def parse_accept_language(accept_language: Optional[str]) -> str:
         return 'en'
 
     val = accept_language.lower()
-    if val.startswith('ko'):
+    if val.startswith('ko"):
         return 'ko'
-    if val.startswith('zh'):
+    if val.startswith('zh"):
         return 'zh'
-    if val.startswith('en'):
+    if val.startswith('en"):
         return 'en'
 
     return 'en'
@@ -129,7 +129,7 @@ def parse_accept_language(accept_language: Optional[str]) -> str:
 async def get_dashboard(
     db: Session = Depends(get_db),
     user: UserContext = Depends(require_student),
-    accept_language: Optional[str] = Header(None, alias='Accept-Language')
+    accept_language: Optional[str] = Header(None, alias='Accept-Language")
 ):
     """
     Get student dashboard summary with LLM-generated AI message.
@@ -270,11 +270,11 @@ async def get_dashboard(
     )
 
 
-@router.post('/mood')
+@router.post("/mood")
 def set_mood(
     payload: MoodIn,
     db: Session = Depends(get_db),
-    user: UserContext = Depends(require_student)
+    user: UserContext = Depends(require_student),
 ):
     """
     Set today's mood.
@@ -306,7 +306,7 @@ def set_mood(
             student_id=student_uuid,
             day=today,
             mood=payload.mood,
-            note=payload.note
+            note=payload.note,
         )
         db.add(new_mood)
 
@@ -314,11 +314,11 @@ def set_mood(
     return {"ok": True}
 
 
-@router.post('/goals')
+@router.post("/goals")
 def add_goal(
     payload: GoalIn,
     db: Session = Depends(get_db),
-    user: UserContext = Depends(require_student)
+    user: UserContext = Depends(require_student),
 ):
     """
     Add a new goal.
@@ -333,7 +333,7 @@ def add_goal(
         tenant_id=tenant_uuid,
         student_id=student_uuid,
         title=payload.title,
-        target_date=payload.target_date
+        target_date=payload.target_date,
     )
     db.add(new_goal)
     db.commit()
@@ -342,11 +342,11 @@ def add_goal(
     return {"id": str(new_goal.id)}
 
 
-@router.post('/goals/{goal_id}/done')
+@router.post("/goals/{goal_id}/done")
 def complete_goal(
     goal_id: str,
     db: Session = Depends(get_db),
-    user: UserContext = Depends(require_student)
+    user: UserContext = Depends(require_student),
 ):
     """
     Mark a goal as complete.
@@ -361,23 +361,20 @@ def complete_goal(
         goal_uuid = UUID(goal_id)
     except ValueError:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Invalid goal ID format'
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid goal ID format"
         )
 
     goal = db.get(StudentGoal, goal_uuid)
 
     if not goal:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail='Goal not found'
+            status_code=status.HTTP_404_NOT_FOUND, detail="Goal not found"
         )
 
     # Verify ownership (tenant + student)
     if goal.tenant_id != tenant_uuid or goal.student_id != student_uuid:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail='Goal not found'
+            status_code=status.HTTP_404_NOT_FOUND, detail="Goal not found"
         )
 
     goal.done = True
