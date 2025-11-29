@@ -68,7 +68,7 @@ def test_logout_invalidates_token(sync_client, test_user_data):
     assert login_response.status_code == 200
     access_token = login_response.cookies.get("fastapiusersauth")
     assert access_token is not None
-    print(f"✅ 로그인 성공, 토큰 획득")
+    print("✅ 로그인 성공, 토큰 획득")
 
     # Step 3: 보호된 엔드포인트 접근 (성공해야 함)
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -76,18 +76,18 @@ def test_logout_invalidates_token(sync_client, test_user_data):
     assert me_response_before.status_code == 200
     user_data = me_response_before.json()
     assert user_data["email"] == test_user_data["email"]
-    print(f"✅ 토큰으로 /me 접근 성공")
+    print("✅ 토큰으로 /me 접근 성공")
 
     # Step 4: 로그아웃 (토큰 블랙리스트 등록)
     logout_response = sync_client.post("/api/auth/logout", headers=headers)
     assert logout_response.status_code == 200
-    print(f"✅ 로그아웃 완료")
+    print("✅ 로그아웃 완료")
 
     # Step 5: 로그아웃 후 동일 토큰으로 접근 시도 (실패해야 함)
     time.sleep(0.5)  # Redis 전파 대기
     me_response_after = sync_client.get("/api/auth/me", headers=headers)
     assert me_response_after.status_code == 401
-    print(f"✅ 로그아웃 후 토큰 무효화 확인 (401 Unauthorized)")
+    print("✅ 로그아웃 후 토큰 무효화 확인 (401 Unauthorized)")
 
 
 def test_multiple_device_logout(sync_client, test_user_data):
@@ -111,7 +111,7 @@ def test_multiple_device_logout(sync_client, test_user_data):
         },
     )
     assert register_response.status_code == 201
-    print(f"✅ 회원가입 완료")
+    print("✅ 회원가입 완료")
 
     # Step 2: 첫 번째 로그인 (Device A)
     login_a = sync_client.post(
@@ -123,7 +123,7 @@ def test_multiple_device_logout(sync_client, test_user_data):
     )
     assert login_a.status_code == 200
     token_a = login_a.cookies.get("fastapiusersauth")
-    print(f"✅ Device A 로그인 완료")
+    print("✅ Device A 로그인 완료")
 
     # Step 3: 두 번째 로그인 (Device B)
     login_b = sync_client.post(
@@ -135,26 +135,26 @@ def test_multiple_device_logout(sync_client, test_user_data):
     )
     assert login_b.status_code == 200
     token_b = login_b.cookies.get("fastapiusersauth")
-    print(f"✅ Device B 로그인 완료")
+    print("✅ Device B 로그인 완료")
 
     # Step 4: Device A에서 로그아웃
     headers_a = {"Authorization": f"Bearer {token_a}"}
     logout_response = sync_client.post("/api/auth/logout", headers=headers_a)
     assert logout_response.status_code == 200
-    print(f"✅ Device A 로그아웃")
+    print("✅ Device A 로그아웃")
 
     time.sleep(0.5)
 
     # Step 5: Token A는 무효화됨
     me_response_a = sync_client.get("/api/auth/me", headers=headers_a)
     assert me_response_a.status_code == 401
-    print(f"✅ Token A 무효화 확인")
+    print("✅ Token A 무효화 확인")
 
     # Step 6: Token B는 여전히 유효
     headers_b = {"Authorization": f"Bearer {token_b}"}
     me_response_b = sync_client.get("/api/auth/me", headers=headers_b)
     assert me_response_b.status_code == 200
-    print(f"✅ Token B 여전히 유효")
+    print("✅ Token B 여전히 유효")
 
 
 def test_token_expiry_and_blacklist(sync_client, test_user_data):
@@ -189,13 +189,13 @@ def test_token_expiry_and_blacklist(sync_client, test_user_data):
     headers = {"Authorization": f"Bearer {access_token}"}
     logout_response = sync_client.post("/api/auth/logout", headers=headers)
     assert logout_response.status_code == 200
-    print(f"✅ 로그아웃 완료 - Redis TTL 설정됨")
+    print("✅ 로그아웃 완료 - Redis TTL 설정됨")
 
     # Step 3: 토큰 무효화 확인
     time.sleep(0.5)
     me_response = sync_client.get("/api/auth/me", headers=headers)
     assert me_response.status_code == 401
-    print(f"✅ 블랙리스트된 토큰 거부됨")
+    print("✅ 블랙리스트된 토큰 거부됨")
 
 
 def test_logout_performance(sync_client, test_user_data):
@@ -238,7 +238,7 @@ def test_invalid_token_logout(sync_client):
     headers = {"Authorization": "Bearer invalid_token_12345"}
     logout_response = sync_client.post("/api/auth/logout", headers=headers)
     assert logout_response.status_code == 401
-    print(f"✅ 유효하지 않은 토큰 로그아웃 거부됨")
+    print("✅ 유효하지 않은 토큰 로그아웃 거부됨")
 
 
 def test_complete_auth_lifecycle(sync_client, test_user_data):
@@ -271,17 +271,17 @@ def test_complete_auth_lifecycle(sync_client, test_user_data):
     )
     token1 = login1.cookies.get("fastapiusersauth")
     headers1 = {"Authorization": f"Bearer {token1}"}
-    print(f"✅ 첫 번째 로그인")
+    print("✅ 첫 번째 로그인")
 
     # Step 3: 보호된 리소스 접근 성공
     me1 = sync_client.get("/api/auth/me", headers=headers1)
     assert me1.status_code == 200
-    print(f"✅ 첫 번째 토큰으로 접근 성공")
+    print("✅ 첫 번째 토큰으로 접근 성공")
 
     # Step 4: 로그아웃
     sync_client.post("/api/auth/logout", headers=headers1)
     time.sleep(0.5)
-    print(f"✅ 로그아웃")
+    print("✅ 로그아웃")
 
     # Step 5: 재로그인
     login2 = sync_client.post(
@@ -293,14 +293,14 @@ def test_complete_auth_lifecycle(sync_client, test_user_data):
     )
     token2 = login2.cookies.get("fastapiusersauth")
     headers2 = {"Authorization": f"Bearer {token2}"}
-    print(f"✅ 재로그인")
+    print("✅ 재로그인")
 
     # Step 6: 새 토큰으로 접근 성공
     me2 = sync_client.get("/api/auth/me", headers=headers2)
     assert me2.status_code == 200
-    print(f"✅ 새 토큰으로 접근 성공")
+    print("✅ 새 토큰으로 접근 성공")
 
     # Step 7: 이전 토큰은 여전히 무효
     me1_after = sync_client.get("/api/auth/me", headers=headers1)
     assert me1_after.status_code == 401
-    print(f"✅ 이전 토큰 여전히 무효화 상태")
+    print("✅ 이전 토큰 여전히 무효화 상태")
