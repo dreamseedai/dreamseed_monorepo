@@ -140,3 +140,10 @@ version.txt
 **/venv/**/*.md
 **/venv/**/*.sh
 **/__pycache__/**/*.md
+
+# ============================================================
+# Personal Copilot Session Notes (NOT for commits)
+# ============================================================
+# Daily work logs for personal reference only
+Copilot_*
+**/Copilot_*
