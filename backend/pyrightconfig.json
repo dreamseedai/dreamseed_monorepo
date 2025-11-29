@@ -4,15 +4,20 @@
   "venvPath": "/home/won/projects/dreamseed_monorepo",
   "venv": ".venv",
   "pythonVersion": "3.11",
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
   "executionEnvironments": [
     {
       "root": ".",
       "pythonVersion": "3.11",
-      "extraPaths": ["."]
+      "extraPaths": ["."],
+      "pythonPlatform": "Linux"
     }
   ],
   "reportMissingImports": false,
-  "reportMissingTypeStubs": false
+  "reportMissingTypeStubs": false,
+  "reportGeneralTypeIssues": false,
+  "reportOptionalMemberAccess": false
 }
 
 
