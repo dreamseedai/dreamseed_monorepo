@@ -72,7 +72,7 @@ class JWTStrategyWithBlacklist(Strategy[User, int]):
 
             # Check if token is blacklisted
             redis_client = await get_redis()
-            blacklist_service = TokenBlacklistService(redis_client)
+            blacklist_service = TokenBlacklistService(redis_client)  # type: ignore[arg-type]
 
             if await blacklist_service.is_blacklisted(jti):
                 return None
@@ -131,7 +131,7 @@ class JWTStrategyWithBlacklist(Strategy[User, int]):
                 return
 
             redis_client = await get_redis()
-            blacklist_service = TokenBlacklistService(redis_client)
+            blacklist_service = TokenBlacklistService(redis_client)  # type: ignore[arg-type]
             expires_at = datetime.utcfromtimestamp(exp)
             await blacklist_service.blacklist_token(jti, expires_at)
 
