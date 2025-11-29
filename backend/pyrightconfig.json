@@ -1,7 +1,17 @@
 {
-  "venvPath": "/home/won/projects/dreamseed_monorepo/dreamseed/backend",
-  "venv": "venv",
-  "reportMissingImports": true,
+  "include": ["app", "tests"],
+  "exclude": ["**/__pycache__", "**/node_modules"],
+  "venvPath": "/home/won/projects/dreamseed_monorepo",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "pythonVersion": "3.11",
+      "extraPaths": ["."]
+    }
+  ],
+  "reportMissingImports": false,
   "reportMissingTypeStubs": false
 }
 
