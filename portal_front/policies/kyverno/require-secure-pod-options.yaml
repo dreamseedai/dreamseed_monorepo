@@ -1,0 +1,48 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-secure-pod-options
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: require-securitycontext-pod-template
+      match:
+        any:
+          - resources:
+              kinds: [Deployment,StatefulSet,DaemonSet,Job,CronJob]
+      validate:
+        message: Pod template must enforce runAsNonRoot and seccompProfile RuntimeDefault; containers must disallow privilege escalation.
+        pattern:
+          spec:
+            template:
+              spec:
+                securityContext:
+                  runAsNonRoot: true
+                  seccompProfile:
+                    type: "RuntimeDefault"
+                containers:
+                  - securityContext:
+                      allowPrivilegeEscalation: false
+                =(initContainers):
+                  - securityContext:
+                      allowPrivilegeEscalation: false
+    - name: require-securitycontext-pod
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: Pods must enforce runAsNonRoot and seccompProfile RuntimeDefault; containers must disallow privilege escalation.
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+              seccompProfile:
+                type: "RuntimeDefault"
+            containers:
+              - securityContext:
+                  allowPrivilegeEscalation: false
+            =(initContainers):
+              - securityContext:
+                  allowPrivilegeEscalation: false

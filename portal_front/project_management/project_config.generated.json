@@ -1,0 +1,33 @@
+{
+  "org": "dreamseedai",
+  "project_number": 1,
+  "project_id": "PVT_kwDODj-Txc4BGyWb",
+  "project_url": "https://github.com/orgs/dreamseedai/projects/1",
+  "fields": {
+    "Status": {
+      "id": "PVTSSF_lADODj-Txc4BGyWbzg3uz90",
+      "type": "ProjectV2SingleSelectField",
+      "options": {
+        "Todo": "f75ad846",
+        "In Progress": "47fc9ee4",
+        "Done": "98236657"
+      }
+    }
+  },
+  "field_mappings": {
+    "status_labels": {
+      "implementation": "In Progress",
+      "in progress": "In Progress",
+      "blocked": "Todo",
+      "done": "Done"
+    },
+    "status_fallback": "Todo"
+  },
+  "notes": [
+    "This is a basic project with default fields only.",
+    "To add custom fields (Story Points, Priority, Iteration), go to:",
+    "https://github.com/orgs/dreamseedai/projects/1/settings/fields",
+    "Then re-run introspection to update this config."
+  ]
+}
+

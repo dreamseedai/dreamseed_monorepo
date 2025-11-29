@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-liveness-readiness
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: require-probes-on-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+      validate:
+        message: Liveness and readiness probes are required on all containers.
+        anyPattern:
+          - spec:
+              template:
+                spec:
+                  containers:
+                    - name: "*"
+                      livenessProbe:
+                        httpGet:
+                          path: "*"
+                          port: "*"
+                      readinessProbe:
+                        httpGet:
+                          path: "*"
+                          port: "*"

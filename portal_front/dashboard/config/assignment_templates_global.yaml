@@ -1,0 +1,862 @@
+# ============================================================================
+# DreamseedAI 글로벌 과제 배정 템플릿 설정
+# 버전: 2.0 (글로벌 확장)
+# 작성일: 2025-11-06
+# 목적: 다국가, 다과목, 다학년, 다교육 형태 지원
+# ============================================================================
+
+# ============================================================================
+# 템플릿 구조: {country}.{subject}.{grade}.{level}.{bucket}
+# 
+# - country: USA, CAN, GBR, AUS, KOR, CHN
+# - subject: math, physics, chemistry, biology, english, social, cs
+# - grade: G9, G10, G11, G12 (미국/캐나다), Year10-13 (영국), 중1-고3 (한국)
+# - level: algebra2, mechanics, organic, honors, AP, IB (선택사항)
+# - bucket: very_low, low, mid, high, very_high
+# ============================================================================
+
+templates:
+  # ==========================================================================
+  # USA (United States)
+  # ==========================================================================
+  USA:
+    math:
+      G9:
+        algebra2:
+          very_low:
+            template_id: "US-MATH-ALG2-G9-REMEDIAL"
+            catalog_ids:
+              - "MATH-ALG2-BASICS-001"
+              - "MATH-ALG2-BASICS-002"
+              - "MATH-ALG2-REVIEW-001"
+            difficulty: 1
+            estimated_minutes: 30
+            language: "en-US"
+            tags: ["remedial", "foundational", "algebra", "G9"]
+            description: "Remedial Algebra 2 for struggling G9 students"
+          low:
+            template_id: "US-MATH-ALG2-G9-SUPPLEMENT"
+            catalog_ids:
+              - "MATH-ALG2-REVIEW-001"
+              - "MATH-ALG2-REVIEW-002"
+              - "MATH-ALG2-PRACTICE-EASY-001"
+            difficulty: 2
+            estimated_minutes: 25
+            language: "en-US"
+            tags: ["supplement", "review", "algebra", "G9"]
+          mid:
+            template_id: "US-MATH-ALG2-G9-CORE"
+            catalog_ids:
+              - "MATH-ALG2-PRACTICE-001"
+              - "MATH-ALG2-PRACTICE-002"
+              - "MATH-ALG2-APPLY-001"
+            difficulty: 3
+            estimated_minutes: 35
+            language: "en-US"
+            tags: ["core", "practice", "algebra", "G9"]
+          high:
+            template_id: "US-MATH-ALG2-G9-CHALLENGE"
+            catalog_ids:
+              - "MATH-ALG2-ADVANCED-001"
+              - "MATH-ALG2-ADVANCED-002"
+              - "MATH-ALG2-CHALLENGE-001"
+            difficulty: 4
+            estimated_minutes: 40
+            language: "en-US"
+            tags: ["challenge", "advanced", "algebra", "G9"]
+          very_high:
+            template_id: "US-MATH-ALG2-G9-ENRICHMENT"
+            catalog_ids:
+              - "MATH-ALG2-HONORS-001"
+              - "MATH-ALG2-HONORS-002"
+              - "MATH-ALG2-COMPETITION-001"
+            difficulty: 5
+            estimated_minutes: 45
+            language: "en-US"
+            tags: ["enrichment", "honors", "competition", "G9"]
+      
+      G10:
+        precalculus:
+          very_low:
+            template_id: "US-MATH-PRECALC-G10-REMEDIAL"
+            catalog_ids: ["MATH-PRECALC-BASICS-001", "MATH-PRECALC-BASICS-002"]
+            difficulty: 1
+            estimated_minutes: 35
+            language: "en-US"
+          low:
+            template_id: "US-MATH-PRECALC-G10-SUPPLEMENT"
+            catalog_ids: ["MATH-PRECALC-REVIEW-001", "MATH-PRECALC-PRACTICE-EASY-001"]
+            difficulty: 2
+            estimated_minutes: 30
+            language: "en-US"
+          mid:
+            template_id: "US-MATH-PRECALC-G10-CORE"
+            catalog_ids: ["MATH-PRECALC-PRACTICE-001", "MATH-PRECALC-APPLY-001"]
+            difficulty: 3
+            estimated_minutes: 40
+            language: "en-US"
+          high:
+            template_id: "US-MATH-PRECALC-G10-CHALLENGE"
+            catalog_ids: ["MATH-PRECALC-ADVANCED-001", "MATH-PRECALC-CHALLENGE-001"]
+            difficulty: 4
+            estimated_minutes: 45
+            language: "en-US"
+          very_high:
+            template_id: "US-MATH-PRECALC-G10-ENRICHMENT"
+            catalog_ids: ["MATH-PRECALC-HONORS-001", "MATH-PRECALC-COMPETITION-001"]
+            difficulty: 5
+            estimated_minutes: 50
+            language: "en-US"
+      
+      G11:
+        calculus_ab:
+          very_low:
+            template_id: "US-MATH-CALC-AB-G11-REMEDIAL"
+            catalog_ids: ["MATH-CALC-AB-BASICS-001"]
+            difficulty: 2
+            estimated_minutes: 40
+            language: "en-US"
+          low:
+            template_id: "US-MATH-CALC-AB-G11-SUPPLEMENT"
+            catalog_ids: ["MATH-CALC-AB-REVIEW-001"]
+            difficulty: 3
+            estimated_minutes: 35
+            language: "en-US"
+          mid:
+            template_id: "US-MATH-CALC-AB-G11-CORE"
+            catalog_ids: ["MATH-CALC-AB-PRACTICE-001", "MATH-CALC-AB-APPLY-001"]
+            difficulty: 4
+            estimated_minutes: 45
+            language: "en-US"
+          high:
+            template_id: "US-MATH-CALC-AB-G11-CHALLENGE"
+            catalog_ids: ["MATH-CALC-AB-ADVANCED-001"]
+            difficulty: 5
+            estimated_minutes: 50
+            language: "en-US"
+          very_high:
+            template_id: "US-MATH-CALC-AB-G11-ENRICHMENT"
+            catalog_ids: ["MATH-CALC-AB-HONORS-001", "MATH-CALC-BC-PREVIEW-001"]
+            difficulty: 5
+            estimated_minutes: 55
+            language: "en-US"
+      
+      G12:
+        calculus_bc:
+          very_low:
+            template_id: "US-MATH-CALC-BC-G12-REMEDIAL"
+            catalog_ids: ["MATH-CALC-BC-BASICS-001"]
+            difficulty: 3
+            estimated_minutes: 45
+            language: "en-US"
+          low:
+            template_id: "US-MATH-CALC-BC-G12-SUPPLEMENT"
+            catalog_ids: ["MATH-CALC-BC-REVIEW-001"]
+            difficulty: 4
+            estimated_minutes: 40
+            language: "en-US"
+          mid:
+            template_id: "US-MATH-CALC-BC-G12-CORE"
+            catalog_ids: ["MATH-CALC-BC-PRACTICE-001"]
+            difficulty: 5
+            estimated_minutes: 50
+            language: "en-US"
+          high:
+            template_id: "US-MATH-CALC-BC-G12-CHALLENGE"
+            catalog_ids: ["MATH-CALC-BC-ADVANCED-001"]
+            difficulty: 5
+            estimated_minutes: 55
+            language: "en-US"
+          very_high:
+            template_id: "US-MATH-CALC-BC-G12-ENRICHMENT"
+            catalog_ids: ["MATH-CALC-BC-HONORS-001", "MATH-MULTIVARIABLE-PREVIEW-001"]
+            difficulty: 5
+            estimated_minutes: 60
+            language: "en-US"
+    
+    physics:
+      G10:
+        mechanics:
+          very_low:
+            template_id: "US-PHYS-MECH-G10-REMEDIAL"
+            catalog_ids: ["PHYS-MECH-BASICS-001"]
+            difficulty: 2
+            estimated_minutes: 35
+            language: "en-US"
+            tags: ["remedial", "mechanics", "kinematics", "G10"]
+          low:
+            template_id: "US-PHYS-MECH-G10-SUPPLEMENT"
+            catalog_ids: ["PHYS-MECH-REVIEW-001"]
+            difficulty: 3
+            estimated_minutes: 30
+            language: "en-US"
+          mid:
+            template_id: "US-PHYS-MECH-G10-CORE"
+            catalog_ids: ["PHYS-MECH-PRACTICE-001", "PHYS-MECH-APPLY-001"]
+            difficulty: 4
+            estimated_minutes: 40
+            language: "en-US"
+          high:
+            template_id: "US-PHYS-MECH-G10-CHALLENGE"
+            catalog_ids: ["PHYS-MECH-ADVANCED-001"]
+            difficulty: 5
+            estimated_minutes: 45
+            language: "en-US"
+          very_high:
+            template_id: "US-PHYS-MECH-G10-ENRICHMENT"
+            catalog_ids: ["PHYS-MECH-HONORS-001", "PHYS-MECH-COMPETITION-001"]
+            difficulty: 5
+            estimated_minutes: 50
+            language: "en-US"
+      
+      G11:
+        electromagnetism:
+          very_low:
+            template_id: "US-PHYS-EM-G11-REMEDIAL"
+            catalog_ids: ["PHYS-EM-BASICS-001"]
+            difficulty: 3
+            estimated_minutes: 40
+            language: "en-US"
+          low:
+            template_id: "US-PHYS-EM-G11-SUPPLEMENT"
+            catalog_ids: ["PHYS-EM-REVIEW-001"]
+            difficulty: 4
+            estimated_minutes: 35
+            language: "en-US"
+          mid:
+            template_id: "US-PHYS-EM-G11-CORE"
+            catalog_ids: ["PHYS-EM-PRACTICE-001"]
+            difficulty: 5
+            estimated_minutes: 45
+            language: "en-US"
+          high:
+            template_id: "US-PHYS-EM-G11-CHALLENGE"
+            catalog_ids: ["PHYS-EM-ADVANCED-001"]
+            difficulty: 5
+            estimated_minutes: 50
+            language: "en-US"
+          very_high:
+            template_id: "US-PHYS-EM-G11-ENRICHMENT"
+            catalog_ids: ["PHYS-EM-HONORS-001"]
+            difficulty: 5
+            estimated_minutes: 55
+            language: "en-US"
+      
+      G12:
+        thermodynamics:
+          very_low:
+            template_id: "US-PHYS-THERMO-G12-REMEDIAL"
+            catalog_ids: ["PHYS-THERMO-BASICS-001"]
+            difficulty: 3
+            estimated_minutes: 35
+            language: "en-US"
+          low:
+            template_id: "US-PHYS-THERMO-G12-SUPPLEMENT"
+            catalog_ids: ["PHYS-THERMO-REVIEW-001"]
+            difficulty: 4
+            estimated_minutes: 30
+            language: "en-US"
+          mid:
+            template_id: "US-PHYS-THERMO-G12-CORE"
+            catalog_ids: ["PHYS-THERMO-PRACTICE-001"]
+            difficulty: 4
+            estimated_minutes: 40
+            language: "en-US"
+          high:
+            template_id: "US-PHYS-THERMO-G12-CHALLENGE"
+            catalog_ids: ["PHYS-THERMO-ADVANCED-001"]
+            difficulty: 5
+            estimated_minutes: 45
+            language: "en-US"
+          very_high:
+            template_id: "US-PHYS-THERMO-G12-ENRICHMENT"
+            catalog_ids: ["PHYS-THERMO-HONORS-001"]
+            difficulty: 5
+            estimated_minutes: 50
+            language: "en-US"
+    
+    chemistry:
+      G10:
+        general:
+          very_low:
+            template_id: "US-CHEM-GEN-G10-REMEDIAL"
+            catalog_ids: ["CHEM-GEN-BASICS-001"]
+            difficulty: 2
+            estimated_minutes: 30
+            language: "en-US"
+          low:
+            template_id: "US-CHEM-GEN-G10-SUPPLEMENT"
+            catalog_ids: ["CHEM-GEN-REVIEW-001"]
+            difficulty: 3
+            estimated_minutes: 25
+            language: "en-US"
+          mid:
+            template_id: "US-CHEM-GEN-G10-CORE"
+            catalog_ids: ["CHEM-GEN-PRACTICE-001"]
+            difficulty: 3
+            estimated_minutes: 35
+            language: "en-US"
+          high:
+            template_id: "US-CHEM-GEN-G10-CHALLENGE"
+            catalog_ids: ["CHEM-GEN-ADVANCED-001"]
+            difficulty: 4
+            estimated_minutes: 40
+            language: "en-US"
+          very_high:
+            template_id: "US-CHEM-GEN-G10-ENRICHMENT"
+            catalog_ids: ["CHEM-GEN-HONORS-001"]
+            difficulty: 5
+            estimated_minutes: 45
+            language: "en-US"
+      
+      G11:
+        organic:
+          very_low:
+            template_id: "US-CHEM-ORG-G11-REMEDIAL"
+            catalog_ids: ["CHEM-ORG-BASICS-001"]
+            difficulty: 3
+            estimated_minutes: 35
+            language: "en-US"
+          low:
+            template_id: "US-CHEM-ORG-G11-SUPPLEMENT"
+            catalog_ids: ["CHEM-ORG-REVIEW-001"]
+            difficulty: 4
+            estimated_minutes: 30
+            language: "en-US"
+          mid:
+            template_id: "US-CHEM-ORG-G11-CORE"
+            catalog_ids: ["CHEM-ORG-PRACTICE-001"]
+            difficulty: 5
+            estimated_minutes: 40
+            language: "en-US"
+          high:
+            template_id: "US-CHEM-ORG-G11-CHALLENGE"
+            catalog_ids: ["CHEM-ORG-ADVANCED-001"]
+            difficulty: 5
+            estimated_minutes: 45
+            language: "en-US"
+          very_high:
+            template_id: "US-CHEM-ORG-G11-ENRICHMENT"
+            catalog_ids: ["CHEM-ORG-HONORS-001"]
+            difficulty: 5
+            estimated_minutes: 50
+            language: "en-US"
+    
+    biology:
+      G9:
+        cell_bio:
+          very_low:
+            template_id: "US-BIO-CELL-G9-REMEDIAL"
+            catalog_ids: ["BIO-CELL-BASICS-001"]
+            difficulty: 1
+            estimated_minutes: 25
+            language: "en-US"
+          low:
+            template_id: "US-BIO-CELL-G9-SUPPLEMENT"
+            catalog_ids: ["BIO-CELL-REVIEW-001"]
+            difficulty: 2
+            estimated_minutes: 20
+            language: "en-US"
+          mid:
+            template_id: "US-BIO-CELL-G9-CORE"
+            catalog_ids: ["BIO-CELL-PRACTICE-001"]
+            difficulty: 3
+            estimated_minutes: 30
+            language: "en-US"
+          high:
+            template_id: "US-BIO-CELL-G9-CHALLENGE"
+            catalog_ids: ["BIO-CELL-ADVANCED-001"]
+            difficulty: 4
+            estimated_minutes: 35
+            language: "en-US"
+          very_high:
+            template_id: "US-BIO-CELL-G9-ENRICHMENT"
+            catalog_ids: ["BIO-CELL-HONORS-001"]
+            difficulty: 5
+            estimated_minutes: 40
+            language: "en-US"
+      
+      G10:
+        genetics:
+          very_low:
+            template_id: "US-BIO-GENE-G10-REMEDIAL"
+            catalog_ids: ["BIO-GENE-BASICS-001"]
+            difficulty: 2
+            estimated_minutes: 30
+            language: "en-US"
+          low:
+            template_id: "US-BIO-GENE-G10-SUPPLEMENT"
+            catalog_ids: ["BIO-GENE-REVIEW-001"]
+            difficulty: 3
+            estimated_minutes: 25
+            language: "en-US"
+          mid:
+            template_id: "US-BIO-GENE-G10-CORE"
+            catalog_ids: ["BIO-GENE-PRACTICE-001"]
+            difficulty: 4
+            estimated_minutes: 35
+            language: "en-US"
+          high:
+            template_id: "US-BIO-GENE-G10-CHALLENGE"
+            catalog_ids: ["BIO-GENE-ADVANCED-001"]
+            difficulty: 5
+            estimated_minutes: 40
+            language: "en-US"
+          very_high:
+            template_id: "US-BIO-GENE-G10-ENRICHMENT"
+            catalog_ids: ["BIO-GENE-HONORS-001"]
+            difficulty: 5
+            estimated_minutes: 45
+            language: "en-US"
+  
+  # ==========================================================================
+  # CAN (Canada)
+  # ==========================================================================
+  CAN:
+    # 캐나다는 대부분 미국과 동일하지만 일부 Ontario/BC 커리큘럼 차이 반영
+    math:
+      G9:
+        algebra2:
+          very_low:
+            template_id: "CAN-MATH-ALG2-G9-REMEDIAL"
+            catalog_ids: ["CAN-MATH-ALG2-BASICS-001", "MATH-ALG2-BASICS-001"]
+            difficulty: 1
+            estimated_minutes: 30
+            language: "en-CA"
+            tags: ["remedial", "foundational", "algebra", "G9", "Ontario"]
+          low:
+            template_id: "CAN-MATH-ALG2-G9-SUPPLEMENT"
+            catalog_ids: ["CAN-MATH-ALG2-REVIEW-001"]
+            difficulty: 2
+            estimated_minutes: 25
+            language: "en-CA"
+          mid:
+            template_id: "CAN-MATH-ALG2-G9-CORE"
+            catalog_ids: ["CAN-MATH-ALG2-PRACTICE-001"]
+            difficulty: 3
+            estimated_minutes: 35
+            language: "en-CA"
+          high:
+            template_id: "CAN-MATH-ALG2-G9-CHALLENGE"
+            catalog_ids: ["CAN-MATH-ALG2-ADVANCED-001"]
+            difficulty: 4
+            estimated_minutes: 40
+            language: "en-CA"
+          very_high:
+            template_id: "CAN-MATH-ALG2-G9-ENRICHMENT"
+            catalog_ids: ["CAN-MATH-ALG2-HONORS-001"]
+            difficulty: 5
+            estimated_minutes: 45
+            language: "en-CA"
+      
+      G10:
+        precalculus:
+          # G10 템플릿 (간결하게 mid만 예시)
+          mid:
+            template_id: "CAN-MATH-PRECALC-G10-CORE"
+            catalog_ids: ["CAN-MATH-PRECALC-PRACTICE-001"]
+            difficulty: 3
+            estimated_minutes: 40
+            language: "en-CA"
+    
+    physics:
+      G10:
+        mechanics:
+          mid:
+            template_id: "CAN-PHYS-MECH-G10-CORE"
+            catalog_ids: ["CAN-PHYS-MECH-PRACTICE-001", "PHYS-MECH-PRACTICE-001"]
+            difficulty: 4
+            estimated_minutes: 40
+            language: "en-CA"
+    
+    chemistry:
+      G10:
+        general:
+          mid:
+            template_id: "CAN-CHEM-GEN-G10-CORE"
+            catalog_ids: ["CAN-CHEM-GEN-PRACTICE-001"]
+            difficulty: 3
+            estimated_minutes: 35
+            language: "en-CA"
+    
+    biology:
+      G9:
+        cell_bio:
+          mid:
+            template_id: "CAN-BIO-CELL-G9-CORE"
+            catalog_ids: ["CAN-BIO-CELL-PRACTICE-001"]
+            difficulty: 3
+            estimated_minutes: 30
+            language: "en-CA"
+
+  # ==========================================================================
+  # 향후 확장: KOR, GBR, AUS, CHN (placeholder)
+  # ==========================================================================
+  # KOR:
+  #   math:
+  #     고1:
+  #       algebra:
+  #         mid:
+  #           template_id: "KR-MATH-ALG-G10-CORE"
+  #           catalog_ids: ["KR-MATH-ALG-PRACTICE-001"]
+  #           language: "ko-KR"
+
+# ============================================================================
+# 국가별 기본 설정
+# ============================================================================
+defaults:
+  USA:
+    grade_system: "US"
+    language: "en-US"
+    timezone: "America/Los_Angeles"
+    curriculum: "US-Common-Core"
+    working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    tutoring_days: ["Wed", "Fri"]  # 보충 가능 요일
+    business_hours:
+      start: "08:00"
+      end: "17:00"
+  
+  CAN:
+    grade_system: "US"  # Similar to US
+    language: "en-CA"
+    timezone: "America/Toronto"
+    curriculum: "CAN-Provincial"
+    working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    tutoring_days: ["Wed", "Fri"]
+    business_hours:
+      start: "08:00"
+      end: "17:00"
+  
+  KOR:
+    grade_system: "KR"
+    language: "ko-KR"
+    timezone: "Asia/Seoul"
+    curriculum: "KR-National"
+    working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    tutoring_days: ["Wed", "Sat"]  # 한국은 토요일 보충 가능
+    business_hours:
+      start: "09:00"
+      end: "18:00"
+  
+  GBR:
+    grade_system: "UK"
+    language: "en-GB"
+    timezone: "Europe/London"
+    curriculum: "UK-National"
+    working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    tutoring_days: ["Wed", "Fri"]
+    business_hours:
+      start: "09:00"
+      end: "17:00"
+  
+  AUS:
+    grade_system: "AU"
+    language: "en-AU"
+    timezone: "Australia/Sydney"
+    curriculum: "AU-National"
+    working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    tutoring_days: ["Wed", "Fri"]
+    business_hours:
+      start: "09:00"
+      end: "17:00"
+  
+  CHN:
+    grade_system: "CN"
+    language: "zh-CN"
+    timezone: "Asia/Shanghai"
+    curriculum: "CN-National"
+    working_days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    tutoring_days: ["Wed", "Sat", "Sun"]  # 중국은 주말 보충 흔함
+    business_hours:
+      start: "08:00"
+      end: "18:00"
+
+# ============================================================================
+# 교육 형태별 권한
+# ============================================================================
+permissions:
+  # 개인 과외 (1:1)
+  individual_tutor:
+    can_assign: true
+    can_view_all_classes: false
+    can_view_student_history: true
+    can_view_pii: true  # PII = Personally Identifiable Information
+    can_modify_thresholds: false
+    max_students: 10
+    max_assignments_per_day: 10
+  
+  # 소그룹 과외 (2-5명)
+  small_group_tutor:
+    can_assign: true
+    can_view_all_classes: false
+    can_view_student_history: true
+    can_view_pii: true
+    can_modify_thresholds: false
+    max_students: 30
+    max_assignments_per_day: 30
+  
+  # 학원 강사
+  academy_teacher:
+    can_assign: true
+    can_view_all_classes: true
+    can_view_student_history: true
+    can_view_pii: true
+    can_modify_thresholds: false
+    max_students: 100
+    max_assignments_per_day: 100
+  
+  # 공교육 교사
+  public_school_teacher:
+    can_assign: true
+    can_view_all_classes: true
+    can_view_student_history: false  # Privacy: 학교 외부 기록 제한
+    can_view_pii: false  # FERPA 준수
+    can_modify_thresholds: false
+    max_students: 200
+    max_assignments_per_day: 200
+  
+  # 학원장/교감
+  admin:
+    can_assign: true
+    can_view_all_classes: true
+    can_view_student_history: true
+    can_view_pii: true
+    can_modify_thresholds: true
+    max_students: 999999
+    max_assignments_per_day: 999999
+
+# ============================================================================
+# 리스크 임계값 (국가/과목별 조정 가능)
+# ============================================================================
+risk_thresholds:
+  # 기본값 (모든 국가/과목)
+  default:
+    theta_delta: 0.05              # Δ7d < +0.05면 리스크
+    attendance_abs: 0.10           # 결석률 ≥ 10%
+    attendance_tardy: 0.15         # 지각률 ≥ 15%
+    attendance_var_top_pct: 0.80   # 요일분산 상위 20% (80th percentile)
+    guess_top_pct: 0.80            # 추측률 상위 20%
+    omit: 0.08                     # 무응답률 ≥ 8%
+    three_week_consecutive: true   # 3주 연속 체크 활성화
+  
+  # 국가별 오버라이드
+  USA:
+    # 미국은 기본값 사용
+    theta_delta: 0.05
+    attendance_abs: 0.10
+    attendance_tardy: 0.15
+  
+  CAN:
+    # 캐나다도 기본값 사용
+    theta_delta: 0.05
+    attendance_abs: 0.10
+  
+  KOR:
+    # 한국은 출석 기준 더 엄격
+    attendance_abs: 0.05    # 5% 이상이면 리스크
+    attendance_tardy: 0.10  # 10% 이상이면 리스크
+    omit: 0.05              # 무응답 5% 이상이면 리스크
+  
+  GBR:
+    # 영국은 기본값
+    theta_delta: 0.05
+  
+  # 과목별 오버라이드
+  physics:
+    guess_top_pct: 0.85     # Physics는 추측률 기준 더 관대 (상위 15%만)
+    omit: 0.10              # 무응답 10% 이상
+  
+  chemistry:
+    guess_top_pct: 0.85
+    omit: 0.10
+  
+  math:
+    # 수학은 기본값
+    guess_top_pct: 0.80
+    omit: 0.08
+
+# ============================================================================
+# i18n 메시지 (다국어 지원)
+# ============================================================================
+messages:
+  # 영어 (미국)
+  en-US:
+    # Risk flags
+    risk_improve: "Risk: Low Improvement (Δ7d<+0.05 & 3 weeks ≤0)"
+    risk_attendance: "Risk: Irregular Attendance (Absent≥10% or Tardy≥15% or Variance Top 20%)"
+    risk_response: "Risk: Response Anomaly (Guessing Top 20% or Omit≥8%)"
+    
+    # Assignment messages
+    assign_success: "Assignment successful: {count} student(s)"
+    assign_fail: "Assignment failed"
+    assign_permission_denied: "You don't have permission to assign"
+    
+    # Table headers
+    col_student_name: "Student Name"
+    col_grade: "Grade"
+    col_theta: "θ (Ability)"
+    col_delta_7d: "Δ7d"
+    col_attendance: "Attendance"
+    col_risk_score: "Risk Score"
+    col_actions: "Actions"
+    
+    # Buttons
+    btn_assign: "Assign"
+    btn_view_details: "View Details"
+    btn_close: "Close"
+    
+    # Day of week recommendation
+    dow_rec_template: "Weekly {day} absence rate {rate}% → Recommend {tutoring_days} tutoring"
+    day_names:
+      Mon: "Monday"
+      Tue: "Tuesday"
+      Wed: "Wednesday"
+      Thu: "Thursday"
+      Fri: "Friday"
+      Sat: "Saturday"
+      Sun: "Sunday"
+  
+  # 영어 (캐나다)
+  en-CA:
+    risk_improve: "Risk: Low Improvement (Δ7d<+0.05 & 3 weeks ≤0)"
+    risk_attendance: "Risk: Irregular Attendance (Absent≥10% or Tardy≥15% or Variance Top 20%)"
+    risk_response: "Risk: Response Anomaly (Guessing Top 20% or Omit≥8%)"
+    assign_success: "Assignment successful: {count} student(s)"
+    assign_fail: "Assignment failed"
+    col_student_name: "Student Name"
+    col_grade: "Grade"
+    btn_assign: "Assign"
+    dow_rec_template: "Weekly {day} absence rate {rate}% → Recommend {tutoring_days} tutoring"
+  
+  # 한국어
+  ko-KR:
+    # 리스크 플래그
+    risk_improve: "리스크: 개선 저조 (Δ7d<+0.05 & 최근 3주 연속 ≤0)"
+    risk_attendance: "리스크: 출석 불규칙 (결석≥10% 또는 지각≥15% 또는 요일분산 상위20%)"
+    risk_response: "리스크: 반응 이상치 (추측 상위20% 또는 무응답≥8%)"
+    
+    # 배정 메시지
+    assign_success: "과제 배정 성공: {count}명"
+    assign_fail: "과제 배정 실패"
+    assign_permission_denied: "과제 배정 권한이 없습니다"
+    
+    # 테이블 헤더
+    col_student_name: "학생 이름"
+    col_grade: "학년"
+    col_theta: "θ (능력치)"
+    col_delta_7d: "Δ7d"
+    col_attendance: "출석률"
+    col_risk_score: "리스크 점수"
+    col_actions: "작업"
+    
+    # 버튼
+    btn_assign: "배정"
+    btn_view_details: "상세보기"
+    btn_close: "닫기"
+    
+    # 요일별 추천
+    dow_rec_template: "매주 {day} 결석률 {rate}% → {tutoring_days} 보충 지도 권장"
+    day_names:
+      Mon: "월요일"
+      Tue: "화요일"
+      Wed: "수요일"
+      Thu: "목요일"
+      Fri: "금요일"
+      Sat: "토요일"
+      Sun: "일요일"
+  
+  # 중국어 (간체)
+  zh-CN:
+    risk_improve: "风险: 改进缓慢 (Δ7d<+0.05 & 最近3周 ≤0)"
+    risk_attendance: "风险: 出勤不规律 (缺勤≥10% 或迟到≥15% 或方差前20%)"
+    risk_response: "风险: 响应异常 (猜测前20% 或空白≥8%)"
+    assign_success: "分配成功: {count}名学生"
+    assign_fail: "分配失败"
+    assign_permission_denied: "您没有分配权限"
+    col_student_name: "学生姓名"
+    col_grade: "年级"
+    col_theta: "θ (能力)"
+    col_delta_7d: "Δ7d"
+    col_attendance: "出勤率"
+    col_risk_score: "风险分数"
+    col_actions: "操作"
+    btn_assign: "分配"
+    btn_view_details: "查看详情"
+    btn_close: "关闭"
+    dow_rec_template: "每周{day}缺勤率{rate}% → 建议{tutoring_days}补习"
+    day_names:
+      Mon: "星期一"
+      Tue: "星期二"
+      Wed: "星期三"
+      Thu: "星期四"
+      Fri: "星期五"
+      Sat: "星期六"
+      Sun: "星期日"
+  
+  # 영어 (영국)
+  en-GB:
+    risk_improve: "Risk: Low Improvement (Δ7d<+0.05 & 3 weeks ≤0)"
+    risk_attendance: "Risk: Irregular Attendance (Absent≥10% or Tardy≥15% or Variance Top 20%)"
+    risk_response: "Risk: Response Anomaly (Guessing Top 20% or Omit≥8%)"
+    assign_success: "Assignment successful: {count} student(s)"
+    assign_fail: "Assignment failed"
+    col_student_name: "Student Name"
+    btn_assign: "Assign"
+
+# ============================================================================
+# 프라이버시 규정 설정
+# ============================================================================
+privacy:
+  # GDPR (유럽)
+  GDPR:
+    applicable_countries: ["GBR", "DEU", "FRA", "ITA", "ESP"]
+    anonymize_names: true          # 일반 교사는 이름 익명화
+    mask_identifiers: true         # ID 마스킹
+    data_retention_days: 365       # 1년 후 자동 삭제
+    require_consent: true
+  
+  # COPPA (미국, 13세 미만)
+  COPPA:
+    applicable_countries: ["USA"]
+    age_threshold: 13
+    require_parental_consent: true
+    restrict_pii: true             # PII 제한
+  
+  # FERPA (미국 공교육)
+  FERPA:
+    applicable_countries: ["USA"]
+    education_types: ["public_school"]
+    restrict_external_history: true
+    anonymize_for_teachers: true
+  
+  # PIPA (한국)
+  PIPA:
+    applicable_countries: ["KOR"]
+    mask_identifiers: true
+    require_consent: true
+    data_retention_days: 365
+
+# ============================================================================
+# 성능 최적화 설정
+# ============================================================================
+performance:
+  # 국가별 데이터 서버 (CDN)
+  data_servers:
+    USA: "https://us-data.dreamseedai.com"
+    CAN: "https://ca-data.dreamseedai.com"
+    KOR: "https://kr-data.dreamseedai.com"
+    GBR: "https://uk-data.dreamseedai.com"
+    AUS: "https://au-data.dreamseedai.com"
+    CHN: "https://cn-data.dreamseedai.com"
+  
+  # 캐싱 전략
+  cache:
+    config_reload_interval_sec: 30
+    reactive_cache_ttl_sec: 60
+    subgroup_quantile_ttl_sec: 300  # 5분마다 재계산
+  
+  # Parquet 파티셔닝
+  partitioning:
+    scheme: "country/subject/grade/year/month"
+    chunk_size_mb: 128
+    compression: "snappy"

@@ -1,0 +1,84 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: fit-growth-glmm
+  namespace: seedtest
+spec:
+  # 매주 월요일 03:30 UTC (KST 12:30)
+  schedule: "30 3 * * 1"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600  # 1 hour timeout
+      template:
+        metadata:
+          labels:
+            app: fit-growth-glmm
+        spec:
+          restartPolicy: Never
+          serviceAccountName: seedtest-api
+          containers:
+            - name: fit-growth-glmm
+              image: asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:f830ff9c2-with-env
+              imagePullPolicy: Always
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "Waiting for Cloud SQL Proxy to be ready..."
+                  sleep 5
+                  echo "Starting GLMM growth model fitting..."
+                  python3 -m apps.seedtest_api.jobs.fit_growth_glmm
+              env:
+                - name: PYTHONPATH
+                  value: "/app"
+                - name: GLMM_LOOKBACK_WEEKS
+                  value: "12"
+                - name: GLMM_MIN_OBSERVATIONS
+                  value: "10"
+                - name: GLMM_UPDATE_KPI
+                  value: "false"  # Set to "true" to update weekly_kpi.growth_slope
+                - name: R_GLMM_BASE_URL
+                  value: "http://r-glmm-plumber.seedtest.svc.cluster.local:80"
+                - name: R_GLMM_TIMEOUT_SECS
+                  value: "300"
+                - name: R_GLMM_INTERNAL_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: r-glmm-credentials
+                      key: token
+                      optional: true
+                - name: DRY_RUN
+                  value: "false"
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: seedtest-db-credentials
+                      key: DATABASE_URL
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                limits:
+                  cpu: 2000m
+                  memory: 4Gi
+            
+            # Cloud SQL Proxy sidecar
+            - name: cloud-sql-proxy
+              image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+              args:
+                - "--structured-logs"
+                - "--port=5432"
+                - "univprepai:asia-northeast3:seedtest-db"
+              securityContext:
+                runAsNonRoot: true
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi

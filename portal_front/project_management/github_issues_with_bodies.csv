@@ -1,0 +1,127 @@
+id,title,assignees,labels,story_points,branch,body,reviewers,priority_label,iteration_title,body
+PR-1A,R IRT Plumber microservice (mirt): calibrate/score,mpcstudy,"roadmap,implementation,backend,r,irt,service,sp:8,p1,iter:2025w45",8,feature/r/mirt-plumber-PR-1A,"Auto-generated issue for roadmap item PR-1A
+
+
+Service: r-irt-plumber
+K8s: ops/k8s/r-irt-plumber
+CI: build-r-plumber matrix entry to include r-irt
+Tests: tests/r-irt.http (calibrate/score)
+
+Acceptance Criteria (service-specific)
+- [ ] /irt/calibrate에서 item params/abilities/metrics 반환, /irt/score 정상
+- [ ] DB 업서트 파이프라인과 스키마(mirt_item_params, mirt_ability) 정합
+- [ ] Cron nightly 성공률/알람 구성
+
+Acceptance Criteria
+- [ ] Functional endpoints or jobs deliver expected outputs
+- [ ] Errors handled and logged with run_id
+- [ ] Metrics and health endpoints wired to ServiceMonitor
+- [ ] Secrets and config injected via ExternalSecret/ConfigMap where applicable
+
+Tests
+- [ ] Unit and integration tests added
+- [ ] E2E smoke in CI or instructions provided
+- [ ] Load/perf tests where applicable
+
+Deployment
+- [ ] Kustomize base + overlays updated
+- [ ] CI workflow updated to build/push images
+- [ ] ArgoCD sync verified
+
+Rollout
+- [ ] Feature flag or staged rollout plan documented
+- [ ] Dashboards/alerts in place and validated","reviewer1,reviewer2",P1,2025w45,"Auto-generated issue for roadmap item PR-1A
+
+
+Service: r-irt-plumber
+K8s: ops/k8s/r-irt-plumber
+CI: build-r-plumber matrix entry to include r-irt
+Tests: tests/r-irt.http (calibrate/score)
+
+Acceptance Criteria (service-specific)
+- [ ] /irt/calibrate에서 item params/abilities/metrics 반환, /irt/score 정상
+- [ ] DB 업서트 파이프라인과 스키마(mirt_item_params, mirt_ability) 정합
+- [ ] Cron nightly 성공률/알람 구성
+
+Acceptance Criteria
+- [ ] Functional endpoints or jobs deliver expected outputs
+- [ ] Errors handled and logged with run_id
+- [ ] Metrics and health endpoints wired to ServiceMonitor
+- [ ] Secrets and config injected via ExternalSecret/ConfigMap where applicable
+
+Tests
+- [ ] Unit and integration tests added
+- [ ] E2E smoke in CI or instructions provided
+- [ ] Load/perf tests where applicable
+
+Deployment
+- [ ] Kustomize base + overlays updated
+- [ ] CI workflow updated to build/push images
+- [ ] ArgoCD sync verified
+
+Rollout
+- [ ] Feature flag or staged rollout plan documented
+- [ ] Dashboards/alerts in place and validated"
+PR-2A,Quarto report project + templates (ggplot2/gt),mpcstudy,"roadmap,implementation,reports,quarto,sp:5,p2,iter:2025w46",5,feature/reports/quarto-templates-PR-2A,"Auto-generated issue for roadmap item PR-2A
+
+
+Reports: Quarto templates (reports/quarto/*.qmd)
+Runner: tools/quarto-runner image (TinyTeX)
+API: /reports/generate, artifacts in report_artifact
+Tests: build sample PDF/HTML in CI and attach as artifact
+
+Acceptance Criteria (report-specific)
+- [ ] 주간 리포트에 능력 추세/목표확률/추천 Top-N 포함
+- [ ] 다국어/브랜딩 설정 _quarto.yml 에서 관리
+- [ ] 렌더 실패 시 재시도/로그(run_id) 확인
+
+Acceptance Criteria
+- [ ] Functional endpoints or jobs deliver expected outputs
+- [ ] Errors handled and logged with run_id
+- [ ] Metrics and health endpoints wired to ServiceMonitor
+- [ ] Secrets and config injected via ExternalSecret/ConfigMap where applicable
+
+Tests
+- [ ] Unit and integration tests added
+- [ ] E2E smoke in CI or instructions provided
+- [ ] Load/perf tests where applicable
+
+Deployment
+- [ ] Kustomize base + overlays updated
+- [ ] CI workflow updated to build/push images
+- [ ] ArgoCD sync verified
+
+Rollout
+- [ ] Feature flag or staged rollout plan documented
+- [ ] Dashboards/alerts in place and validated",reviewer3;reviewer4,P2,2025w46,"Auto-generated issue for roadmap item PR-2A
+
+
+Reports: Quarto templates (reports/quarto/*.qmd)
+Runner: tools/quarto-runner image (TinyTeX)
+API: /reports/generate, artifacts in report_artifact
+Tests: build sample PDF/HTML in CI and attach as artifact
+
+Acceptance Criteria (report-specific)
+- [ ] 주간 리포트에 능력 추세/목표확률/추천 Top-N 포함
+- [ ] 다국어/브랜딩 설정 _quarto.yml 에서 관리
+- [ ] 렌더 실패 시 재시도/로그(run_id) 확인
+
+Acceptance Criteria
+- [ ] Functional endpoints or jobs deliver expected outputs
+- [ ] Errors handled and logged with run_id
+- [ ] Metrics and health endpoints wired to ServiceMonitor
+- [ ] Secrets and config injected via ExternalSecret/ConfigMap where applicable
+
+Tests
+- [ ] Unit and integration tests added
+- [ ] E2E smoke in CI or instructions provided
+- [ ] Load/perf tests where applicable
+
+Deployment
+- [ ] Kustomize base + overlays updated
+- [ ] CI workflow updated to build/push images
+- [ ] ArgoCD sync verified
+
+Rollout
+- [ ] Feature flag or staged rollout plan documented
+- [ ] Dashboards/alerts in place and validated"

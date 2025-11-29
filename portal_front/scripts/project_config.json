@@ -1,0 +1,10 @@
+{
+  "statusLabelMap": {
+    "implementation": "In Progress",
+    "blocked": "Blocked",
+    "done": "Done",
+    "roadmap": "Inbox"
+  },
+  "storyPointsLabelPrefix": "sp:",
+  "projectUrl": "https://github.com/orgs/dreamseedai/projects/1"
+}

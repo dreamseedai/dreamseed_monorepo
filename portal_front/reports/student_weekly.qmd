@@ -1,0 +1,153 @@
+---
+title: "주간 개인 리포트"
+format:
+  html:
+    toc: true
+    theme: cosmo
+  pdf:
+    toc: true
+    documentclass: scrreprt
+params:
+  student_id: ""
+  week_start: ""
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+suppressPackageStartupMessages({
+  library(DBI); library(RPostgres)
+  library(dplyr); library(tidyr)
+  library(ggplot2); library(gt)
+  library(lubridate)
+})
+
+student_id <- params$student_id
+week_start <- as.Date(params$week_start)
+week_end <- week_start + days(6)
+
+# Helper: parse DATABASE_URL (postgres://user:pass@host:port/dbname)
+parse_db_url <- function(url){
+  # very simple parser; assumes no special chars in user/pass
+  m <- regexec("^postgres(?:ql)?://([^:]+):([^@]+)@([^:/]+)(?::([0-9]+))?/([^/?#]+)$", url, perl=TRUE)
+  r <- regmatches(url, m)[[1]]
+  if (length(r) < 6) stop("Invalid DATABASE_URL")
+  list(user=r[2], password=r[3], host=r[4], port=as.integer(r[5]), dbname=r[6])
+}
+
+get_conn <- function(){
+  url <- Sys.getenv("DATABASE_URL", "")
+  if (!nzchar(url)) stop("DATABASE_URL not set")
+  cfg <- parse_db_url(url)
+  DBI::dbConnect(RPostgres::Postgres(),
+                 dbname=cfg$dbname, host=cfg$host, port=cfg$port,
+                 user=cfg$user, password=cfg$password,
+                 sslmode="prefer")
+}
+
+con <- get_conn()
+on.exit(DBI::dbDisconnect(con), add=TRUE)
+
+# Load KPIs for the week
+kpi <- dbGetQuery(con, "SELECT kpis FROM weekly_kpi WHERE user_id=$1 AND week_start=$2",
+                  params=list(student_id, week_start))
+if (nrow(kpi) == 0) kpi <- data.frame(kpis=I(list(list(I_t=NA, E_t=NA, R_t=NA, A_t=NA, P=NA, S=NA))))
+kp <- kpi$kpis[[1]]
+
+# Load I_t trend (last 12 weeks)
+trend <- dbGetQuery(con, "SELECT week_start, (kpis->>'I_t')::float AS I_t
+                           FROM weekly_kpi
+                           WHERE user_id=$1 AND week_start >= $2
+                           ORDER BY week_start",
+                    params=list(student_id, week_start - weeks(12)))
+
+# Load topic-level theta snapshot (last 28 days)
+theta <- dbGetQuery(con, "SELECT topic_id::text, AVG(theta_mean)::float AS theta_mean, AVG(theta_sd)::float AS theta_sd
+                           FROM features_topic_daily
+                           WHERE student_id=$1 AND date >= $2 AND theta_mean IS NOT NULL
+                           GROUP BY topic_id",
+                    params=list(student_id, Sys.Date() - 28))
+
+# Load daily response time distribution (last 28 days)
+rt <- dbGetQuery(con, "SELECT date(completed_at) AS d, response_time_ms
+                       FROM attempt
+                       WHERE student_id=$1 AND completed_at >= $2",
+                 params=list(student_id, Sys.time() - days(28)))
+```
+
+# 요약 정보
+
+- 학생: `r student_id`  
+- 기간: `r week_start` ~ `r week_end`
+
+## 주간 KPI
+
+```{r}
+kp_tbl <- tibble::tibble(
+  Metric=c("I_t","E_t","R_t","A_t","P","S"),
+  Value=c(kp$I_t, kp$E_t, kp$R_t, kp$A_t, kp$P, kp$S)
+)
+kp_tbl %>% gt::gt() %>% gt::fmt_number(columns=Value, decimals=2)
+```
+
+## 향상지수(I_t) 추세
+
+```{r}
+if (nrow(trend) > 0) {
+  trend %>%
+    mutate(week_start=as.Date(week_start)) %>%
+    ggplot(aes(week_start, I_t)) +
+    geom_line(color="#2C7FB8", linewidth=1) +
+    geom_point(color="#2C7FB8", size=2) +
+    theme_minimal() + labs(x="Week", y="I_t", title="Weekly Improvement Index (I_t)")
+} else {
+  cat("데이터가 충분하지 않습니다.")
+}
+```
+
+## 토픽별 θ 스파이더
+
+```{r}
+if (nrow(theta) > 0) {
+  # Radar-like: polar coordinates of theta_mean normalized
+  th <- theta %>% mutate(theta_n = scales::rescale(theta_mean, to=c(0,1)))
+  ggplot(th, aes(x=reorder(topic_id, theta_n), y=theta_n, group=1)) +
+    geom_polygon(fill="#66C2A5", alpha=0.3, color="#66C2A5") +
+    geom_point(color="#66C2A5", size=2) +
+    coord_polar() +
+    theme_minimal() +
+    labs(x="Topic", y="θ (normalized)", title="Topic Ability (θ) Snapshot") +
+    theme(axis.text.x = element_text(size=8))
+} else {
+  cat("토픽별 θ 데이터가 없습니다.")
+}
+```
+
+## 반응시간 분포
+
+```{r}
+if (nrow(rt) > 0) {
+  rt %>% mutate(d=as.Date(d)) %>%
+    ggplot(aes(x=d, y=response_time_ms)) +
+    geom_boxplot(fill="#FDB462", alpha=0.7) +
+    theme_minimal() + labs(x="Date", y="Response Time (ms)", title="Daily Response Time Distribution (Last 28 days)")
+} else {
+  cat("반응시간 데이터가 없습니다.")
+}
+```
+
+## 결손 주제 Top-N 및 다음 주 추천
+
+```{r}
+# Simple gap detection: low theta_mean & high theta_sd
+if (nrow(theta) > 0) {
+  th <- theta %>% filter(!is.na(theta_mean), !is.na(theta_sd)) %>%
+    mutate(priority = (0 - theta_mean) * (1 + theta_sd)) %>%
+    arrange(desc(priority)) %>% head(5) %>% select(topic_id, theta_mean, theta_sd)
+  gt::gt(th) %>% gt::fmt_number(columns=c(theta_mean, theta_sd), decimals=2) %>% gt::tab_header(title="Top-5 Mastery Gaps")
+} else {
+  cat("결손 주제 데이터가 없습니다.")
+}
+```

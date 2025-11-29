@@ -1,0 +1,33 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-no-privilege-escalation
+  annotations:
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/description: Require allowPrivilegeEscalation=false in all containers
+    policies.kyverno.io/severity: medium
+spec:
+  validationFailureAction: Audit
+  background: false
+  rules:
+    - name: require-no-privilege-escalation
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+      validate:
+        message: "Containers must set securityContext.allowPrivilegeEscalation=false"
+        pattern:
+          spec:
+            =(initContainers):
+              - securityContext:
+                  allowPrivilegeEscalation: false
+            containers:
+              - securityContext:
+                  allowPrivilegeEscalation: false

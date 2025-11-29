@@ -9,6 +9,7 @@ import { App } from './App';
 import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import { installCopyButtonAuto } from './lib/injectCopyButton';
+import { ToastProvider } from './components/Toast';
 
 // Ensure app settings: language fixed to English, country limited to US/CA
 try {
@@ -29,9 +30,11 @@ if (!container) throw new Error('Root container not found');
 
 createRoot(container).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ToastProvider>
   </React.StrictMode>
 );
 

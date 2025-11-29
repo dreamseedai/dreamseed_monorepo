@@ -1,0 +1,19 @@
+id,title,assignees,labels,story_points,branch
+PR-0A,Model registry and run metadata schema,mpcstudy,"roadmap,implementation,backend,db,analytics",5,feature/analytics/model-registry-PR-0A
+PR-0B,Standardize observability and retries for external (R) calls,mpcstudy,"roadmap,implementation,backend,observability,ops,client",3,feature/ops/observability-retries-PR-0B
+PR-1A,R IRT Plumber microservice (mirt): calibrate/score,mpcstudy,"roadmap,implementation,backend,r,irt,service",8,feature/r/mirt-plumber-PR-1A
+PR-1B,IRT DB schema and ingestion job,mpcstudy,"roadmap,implementation,backend,db,irt,job",5,feature/db/irt-schema-ingest-PR-1B
+PR-1C,Nightly IRT calibration CronJob,mpcstudy,"roadmap,implementation,backend,ops,cron",3,feature/ops/cron-irt-PR-1C
+PR-2A,Quarto report project + templates (ggplot2/gt),mpcstudy,"roadmap,implementation,reports,quarto",5,feature/reports/quarto-templates-PR-2A
+PR-2B,Report generation job and API integration,"mpcstudy;mpcstudy","roadmap,implementation,reports,jobs,api",8,feature/reports/report-jobs-api-PR-2B
+PR-2C,CI for Quarto build validation,mpcstudy,"roadmap,implementation,ci,reports",3,feature/ci/quarto-validate-PR-2C
+PR-3A,R brms Plumber service for Bayesian growth,mpcstudy,"roadmap,implementation,backend,r,bayesian,service",13,feature/r/brms-plumber-PR-3A
+PR-3B,API integration and fallback for Bayesian/Normal forecast,mpcstudy,"roadmap,implementation,backend,api,forecast",5,feature/api/forecast-bayes-fallback-PR-3B
+PR-3C,Cron for Bayesian growth calibration,mpcstudy,"roadmap,implementation,backend,ops,cron",3,feature/ops/cron-bayesian-PR-3C
+PR-4A,R survival/prophet Plumber service,mpcstudy,"roadmap,implementation,backend,r,survival,prophet,service",8,feature/r/survival-prophet-plumber-PR-4A
+PR-4B,API integration and KPI storage for survival/time-to-goal,mpcstudy,"roadmap,implementation,backend,api,kpi",5,feature/api/survival-kpi-PR-4B
+PR-5A,Re-ranking pipeline for recommendations (tidymodels),"mpcstudy;mpcstudy","roadmap,implementation,backend,recommendation,ml",8,feature/ml/re-ranking-PR-5A
+PR-5B,Online feedback loop for recommendations,mpcstudy,"roadmap,implementation,backend,recommendation,api",5,feature/api/reco-feedback-PR-5B
+PR-6A,Interest/Aptitude signal ingestion + schema,mpcstudy,"roadmap,implementation,backend,signals,db",5,feature/signals/ingestion-schema-PR-6A
+PR-6B,Mastery gaps and remediation path API,"mpcstudy;mpcstudy","roadmap,implementation,backend,analysis,recommendation",8,feature/analysis/remediation-path-PR-6B
+PR-6C,Weekly progress dashboard & report,mpcstudy,"roadmap,implementation,reports,dashboard",5,feature/reports/weekly-dashboard-PR-6C

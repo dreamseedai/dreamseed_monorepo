@@ -1,0 +1,19 @@
+{{ title }}
+
+Hi there,
+
+{{ sender }} sent you a new message in {{ conversation }}:
+
+"{{ preview }}"
+
+View the full message here:
+{{ action_url }}
+
+---
+{{ site_name }}
+{{ support_email }}
+
+Manage email preferences: {{ site_url }}/settings/notifications
+Unsubscribe: {{ site_url }}/settings/notifications?unsubscribe=email
+
+© {{ current_year }} {{ site_name }}. All rights reserved.

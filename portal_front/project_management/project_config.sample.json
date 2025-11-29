@@ -1,0 +1,16 @@
+{
+  "statusLabelMap": {
+    "implementation": "In Progress",
+    "blocked": "Blocked",
+    "triage": "Inbox",
+    "done": "Done"
+  },
+  "storyPointsLabelPrefix": "sp:",
+  "priorityLabelMap": {
+    "p1": "P1",
+    "p2": "P2",
+    "priority:high": "High",
+    "priority:medium": "Medium"
+  },
+  "iterationFromLabelPrefix": "iter:"
+}

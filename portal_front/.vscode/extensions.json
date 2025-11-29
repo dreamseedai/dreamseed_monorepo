@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "humao.rest-client",
+    "anweber.vscode-httpyac",
+    // Rego language support: choose one; we recommend Styra
+    "styra.vscode-styra"
+  ]
+}

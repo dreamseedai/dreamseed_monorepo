@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "OPA: fmt (portal_front policies)",
+      "type": "shell",
+      "command": "opa fmt -w policies",
+      "options": { "cwd": "${workspaceFolder}/portal_front" },
+      "problemMatcher": []
+    },
+    {
+      "label": "OPA: check (portal_front policies)",
+      "type": "shell",
+      "command": "opa check policies",
+      "options": { "cwd": "${workspaceFolder}/portal_front" },
+      "problemMatcher": []
+    },
+    {
+      "label": "OPA: test (portal_front policies)",
+      "type": "shell",
+      "command": "opa test policies -v",
+      "options": { "cwd": "${workspaceFolder}/portal_front" },
+      "problemMatcher": []
+    }
+  ]
+}

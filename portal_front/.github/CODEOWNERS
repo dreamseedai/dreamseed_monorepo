@@ -1,0 +1,6 @@
+# CODEOWNERS - default reviewers per path
+# Replace the placeholder teams below with your actual org/team slugs
+
+/apps/seedtest_api/**   @dreamseedai/backend-team   # TODO: set real team
+/ops/k8s/**             @dreamseedai/devops-team    # TODO: set real team
+/docs/**                @dreamseedai/product-analytics # TODO: set real team
