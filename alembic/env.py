@@ -15,6 +15,7 @@ from alembic import context
 
 # Import Base metadata for autogenerate
 from apps.seedtest_api.db.base import Base
+
 # Import all models to ensure they are registered with Base
 from apps.seedtest_api.models import metrics as _metrics_model
 from apps.seedtest_api.models import result as _result_model
@@ -38,7 +39,9 @@ def get_url() -> str:
     if url:
         return url
     # Fallback to alembic.ini sqlalchemy.url
-    return config.get_main_option("sqlalchemy.url") or "postgresql://localhost/dreamseed"
+    return (
+        config.get_main_option("sqlalchemy.url") or "postgresql://localhost/dreamseed"
+    )
 
 
 def run_migrations_offline() -> None:

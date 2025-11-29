@@ -3,7 +3,14 @@ from typing import Iterable, Mapping, Tuple
 from adaptive_engine.utils.irt_math import irt_probability, fisher_information
 
 
-def update_theta(theta_prev: float, a: float, b: float, c: float, correct: bool, step_size: float = 0.1) -> float:
+def update_theta(
+    theta_prev: float,
+    a: float,
+    b: float,
+    c: float,
+    correct: bool,
+    step_size: float = 0.1,
+) -> float:
     """Simple MLE-like gradient update for theta.
 
     theta_new = theta_prev + step_size * (y - p) * a, clipped to [-4, 4].
@@ -30,6 +37,7 @@ def estimate_standard_error(theta: float, answered_items: list[dict]) -> float:
 
 # ---- Extended estimators: MLE, MAP, EAP ----
 
+
 def _clip_theta(theta: float) -> float:
     return float(np.clip(theta, -4.0, 4.0))
 
@@ -52,12 +60,14 @@ def _log_likelihood(theta: float, responses: Iterable[Mapping]) -> float:
     return float(ll)
 
 
-def _log_posterior(theta: float, responses: Iterable[Mapping], prior_mu: float, prior_sigma: float) -> float:
+def _log_posterior(
+    theta: float, responses: Iterable[Mapping], prior_mu: float, prior_sigma: float
+) -> float:
     ll = _log_likelihood(theta, responses)
     # Gaussian prior N(mu, sigma^2)
     if prior_sigma <= 0:
         return ll
-    prior_term = -0.5 * ((theta - prior_mu) ** 2) / (prior_sigma ** 2)
+    prior_term = -0.5 * ((theta - prior_mu) ** 2) / (prior_sigma**2)
     return float(ll + prior_term)
 
 
@@ -70,7 +80,7 @@ def _num_grad_hess(func, theta: float, eps: float = 1e-4) -> Tuple[float, float]
     f_p = func(t_p)
     # central difference
     grad = (f_p - f_m) / (2.0 * eps)
-    hess = (f_p - 2.0 * f0 + f_m) / (eps ** 2)
+    hess = (f_p - 2.0 * f0 + f_m) / (eps**2)
     return float(grad), float(hess)
 
 
@@ -161,9 +171,10 @@ def eap_theta(
 
     thetas = np.linspace(grid_min, grid_max, grid_points)
     # compute unnormalized posterior density at each theta
-    logpost = np.array([
-        _log_posterior(float(t), responses, prior_mu, prior_sigma) for t in thetas
-    ], dtype=float)
+    logpost = np.array(
+        [_log_posterior(float(t), responses, prior_mu, prior_sigma) for t in thetas],
+        dtype=float,
+    )
     # avoid underflow: subtract max
     logpost -= np.max(logpost)
     w = np.exp(logpost)
@@ -190,7 +201,9 @@ def estimate_theta(
     if m == "mle":
         return mle_theta_newton(responses, theta0=theta0)
     if m == "map":
-        return map_theta_newton(responses, theta0=theta0, prior_mu=prior_mu, prior_sigma=prior_sigma)
+        return map_theta_newton(
+            responses, theta0=theta0, prior_mu=prior_mu, prior_sigma=prior_sigma
+        )
     if m == "eap":
         return eap_theta(responses, prior_mu=prior_mu, prior_sigma=prior_sigma)
     # fallback

@@ -40,7 +40,9 @@ class AnswerRequest(BaseModel):
     theta: float
     question: Question
     correct: bool
-    answered_items: List[Dict] = Field(default_factory=list)  # items like {"info": float}
+    answered_items: List[Dict] = Field(
+        default_factory=list
+    )  # items like {"info": float}
 
 
 class AnswerResponse(BaseModel):

@@ -14,7 +14,7 @@ Filters:
     - Only completed sessions (status='completed')
     - Only student responses (role='student')
     - Optional: Filter by subject or exam_id
-    
+
 Output CSV format:
     user_id,item_id,u
     550e8400-e29b-41d4-a716-446655440000,7dcb8d58-...,1
@@ -56,27 +56,27 @@ async def export_responses(
 ) -> int:
     """
     Export exam responses to CSV for R mirt calibration.
-    
+
     Args:
         output_path: Output CSV file path
         subject: Optional subject filter (e.g., "math", "english")
         exam_id: Optional exam UUID filter
         min_responses: Minimum number of responses required (default: 500)
-    
+
     Returns:
         Number of responses exported
-    
+
     Raises:
         ValueError: If fewer than min_responses found
     """
     # Create async engine
     from sqlalchemy.ext.asyncio import async_sessionmaker
-    
+
     engine = create_async_engine(ASYNC_DATABASE_URL, echo=False)
     async_session = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
-    
+
     async with async_session() as session:
         # Build query
         stmt = (
@@ -85,23 +85,25 @@ async def export_responses(
             .join(ExamSession.exam)
             .join(ExamSessionResponse.item)
             .options(
-                selectinload(ExamSessionResponse.session).selectinload(ExamSession.exam),
+                selectinload(ExamSessionResponse.session).selectinload(
+                    ExamSession.exam
+                ),
                 selectinload(ExamSessionResponse.item),
             )
             .where(ExamSession.status == "completed")
             # .where(User.role == "student")  # TODO: Add user role filter when User model available
         )
-        
+
         # Apply filters
         if subject:
             stmt = stmt.where(Exam.subject == subject)
         if exam_id:
             stmt = stmt.where(Exam.id == exam_id)
-        
+
         # Execute query
         result = await session.execute(stmt)
         responses = result.scalars().all()
-        
+
         # Check minimum threshold
         if len(responses) < min_responses:
             raise ValueError(
@@ -111,40 +113,42 @@ async def export_responses(
                 f"  - Collecting more response data\n"
                 f"  - Lowering threshold with --min-responses"
             )
-        
+
         # Write CSV
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open("w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(["user_id", "item_id", "u"])
-            
+
             for resp in responses:
-                writer.writerow([
-                    str(resp.session.user_id),
-                    str(resp.item_id),
-                    1 if resp.is_correct else 0,
-                ])
-        
+                writer.writerow(
+                    [
+                        str(resp.session.user_id),
+                        str(resp.item_id),
+                        1 if resp.is_correct else 0,
+                    ]
+                )
+
         print(f"✅ Exported {len(responses)} responses to {output_path}")
-        
+
         # Print summary statistics
         unique_users = len(set(resp.session.user_id for resp in responses))
         unique_items = len(set(resp.item_id for resp in responses))
         correct_count = sum(1 for resp in responses if resp.is_correct)
         accuracy = correct_count / len(responses) if responses else 0
-        
+
         print(f"\n📊 Summary:")
         print(f"  Students: {unique_users}")
         print(f"  Items: {unique_items}")
         print(f"  Responses per student: {len(responses) / unique_users:.1f}")
         print(f"  Responses per item: {len(responses) / unique_items:.1f}")
         print(f"  Overall accuracy: {accuracy:.1%}")
-        
+
         if subject:
             print(f"  Subject: {subject}")
         if exam_id:
             print(f"  Exam ID: {exam_id}")
-        
+
         return len(responses)
 
 
@@ -168,16 +172,16 @@ Examples:
 
 Next step:
   Run R calibration with: Rscript R/irt_calibrate_mpc.R
-        """
+        """,
     )
-    
+
     parser.add_argument(
         "--out",
         type=Path,
         required=True,
         help="Output CSV file path (e.g., data/responses.csv)",
     )
-    
+
     filter_group = parser.add_mutually_exclusive_group(required=True)
     filter_group.add_argument(
         "--subject",
@@ -194,16 +198,16 @@ Next step:
         action="store_true",
         help="Export all responses (no filter)",
     )
-    
+
     parser.add_argument(
         "--min-responses",
         type=int,
         default=500,
         help="Minimum number of responses required (default: 500)",
     )
-    
+
     args = parser.parse_args()
-    
+
     try:
         await export_responses(
             output_path=args.out,
@@ -211,7 +215,7 @@ Next step:
             exam_id=args.exam_id,
             min_responses=args.min_responses,
         )
-        
+
         print(f"\n✅ Ready for R mirt calibration:")
         print(f"   Rscript R/irt_calibrate_mpc.R")
         print(f"\n💡 Set environment variables:")
@@ -224,16 +228,17 @@ Next step:
             print(f"   export IRT_SUBJECT={args.subject}")
         if args.exam_id:
             print(f"   export IRT_EXAM_ID={args.exam_id}")
-        
+
         return 0
-    
+
     except ValueError as e:
         print(f"❌ Error: {e}", file=sys.stderr)
         return 1
-    
+
     except Exception as e:
         print(f"❌ Unexpected error: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         return 1
 

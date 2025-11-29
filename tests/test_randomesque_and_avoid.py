@@ -42,7 +42,9 @@ def test_info_band_fraction_pool(monkeypatch):
         {"question_id": "Q3", "a": 0.1, "b": 0.0, "c": 0.2, "topic": "X"},
     ]
     # Pick the second element from the band pool to prove it contains multiple items
-    monkeypatch.setattr(random, "choice", lambda seq: seq[1] if len(seq) > 1 else seq[0])
+    monkeypatch.setattr(
+        random, "choice", lambda seq: seq[1] if len(seq) > 1 else seq[0]
+    )
 
     pick = select_next_question(
         theta,

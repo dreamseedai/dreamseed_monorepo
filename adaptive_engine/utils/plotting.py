@@ -7,6 +7,7 @@ import numpy as np
 
 try:
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 except Exception:  # pragma: no cover
@@ -14,7 +15,9 @@ except Exception:  # pragma: no cover
     plt = None  # type: ignore
 
 
-def theta_se_curve(theta_values: List[float], se_values: List[float], title: Optional[str] = None) -> bytes:
+def theta_se_curve(
+    theta_values: List[float], se_values: List[float], title: Optional[str] = None
+) -> bytes:
     """Render a theta–SE curve to PNG bytes.
 
     Returns PNG image bytes suitable for embedding in reports.

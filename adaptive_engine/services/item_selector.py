@@ -30,13 +30,15 @@ def select_next_question(
     ex = exclude_ids or set()
     ex_str = {str(x) for x in ex}
     candidates = [
-        q for q in available_questions
+        q
+        for q in available_questions
         if q.get("question_id") not in seen and str(q.get("question_id")) not in ex_str
     ]
     if not candidates:
         return None
 
     tcounts = topic_counts or {}
+
     def topic_of(q: Dict) -> str:
         return str(q.get("topic") or q.get("topic_name") or "General")
 
@@ -73,11 +75,17 @@ def select_next_question(
         else:
             top_score = scored[0]["score"]
             band = info_band_fraction * max(1.0, top_score)
-            pool = [x["question"] for x in scored if abs(x["score"] - top_score) <= band]
+            pool = [
+                x["question"] for x in scored if abs(x["score"] - top_score) <= band
+            ]
         pool = pool or [scored[0]["question"]]
         # Avoid same topic as last when a viable alternative exists
         if avoid_topic:
-            alt = [q for q in pool if (q.get("topic") or q.get("topic_name")) != avoid_topic]
+            alt = [
+                q
+                for q in pool
+                if (q.get("topic") or q.get("topic_name")) != avoid_topic
+            ]
             pool = alt or pool
         pick = random.choice(pool)
     return pick

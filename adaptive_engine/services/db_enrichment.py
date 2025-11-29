@@ -8,12 +8,15 @@ from collections import defaultdict
 def _get_psycopg2():
     try:
         import psycopg2  # type: ignore
+
         return psycopg2
     except Exception:
         return None
 
 
-def fetch_solutions(question_ids: Iterable[str | int]) -> Dict[str | int, Dict[str, Any]]:
+def fetch_solutions(
+    question_ids: Iterable[str | int],
+) -> Dict[str | int, Dict[str, Any]]:
     s = get_settings()
     if not s.database_url or not s.questions_table:
         return {}

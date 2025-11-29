@@ -22,10 +22,10 @@ def fisher_information(theta: float, a: float, b: float, c: float) -> float:
     # Guard against division by zero or negatives due to numerical issues
     # Standard 3PL Fisher approx: (a^2) * (q/(p*(1-c))^2) * ((p - c)^2)
     # Here we use a simplified stable version aligning with provided spec
-    denom = (p - c)
+    denom = p - c
     if denom <= 0 or (1 - c) <= 0:
         return 0.0
     try:
-        return (a ** 2) * ((q / (denom ** 2)) * (((p - c) / (1 - c)) ** 2))
+        return (a**2) * ((q / (denom**2)) * (((p - c) / (1 - c)) ** 2))
     except ZeroDivisionError:
         return 0.0

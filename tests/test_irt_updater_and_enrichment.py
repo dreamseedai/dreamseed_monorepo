@@ -23,6 +23,7 @@ def test_irt_updater_settings_endpoints(monkeypatch):
     )
 
     import adaptive_engine.routers.settings as settings_router
+
     monkeypatch.setattr(settings_router, "get_settings", lambda: base, raising=True)
 
     client = TestClient(app)
@@ -83,7 +84,9 @@ def test_finish_enrichment_hook(monkeypatch):
             "recommendations": ["Focus on Geometry"],
         }
 
-    monkeypatch.setattr(exam_router, "generate_detailed_feedback", fake_generate_detailed, raising=True)
+    monkeypatch.setattr(
+        exam_router, "generate_detailed_feedback", fake_generate_detailed, raising=True
+    )
 
     # Monkeypatch enrichment to inject solution_html and topic benchmarks
     import adaptive_engine.services.db_enrichment as enr

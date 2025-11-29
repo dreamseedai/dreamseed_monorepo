@@ -71,23 +71,31 @@ def test_sessionful_flow_and_balancing():
     topics = []
     theta = 0.0
     for _ in range(4):
-        r = client.post("/api/exam/next", params={"session_id": sid}, json={
-            "theta": theta,
-            "available_questions": questions,
-            "seen_ids": seen,
-        })
+        r = client.post(
+            "/api/exam/next",
+            params={"session_id": sid},
+            json={
+                "theta": theta,
+                "available_questions": questions,
+                "seen_ids": seen,
+            },
+        )
         q = r.json()["question"]
         assert q is not None
         seen.append(q["question_id"])
         topics.append(q.get("topic") or q.get("topic_name"))
 
         # answer correct to move theta a bit
-        r = client.post("/api/exam/answer", params={"session_id": sid}, json={
-            "theta": theta,
-            "question": q,
-            "correct": True,
-            "answered_items": [],
-        })
+        r = client.post(
+            "/api/exam/answer",
+            params={"session_id": sid},
+            json={
+                "theta": theta,
+                "question": q,
+                "correct": True,
+                "answered_items": [],
+            },
+        )
         theta = r.json()["theta_after"]
 
     # Expect both topics to appear (balancing)
@@ -97,6 +105,7 @@ def test_sessionful_flow_and_balancing():
 def test_initial_theta_and_first_item_selection(monkeypatch):
     # Force initial theta to 1.0 by monkeypatching the function used by the router
     import adaptive_engine.routers.exam_session as exam_router
+
     monkeypatch.setattr(exam_router, "get_initial_theta", lambda user_id, exam_id: 1.0)
 
     # Start session
@@ -110,11 +119,15 @@ def test_initial_theta_and_first_item_selection(monkeypatch):
         {"question_id": "M", "a": 1.0, "b": 0.1, "c": 0.2, "topic": "Gen"},
         {"question_id": "H", "a": 1.0, "b": 0.9, "c": 0.2, "topic": "Gen"},
     ]
-    r = client.post("/api/exam/next", params={"session_id": sid}, json={
-        "theta": 0.0,
-        "available_questions": questions,
-        "seen_ids": [],
-    })
+    r = client.post(
+        "/api/exam/next",
+        params={"session_id": sid},
+        json={
+            "theta": 0.0,
+            "available_questions": questions,
+            "seen_ids": [],
+        },
+    )
     assert r.status_code == 200
     picked = r.json()["question"]
     assert picked["question_id"] == "H"  # closest b to theta=1.0 is 0.9
@@ -123,9 +136,20 @@ def test_initial_theta_and_first_item_selection(monkeypatch):
 def test_telemetry_logging_called(monkeypatch):
     # Monkeypatch telemetry functions to observe calls
     import adaptive_engine.routers.exam_session as exam_router
+
     calls = {"exposure": [], "response": []}
-    monkeypatch.setattr(exam_router, "log_exposure", lambda sid, uid, eid, qid: calls["exposure"].append((sid, uid, eid, qid)))
-    monkeypatch.setattr(exam_router, "log_response", lambda sid, uid, eid, qid, ok: calls["response"].append((sid, uid, eid, qid, ok)))
+    monkeypatch.setattr(
+        exam_router,
+        "log_exposure",
+        lambda sid, uid, eid, qid: calls["exposure"].append((sid, uid, eid, qid)),
+    )
+    monkeypatch.setattr(
+        exam_router,
+        "log_response",
+        lambda sid, uid, eid, qid, ok: calls["response"].append(
+            (sid, uid, eid, qid, ok)
+        ),
+    )
 
     # Start session
     r = client.post("/api/exam/start", json={"user_id": 55, "exam_id": 77})
@@ -136,12 +160,20 @@ def test_telemetry_logging_called(monkeypatch):
         {"question_id": 11, "a": 1.0, "b": 0.5, "c": 0.2, "topic": "T"},
     ]
     # Next (logs exposure)
-    r = client.post("/api/exam/next", params={"session_id": sid}, json={"theta": 0.0, "available_questions": questions, "seen_ids": []})
+    r = client.post(
+        "/api/exam/next",
+        params={"session_id": sid},
+        json={"theta": 0.0, "available_questions": questions, "seen_ids": []},
+    )
     q = r.json()["question"]
     assert len(calls["exposure"]) == 1
     assert calls["exposure"][0][0] == sid
     # Answer (logs response)
-    r = client.post("/api/exam/answer", params={"session_id": sid}, json={"theta": 0.0, "question": q, "correct": True, "answered_items": []})
+    r = client.post(
+        "/api/exam/answer",
+        params={"session_id": sid},
+        json={"theta": 0.0, "question": q, "correct": True, "answered_items": []},
+    )
     assert len(calls["response"]) == 1
 
 
@@ -151,12 +183,15 @@ def test_stop_rule_on_se_threshold():
     # We'll build 12 items with info=1
     answered_items = [{"info": 1.0} for _ in range(12)]
     question = {"question_id": 10, "a": 1.0, "b": 0.0, "c": 0.2, "topic": "Algebra"}
-    r = client.post("/api/exam/answer", json={
-        "theta": 0.0,
-        "question": question,
-        "correct": True,
-        "answered_items": answered_items,
-    })
+    r = client.post(
+        "/api/exam/answer",
+        json={
+            "theta": 0.0,
+            "question": question,
+            "correct": True,
+            "answered_items": answered_items,
+        },
+    )
     data = r.json()
     assert data["stop"] is True
 
@@ -168,11 +203,14 @@ def test_settings_endpoint_and_deterministic_mode():
     cur = r.json()
 
     # Patch to deterministic True
-    r = client.patch("/api/settings/selection", json={
-        "prefer_balanced": True,
-        "deterministic": True,
-        "max_per_topic": None,
-    })
+    r = client.patch(
+        "/api/settings/selection",
+        json={
+            "prefer_balanced": True,
+            "deterministic": True,
+            "max_per_topic": None,
+        },
+    )
     assert r.status_code == 200
     newp = r.json()
     assert newp["deterministic"] is True
@@ -198,15 +236,23 @@ def test_settings_get_and_reset_to_env_with_namespace():
 
     # Set namespaced policy
     ns = "exam:math"
-    r = client.patch("/api/settings/selection", params={"namespace": ns}, json={
-        "prefer_balanced": False,
-        "deterministic": True,
-        "max_per_topic": 2,
-    })
+    r = client.patch(
+        "/api/settings/selection",
+        params={"namespace": ns},
+        json={
+            "prefer_balanced": False,
+            "deterministic": True,
+            "max_per_topic": 2,
+        },
+    )
     assert r.status_code == 200
     r = client.get("/api/settings/selection", params={"namespace": ns})
     pol = r.json()
-    assert pol["deterministic"] is True and pol["prefer_balanced"] is False and pol["max_per_topic"] == 2
+    assert (
+        pol["deterministic"] is True
+        and pol["prefer_balanced"] is False
+        and pol["max_per_topic"] == 2
+    )
 
     # Reset namespaced policy to env defaults
     r = client.post("/api/settings/selection/reset-to-env", params={"namespace": ns})
@@ -220,11 +266,15 @@ def test_namespace_listing_and_hierarchical_resolution():
     # Reset global and set org-level policy
     client.post("/api/settings/selection/reset-to-env")
     org_ns = "org:univprep"
-    client.patch("/api/settings/selection", params={"namespace": org_ns}, json={
-        "prefer_balanced": True,
-        "deterministic": True,
-        "max_per_topic": 2,
-    })
+    client.patch(
+        "/api/settings/selection",
+        params={"namespace": org_ns},
+        json={
+            "prefer_balanced": True,
+            "deterministic": True,
+            "max_per_topic": 2,
+        },
+    )
 
     # For deeper namespace org:univprep:exam1, resolved policy should inherit from org-level
     r = client.get("/api/settings", params={"namespace": f"{org_ns}:exam1"})
@@ -249,28 +299,45 @@ def test_multi_level_hierarchy_and_metadata():
     org = "org:alpha"
     dept = f"{org}:math"
     exam = f"{dept}:midterm"
-    client.patch("/api/settings/selection", params={"namespace": org}, json={
-        "prefer_balanced": True,
-        "deterministic": False,
-        "max_per_topic": 3,
-    }, headers={"X-Admin-Token": ""})
-    client.patch("/api/settings/selection", params={"namespace": dept}, json={
-        "prefer_balanced": False,
-        "deterministic": True,
-        "max_per_topic": 2,
-    }, headers={"X-Admin-Token": ""})
+    client.patch(
+        "/api/settings/selection",
+        params={"namespace": org},
+        json={
+            "prefer_balanced": True,
+            "deterministic": False,
+            "max_per_topic": 3,
+        },
+        headers={"X-Admin-Token": ""},
+    )
+    client.patch(
+        "/api/settings/selection",
+        params={"namespace": dept},
+        json={
+            "prefer_balanced": False,
+            "deterministic": True,
+            "max_per_topic": 2,
+        },
+        headers={"X-Admin-Token": ""},
+    )
 
     eff = client.get("/api/settings", params={"namespace": exam}).json()
     assert eff["selection_policy"]["deterministic"] is True  # resolved from dept
     assert eff["selection_policy"]["max_per_topic"] == 2
     assert eff["selection_policy_source"] in ("runtime", "redis")
-    assert eff.get("selection_policy_last_updated") is None or isinstance(eff.get("selection_policy_last_updated"), str)
+    assert eff.get("selection_policy_last_updated") is None or isinstance(
+        eff.get("selection_policy_last_updated"), str
+    )
 
     # Namespaces listing should include metadata entries
     r = client.get("/api/settings/namespaces").json()
     assert isinstance(r["policies"], dict)
     pmeta = r["policies"][dept]
-    assert set(pmeta.keys()) == {"policy", "source", "resolved_namespace", "last_updated"}
+    assert set(pmeta.keys()) == {
+        "policy",
+        "source",
+        "resolved_namespace",
+        "last_updated",
+    }
 
 
 def test_runtime_ttl_expiry_behavior():
@@ -279,27 +346,39 @@ def test_runtime_ttl_expiry_behavior():
     client.post("/api/settings/selection/reset-to-env", headers={"X-Admin-Token": ""})
     ns = "ttl:test"
     # Patch policy
-    client.patch("/api/settings/selection", params={"namespace": ns}, json={
-        "prefer_balanced": True,
-        "deterministic": True,
-        "max_per_topic": 1,
-    }, headers={"X-Admin-Token": ""})
+    client.patch(
+        "/api/settings/selection",
+        params={"namespace": ns},
+        json={
+            "prefer_balanced": True,
+            "deterministic": True,
+            "max_per_topic": 1,
+        },
+        headers={"X-Admin-Token": ""},
+    )
     # Direct read should show runtime/redis, not env
     eff1 = client.get("/api/settings", params={"namespace": ns}).json()
     assert eff1["selection_policy_source"] in ("runtime", "redis")
     # Force internal expiry by manually clearing runtime and verifying fallback to env works
-    client.post("/api/settings/selection/reset-to-env", params={"namespace": ns}, headers={"X-Admin-Token": ""})
+    client.post(
+        "/api/settings/selection/reset-to-env",
+        params={"namespace": ns},
+        headers={"X-Admin-Token": ""},
+    )
     eff2 = client.get("/api/settings", params={"namespace": ns}).json()
     assert eff2["selection_policy_source"] in ("env", "redis")
 
 
 def test_exposure_cap_with_max_per_topic():
     # Set max_per_topic=1 and verify we alternate topics instead of repeating
-    r = client.patch("/api/settings/selection", json={
-        "prefer_balanced": True,
-        "deterministic": True,
-        "max_per_topic": 1,
-    })
+    r = client.patch(
+        "/api/settings/selection",
+        json={
+            "prefer_balanced": True,
+            "deterministic": True,
+            "max_per_topic": 1,
+        },
+    )
     assert r.status_code == 200
 
     questions = [
@@ -309,17 +388,31 @@ def test_exposure_cap_with_max_per_topic():
         {"question_id": "G2", "a": 1.0, "b": 0.0, "c": 0.2, "topic": "Geometry"},
     ]
     # use session to accumulate topic_counts
-    sid = client.post("/api/exam/start", json={"user_id": 5, "exam_id": 505}).json()["session_id"]
+    sid = client.post("/api/exam/start", json={"user_id": 5, "exam_id": 505}).json()[
+        "session_id"
+    ]
     seen: list[str] = []
 
     # First pick should be either topic; second pick should be the other due to cap when using session state
-    r1 = client.post("/api/exam/next", params={"session_id": sid}, json={"theta": 0.0, "available_questions": questions, "seen_ids": seen})
+    r1 = client.post(
+        "/api/exam/next",
+        params={"session_id": sid},
+        json={"theta": 0.0, "available_questions": questions, "seen_ids": seen},
+    )
     q1 = r1.json()["question"]
     seen.append(q1["question_id"])
     # answer once to update topic_counts in session
-    client.post("/api/exam/answer", params={"session_id": sid}, json={"theta": 0.0, "question": q1, "correct": True, "answered_items": []})
+    client.post(
+        "/api/exam/answer",
+        params={"session_id": sid},
+        json={"theta": 0.0, "question": q1, "correct": True, "answered_items": []},
+    )
 
-    r2 = client.post("/api/exam/next", params={"session_id": sid}, json={"theta": 0.0, "available_questions": questions, "seen_ids": seen})
+    r2 = client.post(
+        "/api/exam/next",
+        params={"session_id": sid},
+        json={"theta": 0.0, "available_questions": questions, "seen_ids": seen},
+    )
     q2 = r2.json()["question"]
     # Must be a different topic due to max_per_topic=1
     assert q2["topic"] != q1["topic"]
@@ -341,7 +434,17 @@ def test_reports_theta_se_png_direct_arrays():
     from fastapi.testclient import TestClient
 
     c = TestClient(app)
-    r = c.get("/api/reports/theta-se.png", params=[("theta", -1), ("theta", 0), ("theta", 1), ("se", 0.7), ("se", 0.5), ("se", 0.6)])
+    r = c.get(
+        "/api/reports/theta-se.png",
+        params=[
+            ("theta", -1),
+            ("theta", 0),
+            ("theta", 1),
+            ("se", 0.7),
+            ("se", 0.5),
+            ("se", 0.6),
+        ],
+    )
     assert r.status_code == 200
     assert r.headers.get("content-type") == "image/png"
     assert r.content[:8] == b"\x89PNG\r\n\x1a\n"
@@ -350,6 +453,7 @@ def test_reports_theta_se_png_direct_arrays():
 def test_session_state_endpoint_and_histories(monkeypatch):
     # Monkeypatch initial theta to 0.5 for predictable seed
     import adaptive_engine.routers.exam_session as exam_router
+
     monkeypatch.setattr(exam_router, "get_initial_theta", lambda uid, eid: 0.5)
 
     # Start session
@@ -366,9 +470,17 @@ def test_session_state_endpoint_and_histories(monkeypatch):
         {"question_id": 100, "a": 1.0, "b": 0.4, "c": 0.2, "topic": "T"},
         {"question_id": 101, "a": 1.0, "b": 0.6, "c": 0.2, "topic": "T"},
     ]
-    r = client.post("/api/exam/next", params={"session_id": sid}, json={"theta": 0.0, "available_questions": questions, "seen_ids": []})
+    r = client.post(
+        "/api/exam/next",
+        params={"session_id": sid},
+        json={"theta": 0.0, "available_questions": questions, "seen_ids": []},
+    )
     q = r.json()["question"]
-    r = client.post("/api/exam/answer", params={"session_id": sid}, json={"theta": 0.5, "question": q, "correct": True, "answered_items": []})
+    r = client.post(
+        "/api/exam/answer",
+        params={"session_id": sid},
+        json={"theta": 0.5, "question": q, "correct": True, "answered_items": []},
+    )
     # State now should have histories with length 2 and 1 respectively
     s2 = client.get("/api/exam/state", params={"session_id": sid}).json()
     assert len(s2["theta_history"]) >= 2
@@ -384,14 +496,26 @@ def test_finish_includes_ci_and_scaled_score_when_session():
         {"question_id": 200, "a": 1.0, "b": 0.0, "c": 0.2, "topic": "T"},
         {"question_id": 201, "a": 1.0, "b": 0.1, "c": 0.2, "topic": "T"},
     ]
-    rq = client.post("/api/exam/next", params={"session_id": sid}, json={"theta": 0.0, "available_questions": questions, "seen_ids": []})
+    rq = client.post(
+        "/api/exam/next",
+        params={"session_id": sid},
+        json={"theta": 0.0, "available_questions": questions, "seen_ids": []},
+    )
     q = rq.json()["question"]
-    client.post("/api/exam/answer", params={"session_id": sid}, json={"theta": 0.0, "question": q, "correct": True, "answered_items": []})
+    client.post(
+        "/api/exam/answer",
+        params={"session_id": sid},
+        json={"theta": 0.0, "question": q, "correct": True, "answered_items": []},
+    )
     # Finish with session_id param
-    rfin = client.post("/api/exam/finish", params={"session_id": sid}, json={
-        "responses": [{"question_id": q["question_id"], "is_correct": True}],
-        "questions": questions,
-    })
+    rfin = client.post(
+        "/api/exam/finish",
+        params={"session_id": sid},
+        json={
+            "responses": [{"question_id": q["question_id"], "is_correct": True}],
+            "questions": questions,
+        },
+    )
     assert rfin.status_code == 200
     fin = rfin.json()
     assert fin["status"] == "completed"
@@ -399,7 +523,11 @@ def test_finish_includes_ci_and_scaled_score_when_session():
     assert isinstance(fin.get("theta"), (int, float))
     assert isinstance(fin.get("se"), (int, float))
     assert isinstance(fin.get("scaled_score"), (int, float))
-    assert isinstance(fin.get("ci"), dict) and set(fin["ci"].keys()) == {"level", "lower", "upper"}
+    assert isinstance(fin.get("ci"), dict) and set(fin["ci"].keys()) == {
+        "level",
+        "lower",
+        "upper",
+    }
     # Additional fields present
     assert isinstance(fin.get("percentile"), (int, float))
     assert isinstance(fin.get("items_review"), list)
@@ -413,7 +541,11 @@ def test_estimator_settings_endpoints_toggle():
     assert r.status_code == 200
     cur = r.json()
     # Patch estimator to map and custom priors
-    r2 = client.patch("/api/settings/estimator", json={"method": "map", "prior_mean": 0.3, "prior_sd": 0.8}, headers={"X-Admin-Token": ""})
+    r2 = client.patch(
+        "/api/settings/estimator",
+        json={"method": "map", "prior_mean": 0.3, "prior_sd": 0.8},
+        headers={"X-Admin-Token": ""},
+    )
     assert r2.status_code == 200
     newv = r2.json()
     assert newv["method"].lower() == "map"
@@ -432,7 +564,11 @@ def test_scale_settings_endpoints_and_scaled_score_effect():
     r = client.get("/api/settings/scale")
     assert r.status_code == 200
     # Patch to SAT-like scaling
-    r2 = client.patch("/api/settings/scale", json={"mean_ref": 500, "sd_ref": 100}, headers={"X-Admin-Token": ""})
+    r2 = client.patch(
+        "/api/settings/scale",
+        json={"mean_ref": 500, "sd_ref": 100},
+        headers={"X-Admin-Token": ""},
+    )
     assert r2.status_code == 200
     assert r2.json()["mean_ref"] == 500
     assert r2.json()["sd_ref"] == 100
@@ -442,9 +578,24 @@ def test_scale_settings_endpoints_and_scaled_score_effect():
     sid = r.json()["session_id"]
     # Provide a question and answer to get a nontrivial theta
     questions = [{"question_id": 301, "a": 1.0, "b": 0.0, "c": 0.2, "topic": "T"}]
-    q = client.post("/api/exam/next", params={"session_id": sid}, json={"theta": 0.0, "available_questions": questions, "seen_ids": []}).json()["question"]
-    client.post("/api/exam/answer", params={"session_id": sid}, json={"theta": 0.0, "question": q, "correct": True, "answered_items": []})
-    fin = client.post("/api/exam/finish", params={"session_id": sid}, json={"responses": [{"question_id": q["question_id"], "is_correct": True}], "questions": questions}).json()
+    q = client.post(
+        "/api/exam/next",
+        params={"session_id": sid},
+        json={"theta": 0.0, "available_questions": questions, "seen_ids": []},
+    ).json()["question"]
+    client.post(
+        "/api/exam/answer",
+        params={"session_id": sid},
+        json={"theta": 0.0, "question": q, "correct": True, "answered_items": []},
+    )
+    fin = client.post(
+        "/api/exam/finish",
+        params={"session_id": sid},
+        json={
+            "responses": [{"question_id": q["question_id"], "is_correct": True}],
+            "questions": questions,
+        },
+    ).json()
     theta = float(fin.get("theta") or 0.0)
     scaled = float(fin.get("scaled_score") or 0.0)
     expected = 500 + 100 * theta
@@ -454,22 +605,26 @@ def test_scale_settings_endpoints_and_scaled_score_effect():
 def test_irt_updater_heuristic_uses_settings(monkeypatch):
     # Prepare a fake stats fetcher with one item
     rows = [{"question_id": "Q1", "a": 1.0, "b": 0.0, "c": 0.2, "correct_rate": 0.3}]
+
     def fetch():
         for r in rows:
             yield r
 
     # Capture persisted updates
     captured = []
+
     def persist(qid, a, b, c):
         captured.append((qid, a, b, c))
 
     import adaptive_engine.services.irt_updater as updater
+
     # Monkeypatch settings to control target and learning rate
     class Dummy:
         irt_update_method = "heuristic"
         irt_target_correct_rate = 0.5
         irt_learning_rate = 0.2
         irt_update_max_items_per_run = None
+
     monkeypatch.setattr(updater, "get_settings", lambda: Dummy())
 
     n = updater.run_irt_update_once(fetch_stats=fetch, persist_update=persist)
@@ -488,7 +643,9 @@ def test_stop_settings_endpoints_and_time_limit(monkeypatch):
 
     # Patch time limit to a tiny value and ensure time-based stop triggers
     # Use empty admin token consistent with other tests
-    r = client.patch("/api/settings/stop", json={"time_limit_sec": 0}, headers={"X-Admin-Token": ""})
+    r = client.patch(
+        "/api/settings/stop", json={"time_limit_sec": 0}, headers={"X-Admin-Token": ""}
+    )
     assert r.status_code == 200
     assert r.json()["time_limit_sec"] == 0
 
@@ -500,9 +657,17 @@ def test_stop_settings_endpoints_and_time_limit(monkeypatch):
         {"question_id": 1, "a": 1.0, "b": 0.0, "c": 0.2, "topic": "T"},
         {"question_id": 2, "a": 1.0, "b": 0.2, "c": 0.2, "topic": "T"},
     ]
-    rq = client.post("/api/exam/next", params={"session_id": sid}, json={"theta": 0.0, "available_questions": questions, "seen_ids": []})
+    rq = client.post(
+        "/api/exam/next",
+        params={"session_id": sid},
+        json={"theta": 0.0, "available_questions": questions, "seen_ids": []},
+    )
     q = rq.json()["question"]
-    ra = client.post("/api/exam/answer", params={"session_id": sid}, json={"theta": 0.0, "question": q, "correct": True, "answered_items": []})
+    ra = client.post(
+        "/api/exam/answer",
+        params={"session_id": sid},
+        json={"theta": 0.0, "question": q, "correct": True, "answered_items": []},
+    )
     data = ra.json()
     assert data["stop"] is True
 

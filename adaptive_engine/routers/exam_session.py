@@ -20,7 +20,10 @@ from adaptive_engine.services.ability_estimator import (
     estimate_theta,
 )
 from adaptive_engine.utils.irt_math import fisher_information
-from adaptive_engine.services.feedback_generator import generate_feedback, generate_detailed_feedback
+from adaptive_engine.services.feedback_generator import (
+    generate_feedback,
+    generate_detailed_feedback,
+)
 from adaptive_engine.services.db_enrichment import enrich_finish_payload
 from adaptive_engine.services.item_selector import select_next_question
 from adaptive_engine.services.initial_theta import get_initial_theta
@@ -28,7 +31,11 @@ from adaptive_engine.services.stop_rules import should_stop
 from adaptive_engine.services.session_repo import get_session_repo
 from adaptive_engine.models.session import AnsweredItem, SessionState
 from adaptive_engine.config import get_selection_policy, get_settings
-from adaptive_engine.services.telemetry import log_exposure, log_response, get_overexposed_question_ids
+from adaptive_engine.services.telemetry import (
+    log_exposure,
+    log_response,
+    get_overexposed_question_ids,
+)
 
 
 router = APIRouter(prefix="/api/exam", tags=["exam-session"])
@@ -38,7 +45,9 @@ router = APIRouter(prefix="/api/exam", tags=["exam-session"])
 def start_exam(payload: StartRequest) -> StartResponse:
     repo = get_session_repo()
     theta0 = get_initial_theta(payload.user_id, payload.exam_id)
-    state = repo.create(user_id=payload.user_id, exam_id=payload.exam_id, time_limit_sec=None)
+    state = repo.create(
+        user_id=payload.user_id, exam_id=payload.exam_id, time_limit_sec=None
+    )
     state.theta = theta0
     _s = get_settings()
     state.prior_mean = getattr(_s, "estimator_prior_mean", 0.0)
@@ -49,7 +58,9 @@ def start_exam(payload: StartRequest) -> StartResponse:
     # initialize histories with initial theta; SE unknown yet
     state.theta_history.append(state.theta)
     repo.save(state)
-    return StartResponse(session_id=state.session_id, theta=state.theta, status="started")
+    return StartResponse(
+        session_id=state.session_id, theta=state.theta, status="started"
+    )
 
 
 @router.get("/state", response_model=dict)
@@ -92,12 +103,16 @@ def get_state(session_id: str) -> dict:
 
 
 @router.post("/next", response_model=NextResponse)
-def get_next_question(payload: NextRequest, session_id: str | None = None) -> NextResponse:
+def get_next_question(
+    payload: NextRequest, session_id: str | None = None
+) -> NextResponse:
     # If session_id provided, prefer session theta and seen_ids/topic_counts
     t = payload.theta
     seen_ids = payload.seen_ids
     topic_counts = None
-    state: Optional["SessionState"] = None  # forward ref type comment to avoid import cycle
+    state: Optional["SessionState"] = (
+        None  # forward ref type comment to avoid import cycle
+    )
     if session_id:
         repo = get_session_repo()
         state = repo.get(session_id)
@@ -113,18 +128,23 @@ def get_next_question(payload: NextRequest, session_id: str | None = None) -> Ne
     if not seen_ids:
         candidates = [q for q in questions]
         if candidates:
-            next_q_dict = min(candidates, key=lambda q: abs(float(q.get("b", 0.0) or 0.0) - float(t)))
+            next_q_dict = min(
+                candidates, key=lambda q: abs(float(q.get("b", 0.0) or 0.0) - float(t))
+            )
     if next_q_dict is None:
         # Build global exclusion set based on recent exposure, if configured
         exclude_ids = set()
         s = None
         try:
             from adaptive_engine.config import get_settings as _gs
+
             s = _gs()
         except Exception:
             s = None
         if s and s.exposure_max_per_window and s.exposure_window_hours > 0:
-            exclude_ids = get_overexposed_question_ids(s.exposure_max_per_window, s.exposure_window_hours)
+            exclude_ids = get_overexposed_question_ids(
+                s.exposure_max_per_window, s.exposure_window_hours
+            )
         exclude_ids_mixed: Set[str | int] = cast(Set[str | int], exclude_ids)
         next_q_dict = select_next_question(
             t,
@@ -150,7 +170,9 @@ def get_next_question(payload: NextRequest, session_id: str | None = None) -> Ne
 
 
 @router.post("/answer", response_model=AnswerResponse)
-def submit_answer(payload: AnswerRequest, session_id: str | None = None) -> AnswerResponse:
+def submit_answer(
+    payload: AnswerRequest, session_id: str | None = None
+) -> AnswerResponse:
     q = payload.question
     base_theta = payload.theta
     answered_items = list(payload.answered_items)
@@ -174,10 +196,19 @@ def submit_answer(payload: AnswerRequest, session_id: str | None = None) -> Answ
             for it in state.answered
         ]
     # include current response in estimation set
-    responses = list(responses) + [{"a": float(q.a), "b": float(q.b), "c": float(q.c), "correct": bool(payload.correct)}]
+    responses = list(responses) + [
+        {
+            "a": float(q.a),
+            "b": float(q.b),
+            "c": float(q.c),
+            "correct": bool(payload.correct),
+        }
+    ]
 
     if method == "online":
-        new_theta = update_theta(base_theta, float(q.a), float(q.b), float(q.c), bool(payload.correct))
+        new_theta = update_theta(
+            base_theta, float(q.a), float(q.b), float(q.c), bool(payload.correct)
+        )
     elif method in ("mle", "map", "eap"):
         prior_mu = state.prior_mean if state is not None else 0.0
         prior_sd = state.prior_sd if state is not None else 1.0
@@ -189,7 +220,9 @@ def submit_answer(payload: AnswerRequest, session_id: str | None = None) -> Answ
             prior_sigma=prior_sd,
         )
     else:
-        new_theta = update_theta(base_theta, float(q.a), float(q.b), float(q.c), bool(payload.correct))
+        new_theta = update_theta(
+            base_theta, float(q.a), float(q.b), float(q.c), bool(payload.correct)
+        )
     # Use true Fisher information at the updated theta for the answered item
     info = float(fisher_information(new_theta, float(q.a), float(q.b), float(q.c)))
     answered_items = list(answered_items) + [{"info": info}]
@@ -207,7 +240,14 @@ def submit_answer(payload: AnswerRequest, session_id: str | None = None) -> Answ
             elapsed = max(0.0, float(now_ts - float(state.started_at or 0)))
         except Exception:
             elapsed = 0.0
-    stop = should_stop(len(answered_items), max_items, elapsed, time_limit, std_error, threshold=se_threshold)
+    stop = should_stop(
+        len(answered_items),
+        max_items,
+        elapsed,
+        time_limit,
+        std_error,
+        threshold=se_threshold,
+    )
 
     if state is not None:
         # update session state
@@ -234,12 +274,26 @@ def submit_answer(payload: AnswerRequest, session_id: str | None = None) -> Answ
             repo.save(state)
         # log response (session_id is not None here due to earlier guard)
         if session_id is not None:
-            log_response(session_id, state.user_id, state.exam_id, q.question_id, bool(payload.correct), ability_after=new_theta)
+            log_response(
+                session_id,
+                state.user_id,
+                state.exam_id,
+                q.question_id,
+                bool(payload.correct),
+                ability_after=new_theta,
+            )
 
     return AnswerResponse(theta_after=new_theta, std_error=std_error, stop=stop)
 
 
-def _persist_exam_completion(session_id: str, user_id: int, exam_id: int, theta: float | None, se: float | None, scaled_score: float | None) -> None:
+def _persist_exam_completion(
+    session_id: str,
+    user_id: int,
+    exam_id: int,
+    theta: float | None,
+    se: float | None,
+    scaled_score: float | None,
+) -> None:
     s = get_settings()
     if not s.database_url:
         return
@@ -281,7 +335,9 @@ def _persist_exam_completion(session_id: str, user_id: int, exam_id: int, theta:
 
 
 @router.post("/finish", response_model=FinishResponse)
-def finish_exam(payload: FinishRequest, session_id: str | None = None) -> FinishResponse:
+def finish_exam(
+    payload: FinishRequest, session_id: str | None = None
+) -> FinishResponse:
     # Convert questions into an id->question dict for feedback utility
     qmap: Dict[Any, Dict[str, Any]] = {}
     if isinstance(payload.questions, list):
@@ -313,29 +369,44 @@ def finish_exam(payload: FinishRequest, session_id: str | None = None) -> Finish
                 se_final = float(st.se_history[-1])
             else:
                 # fallback: sum info of answered
-                infos = [float(it.info) for it in st.answered if getattr(it, "info", 0) > 0]
+                infos = [
+                    float(it.info) for it in st.answered if getattr(it, "info", 0) > 0
+                ]
                 if infos:
                     import math as _m
+
                     se_final = float((_m.sqrt(1.0 / sum(infos))))
             s = get_settings()
-            scaled = float(getattr(s, "scale_mean_ref", 100.0)) + float(getattr(s, "scale_sd_ref", 15.0)) * float(theta_final)
+            scaled = float(getattr(s, "scale_mean_ref", 100.0)) + float(
+                getattr(s, "scale_sd_ref", 15.0)
+            ) * float(theta_final)
             # Best-effort persistence to DB
             try:
-                _persist_exam_completion(session_id, st.user_id, st.exam_id, theta_final, se_final, scaled)
+                _persist_exam_completion(
+                    session_id, st.user_id, st.exam_id, theta_final, se_final, scaled
+                )
             except Exception:
                 pass
     # 95% CI if possible
     ci = None
     if theta_final is not None and se_final is not None:
         z = 1.96
-        ci = {"level": 0.95, "lower": float(theta_final - z * se_final), "upper": float(theta_final + z * se_final)}
+        ci = {
+            "level": 0.95,
+            "lower": float(theta_final - z * se_final),
+            "upper": float(theta_final + z * se_final),
+        }
     # Build detailed sections (items review, topic breakdown, recommendations) and percentile
-    detailed = generate_detailed_feedback(payload.responses, qmap, theta=theta_final, se=se_final, scaled_score=scaled)
+    detailed = generate_detailed_feedback(
+        payload.responses, qmap, theta=theta_final, se=se_final, scaled_score=scaled
+    )
     # Enrich with DB-backed solution_html and topic averages when configured
-    enriched = enrich_finish_payload({
-        "items_review": detailed.get("items_review"),
-        "topic_breakdown": detailed.get("topic_breakdown"),
-    })
+    enriched = enrich_finish_payload(
+        {
+            "items_review": detailed.get("items_review"),
+            "topic_breakdown": detailed.get("topic_breakdown"),
+        }
+    )
     percentile = detailed.get("summary", {}).get("percentile")
     return FinishResponse(
         feedback=feedback,

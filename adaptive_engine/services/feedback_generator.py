@@ -2,7 +2,9 @@ from typing import Dict, List, Union, Optional, Any
 import math
 
 
-def generate_feedback(responses: List[Dict], questions: Union[Dict, List[Dict]]) -> List[str]:
+def generate_feedback(
+    responses: List[Dict], questions: Union[Dict, List[Dict]]
+) -> List[str]:
     """Generate topic-level feedback messages based on correctness rates."""
     topic_summary: Dict[str, Dict[str, int]] = {}
     for r in responses:
@@ -10,7 +12,14 @@ def generate_feedback(responses: List[Dict], questions: Union[Dict, List[Dict]])
         if not q:
             # If questions is a list, try to find by id
             if isinstance(questions, list):
-                q = next((x for x in questions if x.get("question_id") == r.get("question_id")), None)
+                q = next(
+                    (
+                        x
+                        for x in questions
+                        if x.get("question_id") == r.get("question_id")
+                    ),
+                    None,
+                )
         if not q:
             # Unknown question, skip
             continue
@@ -78,12 +87,14 @@ def generate_detailed_feedback(
         q = qmap.get(qid) or {}
         topic = _topic_of(q)
         correct = bool(r.get("is_correct"))
-        items_review.append({
-            "question_id": qid,
-            "correct": correct,
-            "topic": topic,
-            "explanation": _explanation_of(q),
-        })
+        items_review.append(
+            {
+                "question_id": qid,
+                "correct": correct,
+                "topic": topic,
+                "explanation": _explanation_of(q),
+            }
+        )
         stats = topic_summary.setdefault(topic, {"correct": 0.0, "total": 0.0})
         stats["total"] += 1.0
         if correct:
@@ -93,13 +104,19 @@ def generate_detailed_feedback(
     for t, s in topic_summary.items():
         total = max(1.0, float(s["total"]))
         acc = float(s["correct"]) / total
-        topic_breakdown[t] = {"correct": float(s["correct"]), "total": float(s["total"]), "accuracy": acc}
+        topic_breakdown[t] = {
+            "correct": float(s["correct"]),
+            "total": float(s["total"]),
+            "accuracy": acc,
+        }
     # Recommendations: topics below 60% accuracy
     recommendations: List[str] = []
     weak = sorted([t for t, s in topic_breakdown.items() if s["accuracy"] < 0.6])
     for t in weak:
         pct = topic_breakdown[t]["accuracy"] * 100.0
-        recommendations.append(f"'{t}' 영역 정답률 {pct:.0f}%. 핵심 개념 복습과 유사 문항 추가 연습을 권장합니다.")
+        recommendations.append(
+            f"'{t}' 영역 정답률 {pct:.0f}%. 핵심 개념 복습과 유사 문항 추가 연습을 권장합니다."
+        )
     # Summary with percentile
     percentile: Optional[float] = None
     if theta is not None:

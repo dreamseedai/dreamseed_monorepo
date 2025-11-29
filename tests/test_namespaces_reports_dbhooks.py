@@ -19,8 +19,10 @@ def test_settings_root_hierarchy_across_namespaces(client, monkeypatch):
     class FakeRedis:
         def __init__(self):
             self.store: dict[str, str] = {}
+
         def get(self, key: str):
             return self.store.get(key)
+
         def scan_iter(self, match: str):
             pre, suf = match.split("*")
             for k in self.store:
@@ -29,13 +31,41 @@ def test_settings_root_hierarchy_across_namespaces(client, monkeypatch):
 
     fake = FakeRedis()
     prefix = cfg.get_settings().redis_key_prefix
-    payload_root = json.dumps({"policy": {"prefer_balanced": True, "deterministic": False, "max_per_topic": None, "top_k_random": None, "info_band_fraction": 0.05}, "last_updated": "2025-01-01T00:00:00Z"})
-    payload_child = json.dumps({"policy": {"prefer_balanced": False, "deterministic": True, "max_per_topic": 2, "top_k_random": 1, "info_band_fraction": 0.10}, "last_updated": "2025-02-02T00:00:00Z"})
+    payload_root = json.dumps(
+        {
+            "policy": {
+                "prefer_balanced": True,
+                "deterministic": False,
+                "max_per_topic": None,
+                "top_k_random": None,
+                "info_band_fraction": 0.05,
+            },
+            "last_updated": "2025-01-01T00:00:00Z",
+        }
+    )
+    payload_child = json.dumps(
+        {
+            "policy": {
+                "prefer_balanced": False,
+                "deterministic": True,
+                "max_per_topic": 2,
+                "top_k_random": 1,
+                "info_band_fraction": 0.10,
+            },
+            "last_updated": "2025-02-02T00:00:00Z",
+        }
+    )
     fake.store[f"{prefix}math:selection_policy"] = payload_root
     fake.store[f"{prefix}math:algebra:selection_policy"] = payload_child
 
     # Patch redis client to fake
-    monkeypatch.setattr(cfg, "redis", types.SimpleNamespace(Redis=types.SimpleNamespace(from_url=lambda *a, **k: fake)))
+    monkeypatch.setattr(
+        cfg,
+        "redis",
+        types.SimpleNamespace(
+            Redis=types.SimpleNamespace(from_url=lambda *a, **k: fake)
+        ),
+    )
 
     client = TestClient(app)
     # GET global (should resolve to env if no redis global policy)
@@ -80,11 +110,14 @@ def test_db_hooks_telemetry_and_irt_updater(monkeypatch):
         def __init__(self):
             self._rows = [("Q1",), ("Q2",)]
             self.executed = []
+
         def execute(self, q, params=None):
             self.executed.append((q, params))
+
         def fetchall(self):
             # For exposure select, return rows; for stats view, return mocked stats
             return [("Q1",), ("Q2",)]
+
         def close(self):
             pass
 
@@ -93,12 +126,16 @@ def test_db_hooks_telemetry_and_irt_updater(monkeypatch):
             self.cur = FakeCursor()
             self.commits = 0
             self.rollbacks = 0
+
         def cursor(self):
             return self.cur
+
         def commit(self):
             self.commits += 1
+
         def rollback(self):
             self.rollbacks += 1
+
         def close(self):
             pass
 
@@ -107,6 +144,7 @@ def test_db_hooks_telemetry_and_irt_updater(monkeypatch):
             self.mode = mode
             self.conns = []
             self.last_conn = None
+
         def connect(self, dsn):
             conn = FakeConn()
             self.conns.append(conn)
@@ -114,7 +152,9 @@ def test_db_hooks_telemetry_and_irt_updater(monkeypatch):
             return conn
 
     # Configure settings with a dummy database_url
-    base = cfg.AppSettings(database_url="postgres://u:p@h/db", irt_stats_view="stats", items_table="items")
+    base = cfg.AppSettings(
+        database_url="postgres://u:p@h/db", irt_stats_view="stats", items_table="items"
+    )
     monkeypatch.setattr(cfg, "get_settings", lambda: base, raising=True)
     # Patch module-local get_settings where imported at definition time
     monkeypatch.setattr(tel, "get_settings", lambda: base, raising=True)
@@ -132,20 +172,34 @@ def test_db_hooks_telemetry_and_irt_updater(monkeypatch):
     for c in fake_psy.conns:
         executed_all.extend(c.cur.executed)
     # Expect two statements
-    assert any("INSERT INTO item_exposure" in (q if isinstance(q, str) else "") and params == ("sid", 1, 1, "Q1") for q, params in executed_all)
-    assert any("INSERT INTO item_response" in (q if isinstance(q, str) else "") and params == ("sid", 1, 1, "Q1", True) for q, params in executed_all)
+    assert any(
+        "INSERT INTO item_exposure" in (q if isinstance(q, str) else "")
+        and params == ("sid", 1, 1, "Q1")
+        for q, params in executed_all
+    )
+    assert any(
+        "INSERT INTO item_response" in (q if isinstance(q, str) else "")
+        and params == ("sid", 1, 1, "Q1", True)
+        for q, params in executed_all
+    )
 
     # Validate updater fetch_stats_from_db executes SELECT against configured view
     fake_psy_fetch = FakePsy("fetch")
     monkeypatch.setattr(upd, "_get_psycopg2", lambda: fake_psy_fetch, raising=True)
-    base_fetch = cfg.AppSettings(database_url="postgres://u:p@h/db", irt_stats_view="stats")
+    base_fetch = cfg.AppSettings(
+        database_url="postgres://u:p@h/db", irt_stats_view="stats"
+    )
     monkeypatch.setattr(cfg, "get_settings", lambda: base_fetch, raising=True)
     monkeypatch.setattr(upd, "get_settings", lambda: base_fetch, raising=True)
     list(upd.fetch_stats_from_db())  # force iteration
     executed_fetch = []
     for c in fake_psy_fetch.conns:
         executed_fetch.extend(c.cur.executed)
-    assert any("SELECT question_id, a, b, c, correct_rate FROM stats" in (q if isinstance(q, str) else "") for q, _ in executed_fetch)
+    assert any(
+        "SELECT question_id, a, b, c, correct_rate FROM stats"
+        in (q if isinstance(q, str) else "")
+        for q, _ in executed_fetch
+    )
 
     # Now patch updater DB functions: fetch_stats returns two rows
     def fake_iter():
@@ -155,8 +209,15 @@ def test_db_hooks_telemetry_and_irt_updater(monkeypatch):
     monkeypatch.setattr(upd, "fetch_stats_from_db", lambda: fake_iter(), raising=True)
     # Patch persist to a no-op that records calls
     calls = []
-    monkeypatch.setattr(upd, "persist_update_to_db", lambda q, a, b, c: calls.append((q, a, b, c)), raising=True)
-    n = upd.run_irt_update_once(fetch_stats=upd.fetch_stats_from_db, persist_update=upd.persist_update_to_db)
+    monkeypatch.setattr(
+        upd,
+        "persist_update_to_db",
+        lambda q, a, b, c: calls.append((q, a, b, c)),
+        raising=True,
+    )
+    n = upd.run_irt_update_once(
+        fetch_stats=upd.fetch_stats_from_db, persist_update=upd.persist_update_to_db
+    )
     assert n == 2
     assert len(calls) == 2
 

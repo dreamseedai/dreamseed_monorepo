@@ -38,6 +38,7 @@ def test_mle_theta_fisher_converges_on_simple_case():
     for it in items:
         # Use probability rounding to generate a deterministic pseudo-response
         from shared.irt import irf_3pl
+
         p = irf_3pl(theta_true, it["a"], it["b"], it.get("c", 0.0))
         responses.append(int(p >= 0.5))
 

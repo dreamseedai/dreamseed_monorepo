@@ -37,7 +37,9 @@ class SessionRepo:
         else:
             self._redis = None
 
-    def create(self, user_id: int, exam_id: int, time_limit_sec: Optional[int] = None) -> SessionState:
+    def create(
+        self, user_id: int, exam_id: int, time_limit_sec: Optional[int] = None
+    ) -> SessionState:
         if self.backend == "redis" and self._redis is not None:
             return self._redis.create_session(user_id, exam_id, time_limit_sec)
         return session_store.create_session(user_id, exam_id, time_limit_sec)

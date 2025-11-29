@@ -8,12 +8,15 @@ from adaptive_engine.config import get_settings
 def _get_psycopg2():
     try:
         import psycopg2  # type: ignore
+
         return psycopg2
     except Exception:
         return None
 
 
-def log_exposure(session_id: str, user_id: int, exam_id: int, question_id: str | int) -> None:
+def log_exposure(
+    session_id: str, user_id: int, exam_id: int, question_id: str | int
+) -> None:
     s = get_settings()
     if not s.database_url:
         return
@@ -40,7 +43,14 @@ def log_exposure(session_id: str, user_id: int, exam_id: int, question_id: str |
         return
 
 
-def log_response(session_id: str, user_id: int, exam_id: int, question_id: str | int, is_correct: bool, ability_after: float | None = None) -> None:
+def log_response(
+    session_id: str,
+    user_id: int,
+    exam_id: int,
+    question_id: str | int,
+    is_correct: bool,
+    ability_after: float | None = None,
+) -> None:
     s = get_settings()
     if not s.database_url:
         return
@@ -67,7 +77,14 @@ def log_response(session_id: str, user_id: int, exam_id: int, question_id: str |
                         INSERT INTO item_response(session_id, user_id, exam_id, question_id, is_correct, ability_after)
                         VALUES (%s, %s, %s, %s, %s, %s)
                         """,
-                        (session_id, user_id, exam_id, str(question_id), bool(is_correct), float(ability_after)),
+                        (
+                            session_id,
+                            user_id,
+                            exam_id,
+                            str(question_id),
+                            bool(is_correct),
+                            float(ability_after),
+                        ),
                     )
                 except Exception:
                     # Fallback to schema without ability_after
@@ -76,7 +93,13 @@ def log_response(session_id: str, user_id: int, exam_id: int, question_id: str |
                         INSERT INTO item_response(session_id, user_id, exam_id, question_id, is_correct)
                         VALUES (%s, %s, %s, %s, %s)
                         """,
-                        (session_id, user_id, exam_id, str(question_id), bool(is_correct)),
+                        (
+                            session_id,
+                            user_id,
+                            exam_id,
+                            str(question_id),
+                            bool(is_correct),
+                        ),
                     )
             conn.commit()
         finally:

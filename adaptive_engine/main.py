@@ -7,7 +7,11 @@ from adaptive_engine.routers import health as health_router
 from adaptive_engine.routers import reports as reports_router
 from adaptive_engine.config import get_settings
 from adaptive_engine.services.scheduler import RepeatingTimer
-from adaptive_engine.services.irt_updater import run_irt_update_once, fetch_stats_from_db, persist_update_to_db
+from adaptive_engine.services.irt_updater import (
+    run_irt_update_once,
+    fetch_stats_from_db,
+    persist_update_to_db,
+)
 from adaptive_engine.services.session_repo import set_backend_override, get_session_repo
 
 
@@ -21,7 +25,9 @@ async def lifespan(app: FastAPI):
             repo = get_session_repo()
             if getattr(repo, "backend", "memory") != "redis":
                 set_backend_override("memory")
-                print("[adaptive_engine] Redis unavailable; falling back to memory session backend.")
+                print(
+                    "[adaptive_engine] Redis unavailable; falling back to memory session backend."
+                )
             else:
                 print("[adaptive_engine] Redis session backend connected.")
         except Exception as e:
@@ -29,6 +35,7 @@ async def lifespan(app: FastAPI):
             print(f"[adaptive_engine] Redis check error: {e}; using memory backend.")
     # Start background IRT updater if enabled
     if s.irt_update_enabled:
+
         def _job():
             # Use DB-backed functions when database_url is set; otherwise no-op
             fetch = fetch_stats_from_db if s.database_url else (lambda: iter(()))
@@ -36,6 +43,7 @@ async def lifespan(app: FastAPI):
             updated = run_irt_update_once(fetch_stats=fetch, persist_update=persist)
             if updated:
                 print(f"[adaptive_engine] IRT updater: updated {updated} items")
+
         scheduler = RepeatingTimer(s.irt_update_interval_sec, _job)
         scheduler.start()
 

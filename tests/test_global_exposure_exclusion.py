@@ -31,14 +31,26 @@ def test_next_question_excludes_overexposed(monkeypatch):
     monkeypatch.setattr(
         cfg,
         "get_selection_policy",
-        lambda: cfg.SelectionPolicy(prefer_balanced=False, deterministic=True, max_per_topic=None, top_k_random=None, info_band_fraction=0.05),
+        lambda: cfg.SelectionPolicy(
+            prefer_balanced=False,
+            deterministic=True,
+            max_per_topic=None,
+            top_k_random=None,
+            info_band_fraction=0.05,
+        ),
         raising=True,
     )
 
     # Stub global overexposed set to contain 'B'
     # Act: patch the symbol used inside the router module for robust behavior
     import adaptive_engine.routers.exam_session as exam_router
-    monkeypatch.setattr(exam_router, "get_overexposed_question_ids", lambda threshold, window: {"B"}, raising=True)
+
+    monkeypatch.setattr(
+        exam_router,
+        "get_overexposed_question_ids",
+        lambda threshold, window: {"B"},
+        raising=True,
+    )
 
     resp = exam_router.get_next_question(payload)
 

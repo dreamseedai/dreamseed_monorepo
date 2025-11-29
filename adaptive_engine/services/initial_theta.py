@@ -8,6 +8,7 @@ from adaptive_engine.config import get_settings
 def _get_psycopg2():
     try:
         import psycopg2  # type: ignore
+
         return psycopg2
     except Exception:
         return None

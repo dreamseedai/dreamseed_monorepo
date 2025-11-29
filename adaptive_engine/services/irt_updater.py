@@ -7,7 +7,12 @@ import uuid
 from datetime import datetime, timezone
 
 
-def update_item_difficulty(current_b: float, correct_rate: float, target_rate: float = 0.5, learning_rate: float = 0.1) -> float:
+def update_item_difficulty(
+    current_b: float,
+    correct_rate: float,
+    target_rate: float = 0.5,
+    learning_rate: float = 0.1,
+) -> float:
     """Heuristic adjustment of item difficulty 'b' based on observed correct rate.
 
     If actual correct rate is lower than target, increase b (harder).
@@ -17,7 +22,9 @@ def update_item_difficulty(current_b: float, correct_rate: float, target_rate: f
     return round(float(new_b), 3)
 
 
-def _moment_b_from_correct_rate(a: float, b: float, c: float, correct_rate: float) -> float:
+def _moment_b_from_correct_rate(
+    a: float, b: float, c: float, correct_rate: float
+) -> float:
     """Approximate b by inverting 3PL ICC at θ≈0 using observed correct rate.
 
     Solve p = c + (1-c)/(1+exp(-a(θ-b))) at θ=0 → b ≈ -(1/a) * log( (1-c)/(p-c) - 1 ).
@@ -28,10 +35,10 @@ def _moment_b_from_correct_rate(a: float, b: float, c: float, correct_rate: floa
     c = float(c)
     p = min(max(p, c + 1e-5), 1.0 - 1e-5)
     try:
-        denom = (p - c)
+        denom = p - c
         t = (1.0 - c) / denom - 1.0
         x = math.log(max(t, 1e-9))
-        b_new = - x / max(a, 1e-6)
+        b_new = -x / max(a, 1e-6)
     except Exception:
         b_new = b
     return float(max(min(b_new, 4.0), -4.0))
@@ -44,8 +51,10 @@ def _new_run_id() -> str:
     return f"run_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}_{uuid.uuid4().hex[:8]}"
 
 
-def run_irt_update_once(fetch_stats: Optional[Callable[[], Iterator[Dict[str, Any]]]] = None,
-                        persist_update: Optional[Callable[[str | int, float, float, float], None]] = None) -> int:
+def run_irt_update_once(
+    fetch_stats: Optional[Callable[[], Iterator[Dict[str, Any]]]] = None,
+    persist_update: Optional[Callable[[str | int, float, float, float], None]] = None,
+) -> int:
     """Run a single IRT parameter update cycle.
 
     - fetch_stats: should return an iterable of dicts with keys: question_id, a, b, c, correct_rate
@@ -73,14 +82,20 @@ def run_irt_update_once(fetch_stats: Optional[Callable[[], Iterator[Dict[str, An
             c = float(it.get("c", 0.2))
             cr = float(it.get("correct_rate", 0.5))
             if method == "heuristic":
-                new_b = update_item_difficulty(b, cr, target_rate=target, learning_rate=lr)
+                new_b = update_item_difficulty(
+                    b, cr, target_rate=target, learning_rate=lr
+                )
             else:
                 # moment-based approx for mml/bayes placeholders
                 new_b = _moment_b_from_correct_rate(a, b, c, cr)
             if persist_update is not None:
                 persist_update(qid, a, new_b, c)
             updated += 1
-            if isinstance(max_updates, int) and max_updates > 0 and updated >= max_updates:
+            if (
+                isinstance(max_updates, int)
+                and max_updates > 0
+                and updated >= max_updates
+            ):
                 break
         except Exception:
             # Skip bad records
@@ -91,6 +106,7 @@ def run_irt_update_once(fetch_stats: Optional[Callable[[], Iterator[Dict[str, An
 def _get_psycopg2():
     try:
         import psycopg2  # type: ignore
+
         return psycopg2
     except Exception:
         return None
@@ -103,13 +119,16 @@ def fetch_stats_from_db() -> Iterator[Dict[str, Any]]:
     psycopg2 = _get_psycopg2()
     if psycopg2 is None:
         return iter(())
+
     def _iter():
         conn = None
         cur = None
         try:
             conn = psycopg2.connect(s.database_url)
             cur = conn.cursor()
-            cur.execute(f"SELECT question_id, a, b, c, correct_rate FROM {s.irt_stats_view}")
+            cur.execute(
+                f"SELECT question_id, a, b, c, correct_rate FROM {s.irt_stats_view}"
+            )
             for row in cur.fetchall():
                 yield {
                     "question_id": row[0],
@@ -127,6 +146,7 @@ def fetch_stats_from_db() -> Iterator[Dict[str, Any]]:
             finally:
                 if conn:
                     conn.close()
+
     return _iter()
 
 
@@ -147,7 +167,10 @@ def persist_update_to_db(question_id: str | int, a: float, b: float, c: float) -
         old_b = None
         old_c = None
         try:
-            cur.execute(f"SELECT a, b, c FROM {s.items_table} WHERE question_id = %s", (question_id,))
+            cur.execute(
+                f"SELECT a, b, c FROM {s.items_table} WHERE question_id = %s",
+                (question_id,),
+            )
             row = cur.fetchone()
             if row:
                 old_a, old_b, old_c = float(row[0]), float(row[1]), float(row[2])
@@ -199,9 +222,17 @@ def persist_update_to_db(question_id: str | int, a: float, b: float, c: float) -
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
-                        run_id, ts, question_id,
-                        old_a, old_b, old_c, a, b, c,
-                        n_responses, log_likelihood,
+                        run_id,
+                        ts,
+                        question_id,
+                        old_a,
+                        old_b,
+                        old_c,
+                        a,
+                        b,
+                        c,
+                        n_responses,
+                        log_likelihood,
                     ),
                 )
             except Exception:
@@ -218,4 +249,3 @@ def persist_update_to_db(question_id: str | int, a: float, b: float, c: float) -
         finally:
             if conn:
                 conn.close()
-

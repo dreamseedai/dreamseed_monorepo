@@ -20,9 +20,16 @@ class RedisSessionStore:
     def _key(self, session_id: str) -> str:
         return f"{self._prefix}{session_id}"
 
-    def create_session(self, user_id: int, exam_id: int, time_limit_sec: Optional[int] = None) -> SessionState:
+    def create_session(
+        self, user_id: int, exam_id: int, time_limit_sec: Optional[int] = None
+    ) -> SessionState:
         session_id = str(uuid.uuid4())
-        state = SessionState(session_id=session_id, user_id=user_id, exam_id=exam_id, remaining_time_sec=time_limit_sec)
+        state = SessionState(
+            session_id=session_id,
+            user_id=user_id,
+            exam_id=exam_id,
+            remaining_time_sec=time_limit_sec,
+        )
         self.save(state)
         return state
 

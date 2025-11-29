@@ -11,9 +11,16 @@ _LOCK = threading.RLock()
 _SESSIONS: Dict[str, SessionState] = {}
 
 
-def create_session(user_id: int, exam_id: int, time_limit_sec: Optional[int] = None) -> SessionState:
+def create_session(
+    user_id: int, exam_id: int, time_limit_sec: Optional[int] = None
+) -> SessionState:
     session_id = str(uuid.uuid4())
-    state = SessionState(session_id=session_id, user_id=user_id, exam_id=exam_id, remaining_time_sec=time_limit_sec)
+    state = SessionState(
+        session_id=session_id,
+        user_id=user_id,
+        exam_id=exam_id,
+        remaining_time_sec=time_limit_sec,
+    )
     with _LOCK:
         _SESSIONS[session_id] = state
     return state

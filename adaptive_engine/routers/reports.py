@@ -33,11 +33,16 @@ def theta_se_png(
         if not st:
             raise HTTPException(status_code=404, detail="session not found")
         # Prefer true histories if present; else proxy by answered info
-        if getattr(st, "theta_history", None) and getattr(st, "se_history", None) and len(st.theta_history) == len(st.se_history) and len(st.theta_history) > 0:
+        if (
+            getattr(st, "theta_history", None)
+            and getattr(st, "se_history", None)
+            and len(st.theta_history) == len(st.se_history)
+            and len(st.theta_history) > 0
+        ):
             thetas = list(st.theta_history)
             ses = list(st.se_history)
         else:
-            ses = [it.info ** -0.5 if it.info > 0 else 1.0 for it in st.answered]
+            ses = [it.info**-0.5 if it.info > 0 else 1.0 for it in st.answered]
             thetas = list(range(len(ses)))
         if not ses:
             raise HTTPException(status_code=400, detail="no answered items to plot")
@@ -45,9 +50,14 @@ def theta_se_png(
         thetas = list(theta)
         ses = list(se)
         if len(thetas) != len(ses) or len(thetas) == 0:
-            raise HTTPException(status_code=400, detail="theta and se arrays must be same length and non-empty")
+            raise HTTPException(
+                status_code=400,
+                detail="theta and se arrays must be same length and non-empty",
+            )
     else:
-        raise HTTPException(status_code=400, detail="provide session_id or theta & se arrays")
+        raise HTTPException(
+            status_code=400, detail="provide session_id or theta & se arrays"
+        )
 
     img = theta_se_curve(thetas, ses, title=title)
     return Response(content=img, media_type="image/png")

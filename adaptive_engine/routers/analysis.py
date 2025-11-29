@@ -27,32 +27,22 @@ router = APIRouter(prefix="/api/analysis", tags=["score-analysis"])
 # Request/Response Models
 # ==============================================================================
 
+
 class AnalysisConfig(BaseModel):
     """분석 설정"""
+
     engine: str = Field(
-        default="hybrid",
-        description="분석 엔진: 'irt', 'mixed_effects', 'hybrid'"
+        default="hybrid", description="분석 엔진: 'irt', 'mixed_effects', 'hybrid'"
     )
-    include_forecast: bool = Field(
-        default=True,
-        description="성장 예측 포함 여부"
-    )
-    include_benchmark: bool = Field(
-        default=True,
-        description="비교 기준 포함 여부"
-    )
-    scale_A: float = Field(
-        default=100.0,
-        description="척도 점수 변환 계수 A"
-    )
-    scale_B: float = Field(
-        default=500.0,
-        description="척도 점수 변환 계수 B"
-    )
+    include_forecast: bool = Field(default=True, description="성장 예측 포함 여부")
+    include_benchmark: bool = Field(default=True, description="비교 기준 포함 여부")
+    scale_A: float = Field(default=100.0, description="척도 점수 변환 계수 A")
+    scale_B: float = Field(default=500.0, description="척도 점수 변환 계수 B")
 
 
 class ResponseItem(BaseModel):
     """응답 데이터 항목"""
+
     item_id: str
     correct: bool
     a: float = Field(default=1.0, description="변별력")
@@ -64,6 +54,7 @@ class ResponseItem(BaseModel):
 
 class AnalysisRequest(BaseModel):
     """분석 요청"""
+
     student_id: str
     session_id: str
     responses: List[ResponseItem]
@@ -72,16 +63,17 @@ class AnalysisRequest(BaseModel):
 
 class BatchAnalysisRequest(BaseModel):
     """일괄 분석 요청"""
+
     requests: List[AnalysisRequest]
     use_mixed_effects: bool = Field(
-        default=True,
-        description="혼합효과 모형 사용 여부 (전체 응답 데이터 활용)"
+        default=True, description="혼합효과 모형 사용 여부 (전체 응답 데이터 활용)"
     )
 
 
 # ==============================================================================
 # Dependency Injection
 # ==============================================================================
+
 
 def get_analysis_service(
     engine: str = "hybrid",
@@ -100,21 +92,22 @@ def get_analysis_service(
 # Endpoints
 # ==============================================================================
 
+
 @router.post("/", response_model=dict)
 def analyze_session(
     request: AnalysisRequest,
 ) -> dict:
     """단일 세션 성적 분석
-    
+
     학생의 응답 데이터를 기반으로 종합 성적 분석 리포트를 생성합니다.
-    
+
     분석 내용:
     - 능력 추정 (θ, SE, 척도 점수)
     - 토픽별 강약점 분석
     - 맞춤형 학습 추천
     - 성적 성장 예측 (선택)
     - 비교 기준 (백분위) (선택)
-    
+
     Examples
     --------
     ```
@@ -136,20 +129,20 @@ def analyze_session(
     """
     if not request.responses:
         raise HTTPException(status_code=400, detail="No responses provided")
-    
+
     # 설정
     config = request.config or AnalysisConfig()
-    
+
     # 서비스 생성
     service = ScoreAnalysisService(
         engine=config.engine,
         scale_A=config.scale_A,
         scale_B=config.scale_B,
     )
-    
+
     # 응답 데이터 변환
     responses = [r.model_dump() for r in request.responses]
-    
+
     # 분석 실행
     try:
         report = service.generate_report(
@@ -160,14 +153,11 @@ def analyze_session(
             include_forecast=config.include_forecast,
             include_benchmark=config.include_benchmark,
         )
-        
+
         return report.to_dict()
-        
+
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Analysis failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
 @router.post("/batch", response_model=dict)
@@ -175,10 +165,10 @@ def analyze_batch(
     request: BatchAnalysisRequest,
 ) -> dict:
     """여러 세션 일괄 분석
-    
+
     여러 학생의 응답 데이터를 한 번에 분석합니다.
     혼합효과 모형을 사용하여 학생 능력과 문항 난이도를 동시에 추정합니다.
-    
+
     Examples
     --------
     ```
@@ -202,7 +192,7 @@ def analyze_batch(
     """
     if not request.requests:
         raise HTTPException(status_code=400, detail="No requests provided")
-    
+
     # 전체 응답 수집 (혼합효과 모형용)
     all_responses = []
     if request.use_mixed_effects:
@@ -211,24 +201,24 @@ def analyze_batch(
                 resp_dict = resp.model_dump()
                 resp_dict["student_id"] = req.student_id
                 all_responses.append(resp_dict)
-    
+
     # 각 요청별로 분석
     reports = []
     for req in request.requests:
         config = req.config or AnalysisConfig()
-        
+
         # 혼합효과 모형 사용 시 엔진 강제 설정
         if request.use_mixed_effects and len(all_responses) >= 50:
             config.engine = "mixed_effects"
-        
+
         service = ScoreAnalysisService(
             engine=config.engine,
             scale_A=config.scale_A,
             scale_B=config.scale_B,
         )
-        
+
         responses = [r.model_dump() for r in req.responses]
-        
+
         try:
             report = service.generate_report(
                 student_id=req.student_id,
@@ -238,17 +228,19 @@ def analyze_batch(
                 include_forecast=config.include_forecast,
                 include_benchmark=config.include_benchmark,
             )
-            
+
             reports.append(report.to_dict())
-            
+
         except Exception as e:
             # 개별 실패는 에러 정보만 기록하고 계속 진행
-            reports.append({
-                "student_id": req.student_id,
-                "session_id": req.session_id,
-                "error": str(e),
-            })
-    
+            reports.append(
+                {
+                    "student_id": req.student_id,
+                    "session_id": req.session_id,
+                    "error": str(e),
+                }
+            )
+
     return {
         "n_requests": len(request.requests),
         "n_success": sum(1 for r in reports if "error" not in r),
@@ -271,6 +263,7 @@ def health_check() -> dict:
 # 문항 난이도 보정 엔드포인트 (관리자용)
 # ==============================================================================
 
+
 @router.post("/calibrate-items", response_model=dict)
 def calibrate_items(
     responses: List[dict],
@@ -278,18 +271,18 @@ def calibrate_items(
     prior_var: float = Query(default=1.0),
 ) -> dict:
     """문항 난이도 보정 (관리자용)
-    
+
     많은 학생의 응답 데이터를 사용하여 문항 난이도를 보정합니다.
     혼합효과 모형을 사용하여 공정한 난이도 추정을 수행합니다.
-    
+
     Parameters
     ----------
     responses : List[dict]
         전체 응답 데이터 (student_id, item_id, correct, a, b, c 포함)
-        
+
     prior_mean, prior_var : float
         학생 능력의 사전 분포 파라미터
-        
+
     Returns
     -------
     dict
@@ -298,12 +291,12 @@ def calibrate_items(
     if len(responses) < 50:
         raise HTTPException(
             status_code=400,
-            detail="At least 50 responses required for item calibration"
+            detail="At least 50 responses required for item calibration",
         )
-    
+
     try:
         from shared.mixed_effects import fit_mixed_effects
-        
+
         # 혼합효과 모형 적용
         abilities, difficulties = fit_mixed_effects(
             responses,
@@ -311,7 +304,7 @@ def calibrate_items(
             prior_var=prior_var,
             verbose=False,
         )
-        
+
         # 결과 정리
         item_calibrations = {
             item_id: {
@@ -321,7 +314,7 @@ def calibrate_items(
             }
             for item_id, diff in difficulties.items()
         }
-        
+
         student_abilities_summary = {
             student_id: {
                 "theta": ability.theta,
@@ -330,17 +323,13 @@ def calibrate_items(
             }
             for student_id, ability in abilities.items()
         }
-        
+
         return {
             "n_students": len(abilities),
             "n_items": len(difficulties),
             "item_calibrations": item_calibrations,
             "student_abilities": student_abilities_summary,
         }
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Calibration failed: {str(e)}"
-        )
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Calibration failed: {str(e)}")

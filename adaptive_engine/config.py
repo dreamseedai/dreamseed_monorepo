@@ -47,18 +47,28 @@ class AppSettings(BaseSettings):
     irt_update_interval_sec: int = 3600
     # Database for IRT updater/reporting
     database_url: str | None = None
-    irt_stats_view: str = "irt_item_stats"  # expected columns: question_id, a, b, c, correct_rate
+    irt_stats_view: str = (
+        "irt_item_stats"  # expected columns: question_id, a, b, c, correct_rate
+    )
     items_table: str = "items"  # table to persist updates (question_id, a, b, c)
     # IRT batch updater configuration
-    irt_update_method: str = "heuristic"  # heuristic | mml | bayes (mml/bayes currently map to moment-based approx)
+    irt_update_method: str = (
+        "heuristic"  # heuristic | mml | bayes (mml/bayes currently map to moment-based approx)
+    )
     irt_target_correct_rate: float = 0.5
     irt_learning_rate: float = 0.1
-    irt_min_responses: int | None = None  # if stats view provides counts, require at least this many
+    irt_min_responses: int | None = (
+        None  # if stats view provides counts, require at least this many
+    )
     irt_update_max_items_per_run: int | None = None  # cap updates per cycle
     irt_change_log_table: str | None = None  # optional table to log param changes
     # Optional enrichment tables for solutions/topics and response aggregates
-    questions_table: str | None = None  # expected columns: question_id, solution_html, topic
-    responses_table: str | None = None  # expected columns: question_id, is_correct (bool)
+    questions_table: str | None = (
+        None  # expected columns: question_id, solution_html, topic
+    )
+    responses_table: str | None = (
+        None  # expected columns: question_id, is_correct (bool)
+    )
     # Global exposure control
     item_exposure_table: str = "item_exposure"
     exposure_max_per_window: Optional[int] = None
@@ -134,12 +144,18 @@ def _check_runtime_expired(ns_key: str) -> None:
         _runtime_selection_meta.pop(ns_key, None)
 
 
-def get_selection_policy(namespace: Optional[str] = None, resolve_hierarchy: bool = False) -> SelectionPolicy:
-    policy, _source, _resolved_ns, _last = get_selection_policy_info(namespace=namespace, resolve_hierarchy=resolve_hierarchy)
+def get_selection_policy(
+    namespace: Optional[str] = None, resolve_hierarchy: bool = False
+) -> SelectionPolicy:
+    policy, _source, _resolved_ns, _last = get_selection_policy_info(
+        namespace=namespace, resolve_hierarchy=resolve_hierarchy
+    )
     return policy
 
 
-def get_selection_policy_info(namespace: Optional[str] = None, resolve_hierarchy: bool = False) -> Tuple[SelectionPolicy, str, Optional[str], Optional[str]]:
+def get_selection_policy_info(
+    namespace: Optional[str] = None, resolve_hierarchy: bool = False
+) -> Tuple[SelectionPolicy, str, Optional[str], Optional[str]]:
     """Return (policy, source, resolved_namespace, last_updated ISO8601)."""
     key_ns = _ns_key(namespace)
     # Check runtime overrides first (with optional hierarchy)
@@ -153,7 +169,7 @@ def get_selection_policy_info(namespace: Optional[str] = None, resolve_hierarchy
                 meta = _runtime_selection_meta.get(ns_key)
                 if meta and isinstance(meta.get("last_updated"), str):
                     lu = meta.get("last_updated")
-                    last = lu if isinstance(lu, str) else None  
+                    last = lu if isinstance(lu, str) else None
                 return p, "runtime", (ns_key or None), last
     else:
         _check_runtime_expired(key_ns)
@@ -163,7 +179,7 @@ def get_selection_policy_info(namespace: Optional[str] = None, resolve_hierarchy
             meta = _runtime_selection_meta.get(key_ns)
             if meta and isinstance(meta.get("last_updated"), str):
                 lu = meta.get("last_updated")
-                last = lu if isinstance(lu, str) else None  
+                last = lu if isinstance(lu, str) else None
             return p, "runtime", (key_ns or None), last
     # Try to load from Redis store if present
     r = _get_redis_client()
@@ -171,7 +187,9 @@ def get_selection_policy_info(namespace: Optional[str] = None, resolve_hierarchy
         try:
             prefixes: List[Tuple[str, Optional[str]]] = []
             if resolve_hierarchy:
-                prefixes = [(f"{ns}:" if ns else "", ns) for ns in _fallback_chain(namespace)]
+                prefixes = [
+                    (f"{ns}:" if ns else "", ns) for ns in _fallback_chain(namespace)
+                ]
             else:
                 prefixes = [(f"{namespace}:" if namespace else "", namespace)]
             for pfx, ns_val in prefixes:
@@ -192,7 +210,12 @@ def get_selection_policy_info(namespace: Optional[str] = None, resolve_hierarchy
                         if "policy" in data:
                             p = SelectionPolicy.model_validate(data["policy"])  # type: ignore[index]
                             last = data.get("last_updated")  # type: ignore[assignment]
-                            return p, "redis", ns_val, last if isinstance(last, str) else None
+                            return (
+                                p,
+                                "redis",
+                                ns_val,
+                                last if isinstance(last, str) else None,
+                            )
         except Exception:
             pass
     s = get_settings()
@@ -210,24 +233,34 @@ def get_selection_policy_info(namespace: Optional[str] = None, resolve_hierarchy
     )
 
 
-def set_selection_policy(policy: SelectionPolicy, namespace: Optional[str] = None) -> None:
+def set_selection_policy(
+    policy: SelectionPolicy, namespace: Optional[str] = None
+) -> None:
     key_ns = _ns_key(namespace)
     _runtime_selection_overrides[key_ns] = policy
     # Update runtime metadata and compute optional expiration
     s = get_settings()
     ttl = s.selection_policy_ttl_sec
     expire_at = time.time() + float(ttl) if ttl and ttl > 0 else None
-    _runtime_selection_meta[key_ns] = {"last_updated": _now_iso(), "expire_at": expire_at}
+    _runtime_selection_meta[key_ns] = {
+        "last_updated": _now_iso(),
+        "expire_at": expire_at,
+    }
     # Best-effort persist to Redis for multi-instance sharing
     r = _get_redis_client()
     if r is not None:
         try:
             import json
-            payload = json.dumps({"policy": policy.model_dump(), "last_updated": _now_iso()})
+
+            payload = json.dumps(
+                {"policy": policy.model_dump(), "last_updated": _now_iso()}
+            )
             ttl = s.selection_policy_ttl_sec
             if ttl and ttl > 0:
                 ns_part = f"{namespace}:" if namespace else ""
-                r.setex(f"{s.redis_key_prefix}{ns_part}{_SEL_POLICY_KEY}", int(ttl), payload)
+                r.setex(
+                    f"{s.redis_key_prefix}{ns_part}{_SEL_POLICY_KEY}", int(ttl), payload
+                )
             else:
                 ns_part = f"{namespace}:" if namespace else ""
                 r.set(f"{s.redis_key_prefix}{ns_part}{_SEL_POLICY_KEY}", payload)
@@ -276,7 +309,7 @@ def list_selection_namespaces(include_global: bool = True) -> List[str]:
                 if isinstance(skey, (bytes, bytearray)):
                     skey = skey.decode("utf-8")
                 if isinstance(skey, str) and skey.startswith(prefix):
-                    suffix = skey[len(prefix):]
+                    suffix = skey[len(prefix) :]
                     if suffix == _SEL_POLICY_KEY:
                         if include_global:
                             found.add("")

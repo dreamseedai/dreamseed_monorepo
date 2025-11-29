@@ -20,7 +20,13 @@ def test_exam_flow_start_next_answer_state(monkeypatch):
     monkeypatch.setattr(
         cfg,
         "get_selection_policy",
-        lambda: cfg.SelectionPolicy(prefer_balanced=False, deterministic=True, max_per_topic=None, top_k_random=None, info_band_fraction=0.05),
+        lambda: cfg.SelectionPolicy(
+            prefer_balanced=False,
+            deterministic=True,
+            max_per_topic=None,
+            top_k_random=None,
+            info_band_fraction=0.05,
+        ),
         raising=True,
     )
 
@@ -36,7 +42,11 @@ def test_exam_flow_start_next_answer_state(monkeypatch):
         {"question_id": "Q1", "a": 1.0, "b": -0.2, "c": 0.2, "topic": "T1"},
         {"question_id": "Q2", "a": 1.0, "b": 0.1, "c": 0.2, "topic": "T2"},
     ]
-    r = client.post("/api/exam/next", params={"session_id": session_id}, json={"theta": 0.0, "available_questions": available, "seen_ids": []})
+    r = client.post(
+        "/api/exam/next",
+        params={"session_id": session_id},
+        json={"theta": 0.0, "available_questions": available, "seen_ids": []},
+    )
     assert r.status_code == 200
     q = r.json()["question"]
     assert q is not None
@@ -65,13 +75,51 @@ def test_stop_rules_edge_cases():
     from adaptive_engine.services.stop_rules import should_stop
 
     # Stop by max questions
-    assert should_stop(num_answered=10, max_questions=10, elapsed_time_sec=0, time_limit_sec=None, std_error=1.0) is True
+    assert (
+        should_stop(
+            num_answered=10,
+            max_questions=10,
+            elapsed_time_sec=0,
+            time_limit_sec=None,
+            std_error=1.0,
+        )
+        is True
+    )
     # Stop by time limit
-    assert should_stop(num_answered=1, max_questions=10, elapsed_time_sec=60, time_limit_sec=60, std_error=1.0) is True
+    assert (
+        should_stop(
+            num_answered=1,
+            max_questions=10,
+            elapsed_time_sec=60,
+            time_limit_sec=60,
+            std_error=1.0,
+        )
+        is True
+    )
     # Stop by SE threshold
-    assert should_stop(num_answered=1, max_questions=10, elapsed_time_sec=0, time_limit_sec=60, std_error=0.2, threshold=0.3) is True
+    assert (
+        should_stop(
+            num_answered=1,
+            max_questions=10,
+            elapsed_time_sec=0,
+            time_limit_sec=60,
+            std_error=0.2,
+            threshold=0.3,
+        )
+        is True
+    )
     # Continue when none reached
-    assert should_stop(num_answered=1, max_questions=10, elapsed_time_sec=10, time_limit_sec=60, std_error=0.5, threshold=0.3) is False
+    assert (
+        should_stop(
+            num_answered=1,
+            max_questions=10,
+            elapsed_time_sec=10,
+            time_limit_sec=60,
+            std_error=0.5,
+            threshold=0.3,
+        )
+        is False
+    )
 
 
 def test_irt_math_edge_cases():
