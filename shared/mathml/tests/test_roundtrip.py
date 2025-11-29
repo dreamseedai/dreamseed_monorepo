@@ -16,7 +16,7 @@ def test_snapshots_hash_and_speech():
         text=True
     )
     
-    if result.returncode \!= 0:
+    if result.returncode != 0:
         print(result.stdout)
         print(result.stderr)
         assert False, "Snapshot check failed"
