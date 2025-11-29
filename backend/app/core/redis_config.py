@@ -3,9 +3,8 @@
 from typing import Optional
 
 import redis.asyncio as redis
-from redis.asyncio import Redis
-
 from app.core.settings import settings
+from redis.asyncio import Redis
 
 
 class RedisManager:

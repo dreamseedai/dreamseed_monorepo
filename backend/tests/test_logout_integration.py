@@ -10,7 +10,6 @@ import uuid
 import httpx
 import pytest
 
-
 BASE_URL = "http://localhost:8001"
 TEST_EMAIL_PREFIX = "blacklist_test"
 

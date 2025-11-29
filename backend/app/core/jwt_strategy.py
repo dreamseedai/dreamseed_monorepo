@@ -5,16 +5,15 @@ from contextlib import suppress
 from datetime import datetime
 from typing import Optional
 
+from app.core.redis_config import get_redis
+from app.core.settings import settings
+from app.models.user import User
+from app.services.token_blacklist import TokenBlacklistService
 from fastapi import Security
 from fastapi.security import HTTPBearer
 from fastapi_users.authentication.strategy import Strategy
 from fastapi_users.jwt import decode_jwt, generate_jwt
 from fastapi_users.manager import BaseUserManager
-
-from app.core.redis_config import get_redis
-from app.core.settings import settings
-from app.models.user import User
-from app.services.token_blacklist import TokenBlacklistService
 
 bearer_transport = HTTPBearer()
 

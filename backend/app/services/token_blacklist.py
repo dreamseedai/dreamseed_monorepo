@@ -3,9 +3,8 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from redis.asyncio import Redis
-
 from app.core.settings import settings
+from redis.asyncio import Redis
 
 
 class TokenBlacklistService:

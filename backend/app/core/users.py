@@ -8,23 +8,21 @@ import os
 import time
 from typing import Optional
 
+from app.core.database import get_async_db
+from app.core.jwt_strategy import get_jwt_strategy_with_blacklist
+from app.models.user import User
+from app.services.email_service import (
+    send_password_reset_email,
+    send_verification_email,
+)
 from fastapi import Depends, Request
-from fastapi_users import BaseUserManager, IntegerIDMixin, FastAPIUsers
+from fastapi_users import BaseUserManager, FastAPIUsers, IntegerIDMixin
 from fastapi_users.authentication import (
     AuthenticationBackend,
     BearerTransport,
 )
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.database import get_async_db
-from app.core.jwt_strategy import get_jwt_strategy_with_blacklist
-from app.models.user import User
-from app.services.email_service import (
-    send_verification_email,
-    send_password_reset_email,
-)
-
 
 # JWT Secret - in production, use environment variable
 SECRET = os.getenv("JWT_SECRET", "CHANGE_THIS_SECRET_KEY_IN_PRODUCTION")
