@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: risk-config
+  labels:
+    app: dreamseedai-risk
+data:
+  RISK_REPORTS_DIR: {{ .Values.env.RISK_REPORTS_DIR | quote }}

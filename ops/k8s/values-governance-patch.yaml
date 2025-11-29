@@ -1,0 +1,111 @@
+# ============================================================================
+# Governance Helm Values Patch
+# DreamSeedAI 서비스용 - 즉시 적용 가능
+# ============================================================================
+
+# 사용법:
+# 1. 기존 values.yaml에 아래 내용 추가 (merge)
+# 2. 또는 -f values-governance.yaml 로 오버라이드
+
+# ============================================================================
+# (A) 거버넌스 환경변수
+# ============================================================================
+extraEnv:
+  - name: POLICY_BUNDLE_ID
+    value: "phase1"                # phase0 | phase1 | prod
+  
+  - name: GOVERNANCE_PHASE
+    value: "1"                     # 0 (감사만) ~ 3 (전체)
+  
+  - name: POLICY_STRICT_MODE
+    value: "soft"                  # soft (로그만) | enforce (차단)
+  
+  - name: POLICY_BUNDLE_PATH
+    value: "/app/governance/compiled/policy_bundle_phase1.json"
+
+# ============================================================================
+# (B) 정책 번들 마운트 (ConfigMap)
+# ============================================================================
+extraVolumes:
+  - name: governance-bundles
+    configMap:
+      name: governance-bundles
+      items:
+        - key: policy_bundle_phase0.json
+          path: policy_bundle_phase0.json
+        - key: policy_bundle_phase1.json
+          path: policy_bundle_phase1.json
+        - key: policy_bundle_prod.json
+          path: policy_bundle_prod.json
+
+extraVolumeMounts:
+  - name: governance-bundles
+    mountPath: /app/governance/compiled
+    readOnly: true
+
+# ============================================================================
+# (C) Health Checks (선택)
+# ============================================================================
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+# ============================================================================
+# 대안 A: envFrom (ConfigMap/Secret으로 환경변수 일괄 주입)
+# ============================================================================
+# 차트가 envFrom을 지원하지 않으면 주석 해제
+# envFrom:
+#   - configMapRef:
+#       name: governance-runtime
+
+# ============================================================================
+# 대안 B: InitContainer로 번들 동기화 (외부 아티팩트 서버 사용 시)
+# ============================================================================
+# extraInitContainers:
+#   - name: sync-policy-bundles
+#     image: curlimages/curl:8.9.0
+#     command: ['sh', '-c']
+#     args:
+#       - |
+#         curl -fsSL ${BUNDLE_URL}/policy_bundle_phase0.json -o /bundles/policy_bundle_phase0.json
+#         curl -fsSL ${BUNDLE_URL}/policy_bundle_phase1.json -o /bundles/policy_bundle_phase1.json
+#         curl -fsSL ${BUNDLE_URL}/policy_bundle_prod.json -o /bundles/policy_bundle_prod.json
+#         ls -lh /bundles
+#     env:
+#       - name: BUNDLE_URL
+#         value: "https://artifacts.dreamseed.ai/governance/compiled"
+#     volumeMounts:
+#       - name: governance-bundles
+#         mountPath: /bundles
+
+# ============================================================================
+# Phase별 값 예시
+# ============================================================================
+
+# Phase 0 (Staging): 감사만
+# governance:
+#   bundleId: phase0
+#   phase: 0
+#   strictMode: soft
+
+# Phase 1 (Production): RBAC 집행
+# governance:
+#   bundleId: phase1
+#   phase: 1
+#   strictMode: enforce
+
+# Phase 2+ (Advanced): 전체 기능
+# governance:
+#   bundleId: prod
+#   phase: 2
+#   strictMode: enforce

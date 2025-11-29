@@ -1,0 +1,38 @@
+# DreamSeedAI Gateway - Default Values
+
+host: app.dreamseedai.com
+
+tls:
+  enabled: true
+  useCertManager: true
+  secretName: dreamseedai-tls
+  clusterIssuer: letsencrypt-prod
+
+paths:
+  # Portal (포털이 K8s에 있을 때만 enabled: true)
+  portal:
+    enabled: false
+    serviceName: portal-frontend
+    servicePort: 80
+    path: /
+  
+  # API Backend
+  api:
+    serviceName: dreamseedai-backend
+    servicePort: 8000
+    path: /api
+  
+  # Shiny Dashboard
+  shiny:
+    serviceName: risk-shiny
+    servicePort: 80
+    path: /shiny/risk
+
+ingressClassName: nginx
+
+annotations:
+  nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+  nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  nginx.ingress.kubernetes.io/rewrite-target: /$2
+  nginx.ingress.kubernetes.io/use-regex: "true"

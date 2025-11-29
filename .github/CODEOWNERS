@@ -1,1 +1,33 @@
-* @mpcstudy
+# DreamSeed 모노레포 코드 소유자
+
+# 루트 설정 파일 (리뷰 필수)
+/package.json @dreamseedai/devops
+/pnpm-workspace.yaml @dreamseedai/devops
+/tsconfig.base.json @dreamseedai/devops
+/.gitignore @dreamseedai/devops
+/docker-compose.yml @dreamseedai/devops
+
+# 유지보수 스크립트
+/scripts/ @dreamseedai/devops
+/MAINTENANCE_GUIDE.md @dreamseedai/devops
+
+# 백엔드
+/backend/ @dreamseedai/backend
+/adaptive_engine/ @dreamseedai/backend
+
+# 프론트엔드
+/admin_front/ @dreamseedai/frontend
+/portal_front/ @dreamseedai/frontend
+/frontend/ @dreamseedai/frontend
+
+# 공유 라이브러리
+/shared/ @dreamseedai/platform
+
+# 운영
+/ops/ @dreamseedai/devops
+/.github/ @dreamseedai/devops
+
+# 문서
+/docs/ @dreamseedai/docs
+/PROJECT_STRUCTURE.md @dreamseedai/docs
+/README.md @dreamseedai/docs

@@ -1,0 +1,17 @@
+fullnameOverride: "mpcstudy-api"
+service:
+  name: "mpcstudy-api"
+  version: "canary"
+  port: 8010  # 제안 포트 (레거시 PHP → 어댑터/익스포터 필요)
+image:
+  repository: "registry.example.com/mpcstudy-api"
+  tag: "2025.11.09"
+prometheus:
+  address: "http://prometheus-server.monitoring.svc.cluster.local"
+servicemonitor:
+  labels:
+    release: kube-prometheus-stack
+
+# 레거시 PHP 환경 참고사항:
+# 1. Nginx/Php-FPM 익스포터로 별도 /metrics 서비스 노출
+# 2. 얇은 Python/FastAPI 어댑터를 앞단에 두고 /metrics와 x-trace-id 헤더 주입

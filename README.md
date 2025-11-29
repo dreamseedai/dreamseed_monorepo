@@ -18,6 +18,35 @@
 
 ---
 
+## 🔔 모노레포 구조화 안내 (2024-11-09)
+
+> **검색 성능 개선 및 고립된 파일 제거를 위한 구조화가 준비되었습니다.**
+
+### 빠른 실행
+```bash
+# 1. 백업
+git checkout -b restructure-monorepo
+git add . && git commit -m "chore: 구조화 전 스냅샷"
+
+# 2. 실행 (5분)
+./RESTRUCTURE_EXECUTE.sh
+
+# 3. 커밋
+git add . && git commit -m "refactor: 모노레포 구조화"
+```
+
+### 상세 가이드
+- **빠른 시작**: [`QUICK_START.md`](./QUICK_START.md)
+- **상세 계획**: [`MONOREPO_RESTRUCTURE_PLAN.md`](./MONOREPO_RESTRUCTURE_PLAN.md)
+- **실행 요약**: [`RESTRUCTURE_SUMMARY.md`](./RESTRUCTURE_SUMMARY.md)
+
+### 예상 효과
+- ✅ 검색 속도 **95% 개선**
+- ✅ 스캔 디렉토리 **87% 감소** (30+ → 4개)
+- ✅ 고립된 파일 **100% 제거** (17개 디렉토리)
+
+---
+
 ## 🤖 AI Endpoint Switching (Local ↔ Cloud)
 
 DreamSeed modules now share a single, consistent way to switch between a local OpenAI-compatible endpoint (e.g., llama.cpp or vLLM) and OpenAI Cloud.

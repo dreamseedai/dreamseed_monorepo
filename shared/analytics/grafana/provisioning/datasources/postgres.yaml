@@ -1,0 +1,13 @@
+apiVersion: 1
+datasources:
+  - name: DreamSeedAI Postgres
+    type: postgres
+    access: proxy
+    isDefault: true
+    url: ${DSA_PG_HOST:localhost}:${DSA_PG_PORT:5432}
+    user: ${DSA_PG_USER}
+    secureJsonData:
+      password: ${DSA_PG_PASSWORD}
+    jsonData:
+      database: ${DSA_PG_DB:dreamseed}
+      sslmode: disable

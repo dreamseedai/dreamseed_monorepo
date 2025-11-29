@@ -1,0 +1,78 @@
+{{- if .Values.rollouts.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "api-observability-rollout.fullname" . }}
+  labels:
+    {{- include "api-observability-rollout.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    canary:
+      steps:
+      {{- range .Values.rollouts.steps }}
+        {{- if hasKey . "setWeight" }}
+        - setWeight: {{ .setWeight }}
+        {{- else if hasKey . "pause" }}
+        - pause:
+            {{- toYaml .pause | nindent 12 }}
+        {{- else if hasKey . "analysis" }}
+        - analysis:
+            templates:
+              - templateName: {{ include "api-observability-rollout.analysisName" $ }}
+        {{- end }}
+      {{- end }}
+  selector:
+    matchLabels:
+      {{ .Values.labelKeys.app }}: {{ include "api-observability-rollout.fullname" . }}
+  template:
+    metadata:
+      labels:
+        {{ .Values.labelKeys.app }}: {{ include "api-observability-rollout.fullname" . }}
+        {{ .Values.labelKeys.service }}: {{ .Values.service.name | quote }}
+        {{ .Values.labelKeys.version }}: {{ .Values.service.version | quote }}
+        {{- with .Values.pod.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- with .Values.pod.annotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          env:
+            {{- range .Values.env }}
+            {{- if hasKey . "valueFromMeta" }}
+            {{- $labelKey := regexFind "[^:]+$" .valueFromMeta | trimPrefix "label:" }}
+            - name: {{ .name }}
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['{{ $labelKey }}']
+            {{- else }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.service.healthPath }}
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.service.healthPath }}
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

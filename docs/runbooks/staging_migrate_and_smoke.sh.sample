@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# Staging Alembic Migration + Smoke Test Script (SAMPLE - NO SENSITIVE VALUES)
+# Usage: Copy to scripts/local/ and customize before running
+set -euo pipefail
+
+# ====== CONFIG (Required variables) ======
+PROJECT="${PROJECT:-univprepai}"
+NS="${NS:-seedtest}"
+APP_IMAGE="${APP_IMAGE:-asia-northeast3-docker.pkg.dev/univprepai/seedtest/seedtest-api:latest}"
+SECRET="${SECRET:-seedtest-db-credentials}"
+CONN_NAME="${CONN_NAME:-univprepai:asia-northeast3:seedtest-staging}"
+JOB_NAME="alembic-upgrade-$(date +%Y%m%d-%H%M%S)"
+
+# ====== Prerequisites check ======
+command -v kubectl >/dev/null || { echo "❌ kubectl 필요"; exit 1; }
+
+echo "🚀 Alembic 마이그레이션 + 스모크 테스트 시작..."
+echo "  Namespace: $NS"
+echo "  Image: $APP_IMAGE"
+echo "  Job: $JOB_NAME"
+echo ""
+
+# ====== Step 1: Create Alembic Upgrade Job ======
+echo "[1/4] Alembic Upgrade Job 생성..."
+cat <<YAML | kubectl -n "$NS" apply -f -
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: $JOB_NAME
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: seedtest-api
+      containers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+        args:
+          - "--structured-logs"
+          - "--port=5432"
+          - "$CONN_NAME"
+        securityContext:
+          runAsNonRoot: true
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+      - name: migrator
+        image: $APP_IMAGE
+        workingDir: /app/seedtest_api
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: $SECRET
+              key: DATABASE_URL
+        command: ["bash","-c"]
+        args:
+          - |
+            set -euo pipefail
+            echo "Waiting for Cloud SQL Proxy..."
+            sleep 5
+            echo "Running Alembic upgrade..."
+            PYTHONPATH=/app alembic upgrade head
+            echo "Current Alembic version:"
+            PYTHONPATH=/app alembic current
+YAML
+
+if [ $? -ne 0 ]; then
+  echo "❌ Job 생성 실패"
+  exit 1
+fi
+echo "✅ Job 생성 완료"
+
+# ====== Step 2: Wait and monitor job ======
+echo "[2/4] Job 실행 모니터링..."
+sleep 3
+
+# Follow logs
+echo "📋 Job 로그:"
+kubectl -n "$NS" logs -f "job/$JOB_NAME" -c migrator 2>/dev/null || true
+
+# Wait for completion
+echo ""
+echo "⏳ Job 완료 대기 (최대 5분)..."
+if ! kubectl -n "$NS" wait --for=condition=complete "job/$JOB_NAME" --timeout=300s 2>/dev/null; then
+  echo "❌ Job 실패 또는 타임아웃"
+  echo "📋 Job 상태:"
+  kubectl -n "$NS" get job "$JOB_NAME"
+  echo "📋 Pod 로그:"
+  kubectl -n "$NS" logs "job/$JOB_NAME" -c migrator --tail=50
+  exit 1
+fi
+echo "✅ 마이그레이션 완료"
+
+# ====== Step 3: Runtime smoke test ======
+echo "[3/4] 런타임 스모크 테스트..."
+APP=seedtest-api
+POD=$(kubectl -n "$NS" get pod -l app=$APP -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+
+if [ -z "$POD" ]; then
+  echo "⚠️  Pod를 찾을 수 없습니다. 스모크 테스트 스킵."
+else
+  echo "  Pod: $POD"
+  
+  # Check DATABASE_URL
+  echo -n "  - DATABASE_URL 확인: "
+  if kubectl -n "$NS" exec "$POD" -c api -- sh -c 'test -n "$DATABASE_URL"' 2>/dev/null; then
+    echo "✅"
+  else
+    echo "❌"
+  fi
+  
+  # Check DB connection
+  echo -n "  - DB 연결 테스트: "
+  if kubectl -n "$NS" exec "$POD" -c api -- python -c "
+import os, psycopg
+url=os.environ['DATABASE_URL'].replace('postgresql+psycopg','postgresql')
+with psycopg.connect(url) as c:
+    with c.cursor() as cur:
+        cur.execute('SELECT 1')
+        assert cur.fetchone() == (1,)
+" 2>/dev/null; then
+    echo "✅"
+  else
+    echo "❌"
+  fi
+  
+  # Check Alembic version
+  echo -n "  - Alembic 버전: "
+  ALEMBIC_VERSION=$(kubectl -n "$NS" exec "$POD" -c api -- bash -c \
+    "cd /app/seedtest_api && PYTHONPATH=/app alembic current 2>/dev/null | tail -1" || echo "unknown")
+  echo "$ALEMBIC_VERSION"
+fi
+
+# ====== Step 4: Summary ======
+echo ""
+echo "[4/4] 최종 상태 확인..."
+kubectl -n "$NS" get job "$JOB_NAME"
+echo ""
+echo "✅ 완료: 마이그레이션 + 스모크 테스트"
+echo ""
+echo "📋 다음 단계:"
+echo "  1. 애플리케이션 로그 확인: kubectl -n $NS logs -l app=seedtest-api --tail=50"
+echo "  2. DB 테이블 확인: kubectl -n $NS exec -it <pod> -c api -- psql \$DATABASE_URL"
+echo "  3. Job 정리: kubectl -n $NS delete job $JOB_NAME"

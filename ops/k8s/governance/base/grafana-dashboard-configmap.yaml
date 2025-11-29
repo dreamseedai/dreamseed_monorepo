@@ -1,0 +1,601 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seedtest-api-dashboard
+  namespace: seedtest
+  labels:
+    app: seedtest-api
+    governance: enabled
+    grafana_dashboard: "1"
+data:
+  seedtest-api-governance.json: |
+    {
+      "title": "SeedTest API – Governance & SLO",
+      "uid": "seedtest-api-governance",
+      "schemaVersion": 39,
+      "version": 2,
+      "tags": ["seedtest-api", "governance", "slo"],
+      "timezone": "browser",
+      "refresh": "30s",
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "templating": {
+        "list": [
+          {
+            "type": "query",
+            "name": "namespace",
+            "label": "Namespace",
+            "query": "label_values(kube_pod_info, namespace)",
+            "current": {"text": "seedtest", "value": "seedtest"}
+          },
+          {
+            "type": "textbox",
+            "name": "app",
+            "label": "App",
+            "query": "",
+            "current": {"text": "seedtest-api", "value": "seedtest-api"}
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "row",
+          "title": "HTTP",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+          "collapsed": false
+        },
+        {
+          "type": "timeseries",
+          "title": "HTTP Error Rate (5m/30m)",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 1},
+          "targets": [
+            {
+              "expr": "job:http_error_rate_5m{endpoint=~\".*\"}",
+              "legendFormat": "{{method}} {{endpoint}} (5m)"
+            },
+            {
+              "expr": "job:http_error_rate_30m{endpoint=~\".*\"}",
+              "legendFormat": "{{method}} {{endpoint}} (30m)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "red", "value": 0.05}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "HTTP p95 Latency (s)",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 1},
+          "targets": [
+            {
+              "expr": "job:http_request_duration_seconds:p95_5m",
+              "legendFormat": "{{method}} {{endpoint}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "red", "value": 1}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "In-Flight Requests",
+          "gridPos": {"h": 6, "w": 24, "x": 0, "y": 9},
+          "targets": [
+            {
+              "expr": "sum by (endpoint, method) (http_requests_in_progress)"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Governance",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 15},
+          "collapsed": false
+        },
+        {
+          "type": "timeseries",
+          "title": "Policy Deny / Allow (rate)",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+          "targets": [
+            {
+              "expr": "sum by (action,role) (rate(policy_deny_total[5m]))",
+              "legendFormat": "deny {{action}} {{role}}"
+            },
+            {
+              "expr": "sum by (action,role) (rate(policy_allow_total[5m]))",
+              "legendFormat": "allow {{action}} {{role}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Policy Eval p95 (s)",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+          "targets": [
+            {
+              "expr": "job:policy_evaluation_duration_seconds:p95_5m",
+              "legendFormat": "{{action}} phase={{phase}}"
+            }
+          ],
+          "fieldConfig": {"defaults": {"unit": "s"}}
+        },
+        {
+          "type": "stat",
+          "title": "Bundle Loaded",
+          "gridPos": {"h": 4, "w": 12, "x": 0, "y": 24},
+          "targets": [
+            {
+              "expr": "max by (bundle_id,phase) (governance_bundle_loaded)"
+            }
+          ],
+          "options": {
+            "reduceOptions": {"calcs": ["lastNotNull"]},
+            "colorMode": "value"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Bundle Reload (success/error)",
+          "gridPos": {"h": 4, "w": 12, "x": 12, "y": 24},
+          "targets": [
+            {
+              "expr": "sum by (bundle_id) (rate(governance_bundle_reload_total{status=\"success\"}[5m]))",
+              "legendFormat": "success {{bundle_id}}"
+            },
+            {
+              "expr": "sum by (bundle_id) (rate(governance_bundle_reload_total{status=\"error\"}[5m]))",
+              "legendFormat": "error {{bundle_id}}"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Feature Flags",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 28},
+          "collapsed": false
+        },
+        {
+          "type": "stat",
+          "title": "risk_engine enabled",
+          "gridPos": {"h": 4, "w": 12, "x": 0, "y": 29},
+          "targets": [
+            {
+              "expr": "max(feature_flag_enabled{flag_name=\"risk_engine\"})"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Flag Checks (rate)",
+          "gridPos": {"h": 4, "w": 12, "x": 12, "y": 29},
+          "targets": [
+            {
+              "expr": "sum by (flag_name,result) (rate(feature_flag_checks_total[5m]))",
+              "legendFormat": "{{flag_name}} {{result}}"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "IRT / Content",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 33},
+          "collapsed": false
+        },
+        {
+          "type": "timeseries",
+          "title": "IRT Drift Detections (rate)",
+          "gridPos": {"h": 6, "w": 12, "x": 0, "y": 34},
+          "targets": [
+            {
+              "expr": "rate(irt_drift_detections_total{status=\"detected\"}[5m])"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Flagged Items",
+          "gridPos": {"h": 6, "w": 12, "x": 12, "y": 34},
+          "targets": [{"expr": "irt_drift_flagged_items"}]
+        },
+        {
+          "type": "row",
+          "title": "Database",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 40},
+          "collapsed": false
+        },
+        {
+          "type": "timeseries",
+          "title": "DB p95 (s)",
+          "gridPos": {"h": 6, "w": 8, "x": 0, "y": 41},
+          "targets": [
+            {
+              "expr": "job:db_query_duration_seconds:p95_5m",
+              "legendFormat": "{{query_type}}"
+            }
+          ],
+          "fieldConfig": {"defaults": {"unit": "s"}}
+        },
+        {
+          "type": "timeseries",
+          "title": "DB Errors (rate)",
+          "gridPos": {"h": 6, "w": 8, "x": 8, "y": 41},
+          "targets": [
+            {
+              "expr": "sum by (error_type) (rate(db_errors_total[5m]))",
+              "legendFormat": "{{error_type}}"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Active DB Connections",
+          "gridPos": {"h": 6, "w": 8, "x": 16, "y": 41},
+          "targets": [{"expr": "db_connections_active"}]
+        },
+        {
+          "type": "row",
+          "title": "App",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 47},
+          "collapsed": false
+        },
+        {
+          "type": "stat",
+          "title": "App Version",
+          "gridPos": {"h": 4, "w": 24, "x": 0, "y": 48},
+          "targets": [
+            {
+              "expr": "max by (version) (app_info)"
+            }
+          ]
+        }
+      ]
+    }
+
+          {
+            "title": "API Uptime",
+            "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+            "type": "stat",
+            "targets": [{
+              "expr": "up{job=\"seedtest-api\"}",
+              "legendFormat": "{{ instance }}"
+            }],
+            "options": {
+              "colorMode": "background",
+              "graphMode": "none",
+              "textMode": "value_and_name"
+            },
+            "fieldConfig": {
+              "defaults": {
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"value": 0, "color": "red"},
+                    {"value": 1, "color": "green"}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "title": "Request Rate (req/s)",
+            "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+            "type": "stat",
+            "targets": [{
+              "expr": "sum(rate(http_requests_total{job=\"seedtest-api\"}[5m]))",
+              "legendFormat": "Total"
+            }],
+            "options": {
+              "colorMode": "value",
+              "graphMode": "area",
+              "textMode": "value_and_name"
+            }
+          },
+          {
+            "title": "P99 Latency (s)",
+            "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+            "type": "stat",
+            "targets": [{
+              "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job=\"seedtest-api\"}[5m]))",
+              "legendFormat": "P99"
+            }],
+            "options": {
+              "colorMode": "value",
+              "graphMode": "area"
+            },
+            "fieldConfig": {
+              "defaults": {
+                "unit": "s",
+                "thresholds": {
+                  "steps": [
+                    {"value": 0, "color": "green"},
+                    {"value": 1, "color": "yellow"},
+                    {"value": 2, "color": "red"}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "title": "Error Rate (%)",
+            "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+            "type": "stat",
+            "targets": [{
+              "expr": "sum(rate(http_requests_total{job=\"seedtest-api\", status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"seedtest-api\"}[5m])) * 100",
+              "legendFormat": "5xx"
+            }],
+            "options": {
+              "colorMode": "background"
+            },
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percent",
+                "thresholds": {
+                  "steps": [
+                    {"value": 0, "color": "green"},
+                    {"value": 1, "color": "yellow"},
+                    {"value": 5, "color": "red"}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "title": "HTTP Request Rate by Endpoint",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+            "type": "timeseries",
+            "targets": [{
+              "expr": "sum(rate(http_requests_total{job=\"seedtest-api\"}[5m])) by (endpoint, method)",
+              "legendFormat": "{{ method }} {{ endpoint }}"
+            }],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "reqps",
+                "custom": {"drawStyle": "line", "fillOpacity": 10}
+              }
+            }
+          },
+          {
+            "title": "HTTP Latency Percentiles",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{job=\"seedtest-api\"}[5m]))",
+                "legendFormat": "P50"
+              },
+              {
+                "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"seedtest-api\"}[5m]))",
+                "legendFormat": "P95"
+              },
+              {
+                "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job=\"seedtest-api\"}[5m]))",
+                "legendFormat": "P99"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "s"
+              }
+            }
+          },
+          {
+            "title": "Governance Bundle Status",
+            "gridPos": {"h": 4, "w": 6, "x": 0, "y": 12},
+            "type": "stat",
+            "targets": [{
+              "expr": "governance_bundle_loaded{job=\"seedtest-api\"}",
+              "legendFormat": "{{ bundle_id }} (phase {{ phase }})"
+            }],
+            "options": {
+              "colorMode": "background",
+              "textMode": "value_and_name"
+            },
+            "fieldConfig": {
+              "defaults": {
+                "thresholds": {
+                  "steps": [
+                    {"value": 0, "color": "red"},
+                    {"value": 1, "color": "green"}
+                  ]
+                },
+                "mappings": [
+                  {"type": "value", "value": "0", "text": "Failed"},
+                  {"type": "value", "value": "1", "text": "Loaded"}
+                ]
+              }
+            }
+          },
+          {
+            "title": "Policy Evaluation Rate",
+            "gridPos": {"h": 4, "w": 6, "x": 6, "y": 12},
+            "type": "stat",
+            "targets": [{
+              "expr": "sum(rate(policy_evaluations_total{job=\"seedtest-api\"}[5m]))",
+              "legendFormat": "Evaluations/s"
+            }],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "ops"
+              }
+            }
+          },
+          {
+            "title": "Policy Deny Rate (%)",
+            "gridPos": {"h": 4, "w": 6, "x": 12, "y": 12},
+            "type": "stat",
+            "targets": [{
+              "expr": "sum(rate(policy_deny_total{job=\"seedtest-api\"}[5m])) / sum(rate(policy_evaluations_total{job=\"seedtest-api\"}[5m])) * 100",
+              "legendFormat": "Deny %"
+            }],
+            "options": {
+              "colorMode": "background"
+            },
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percent",
+                "thresholds": {
+                  "steps": [
+                    {"value": 0, "color": "green"},
+                    {"value": 10, "color": "yellow"},
+                    {"value": 30, "color": "red"}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "title": "Policy Evaluation Latency",
+            "gridPos": {"h": 4, "w": 6, "x": 18, "y": 12},
+            "type": "stat",
+            "targets": [{
+              "expr": "histogram_quantile(0.95, rate(policy_evaluation_duration_seconds_bucket{job=\"seedtest-api\"}[5m]))",
+              "legendFormat": "P95"
+            }],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "s",
+                "thresholds": {
+                  "steps": [
+                    {"value": 0, "color": "green"},
+                    {"value": 0.05, "color": "yellow"},
+                    {"value": 0.1, "color": "red"}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "title": "Policy Deny/Allow Rate by Action",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "sum(rate(policy_deny_total{job=\"seedtest-api\"}[5m])) by (action, phase)",
+                "legendFormat": "Deny - {{ action }} (phase {{ phase }})"
+              },
+              {
+                "expr": "sum(rate(policy_allow_total{job=\"seedtest-api\"}[5m])) by (action, phase)",
+                "legendFormat": "Allow - {{ action }} (phase {{ phase }})"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "ops"
+              }
+            }
+          },
+          {
+            "title": "Policy Denials by Role & Reason",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+            "type": "timeseries",
+            "targets": [{
+              "expr": "sum(rate(policy_deny_total{job=\"seedtest-api\"}[5m])) by (role, reason)",
+              "legendFormat": "{{ role }} - {{ reason }}"
+            }],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "ops"
+              }
+            }
+          },
+          {
+            "title": "Bundle Reload Success Rate",
+            "gridPos": {"h": 6, "w": 12, "x": 0, "y": 24},
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "sum(rate(governance_bundle_reload_total{job=\"seedtest-api\", status=\"success\"}[5m])) by (bundle_id)",
+                "legendFormat": "Success - {{ bundle_id }}"
+              },
+              {
+                "expr": "sum(rate(governance_bundle_reload_total{job=\"seedtest-api\", status=\"error\"}[5m])) by (bundle_id)",
+                "legendFormat": "Error - {{ bundle_id }}"
+              }
+            ]
+          },
+          {
+            "title": "IRT Drift Flagged Items",
+            "gridPos": {"h": 6, "w": 12, "x": 12, "y": 24},
+            "type": "timeseries",
+            "targets": [{
+              "expr": "irt_drift_flagged_items{job=\"seedtest-api\"}",
+              "legendFormat": "Flagged Items"
+            }],
+            "fieldConfig": {
+              "defaults": {
+                "thresholds": {
+                  "steps": [
+                    {"value": 0, "color": "green"},
+                    {"value": 10, "color": "yellow"},
+                    {"value": 20, "color": "red"}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "title": "Database Connection Pool",
+            "gridPos": {"h": 6, "w": 8, "x": 0, "y": 30},
+            "type": "timeseries",
+            "targets": [{
+              "expr": "db_connections_active{job=\"seedtest-api\"}",
+              "legendFormat": "Active Connections"
+            }],
+            "fieldConfig": {
+              "defaults": {
+                "thresholds": {
+                  "steps": [
+                    {"value": 0, "color": "green"},
+                    {"value": 70, "color": "yellow"},
+                    {"value": 90, "color": "red"}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "title": "Database Query Latency (P95)",
+            "gridPos": {"h": 6, "w": 8, "x": 8, "y": 30},
+            "type": "timeseries",
+            "targets": [{
+              "expr": "histogram_quantile(0.95, rate(db_query_duration_seconds_bucket{job=\"seedtest-api\"}[5m])) by (query_type)",
+              "legendFormat": "{{ query_type }}"
+            }],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "s"
+              }
+            }
+          },
+          {
+            "title": "Database Errors",
+            "gridPos": {"h": 6, "w": 8, "x": 16, "y": 30},
+            "type": "timeseries",
+            "targets": [{
+              "expr": "sum(rate(db_errors_total{job=\"seedtest-api\"}[5m])) by (error_type)",
+              "legendFormat": "{{ error_type }}"
+            }]
+          }
+        ]
+      }
+    }

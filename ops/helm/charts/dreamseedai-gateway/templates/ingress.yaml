@@ -1,0 +1,53 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dreamseedai-gateway
+  labels:
+    app: dreamseedai-gateway
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.ingressClassName | quote }}
+    {{- if and .Values.tls.enabled .Values.tls.useCertManager }}
+    cert-manager.io/cluster-issuer: {{ .Values.tls.clusterIssuer | quote }}
+    {{- end }}
+    {{- range $k, $v := .Values.annotations }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  {{- if .Values.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.host | quote }}
+      secretName: {{ .Values.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.host }}
+      http:
+        paths:
+          {{- if .Values.paths.portal.enabled }}
+          # Portal (/)
+          - path: {{ .Values.paths.portal.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.paths.portal.serviceName }}
+                port:
+                  number: {{ .Values.paths.portal.servicePort }}
+          {{- end }}
+          
+          # API Backend (/api)
+          - path: {{ .Values.paths.api.path }}(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.paths.api.serviceName }}
+                port:
+                  number: {{ .Values.paths.api.servicePort }}
+          
+          # Shiny Dashboard (/shiny/risk)
+          - path: {{ .Values.paths.shiny.path }}(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.paths.shiny.serviceName }}
+                port:
+                  number: {{ .Values.paths.shiny.servicePort }}

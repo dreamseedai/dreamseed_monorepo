@@ -1,0 +1,20 @@
+{{- if .Values.k8sService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "api-observability-rollout.fullname" . }}
+  labels:
+    {{- include "api-observability-rollout.labels" . | nindent 4 }}
+    {{ .Values.labelKeys.app }}: {{ include "api-observability-rollout.fullname" . }}
+    {{ .Values.labelKeys.service }}: {{ .Values.service.name | quote }}
+    {{ .Values.labelKeys.version }}: {{ .Values.service.version | quote }}
+  annotations:
+    {{- toYaml .Values.service.annotations | nindent 4 }}
+spec:
+  selector:
+    {{ .Values.labelKeys.app }}: {{ include "api-observability-rollout.fullname" . }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}
+{{- end }}

@@ -1,0 +1,260 @@
+{
+  "id": null,
+  "uid": "assess-drift-watch",
+  "title": "Assessment Drift Watch (DreamSeedAI)",
+  "tags": ["dreamseedai", "irt", "qa", "drift"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-14d", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "ds",
+        "type": "datasource",
+        "label": "Postgres DS",
+        "query": "postgres",
+        "current": {"selected": true},
+        "hide": 0
+      },
+      {
+        "name": "schema",
+        "type": "textbox",
+        "label": "Schema",
+        "query": "analytics",
+        "current": { "text": "analytics", "value": "analytics" }
+      },
+      {
+        "name": "lang",
+        "type": "custom",
+        "label": "Language",
+        "query": "all,ko,en,zh-Hans,zh-Hant",
+        "current": { "text": "all", "value": "all" }
+      },
+      {
+        "name": "region",
+        "type": "textbox",
+        "label": "Region",
+        "query": "all",
+        "current": { "text": "all", "value": "all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "text",
+      "title": "Today's Narrative",
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 0},
+      "options": {
+        "mode": "html",
+        "content": "<div style='font-size:14px;line-height:1.5'>\n<b>자동 요약</b><br/>\n<ul style='margin:8px 0'>\n<li><b>Anchor Erosion</b>: <span style='color:#ff6b6b'>상</span> – 지난 7일 Δb > 0.35sd 항목: <span data-field='anchor_erosion_items'>N/A</span></li>\n<li><b>Guessing Instability</b>: <span style='color:#ffa94d'>중</span> – 평균 c +Δ: <span data-field='c_delta'>N/A</span></li>\n<li><b>Curriculum Shift</b>: <span style='color:#40c057'>하</span> – 변동 KC 수: <span data-field='kc_shift'>N/A</span></li>\n</ul>\n<i>하단 지표와 함께 변동 원인을 검토하고 필요 시 '조치' 패널의 버튼을 사용하세요.</i>\n</div>"
+      },
+      "transparent": true
+    },
+    {
+      "type": "stat",
+      "title": "Δθ (7d) – 평균",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 6},
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {"calcs": ["mean"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.05},
+              {"color": "red", "value": 0.1}
+            ]
+          }
+        }, "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {"type": "postgres", "uid": "$ds"},
+          "format": "table",
+          "rawSql": "SELECT AVG(delta_theta_7d) AS v FROM ${schema}.daily_metrics WHERE ts >= NOW() - INTERVAL '7 days' AND ($lang='all' OR user_lang=$lang) AND ($region='all' OR region=$region);",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Last Option Rate (14d, %)",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 6},
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {"calcs": ["last"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green"},
+              {"color": "orange", "value": 0.22},
+              {"color": "red", "value": 0.28}
+            ]
+          }
+        }, "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {"type": "postgres", "uid": "$ds"},
+          "format": "table",
+          "rawSql": "SELECT AVG(last_option_rate) AS v FROM ${schema}.behavior_metrics WHERE ts >= NOW() - INTERVAL '14 days' AND ($lang='all' OR user_lang=$lang) AND ($region='all' OR region=$region);",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Omit Rate (14d, %)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 6},
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {"calcs": ["last"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": { "mode": "absolute", "steps": [
+            {"color": "green"},
+            {"color": "orange", "value": 0.08},
+            {"color": "red", "value": 0.12}
+          ]}
+        }, "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {"type": "postgres", "uid": "$ds"},
+          "format": "table",
+          "rawSql": "SELECT AVG(omit_rate) AS v FROM ${schema}.behavior_metrics WHERE ts >= NOW() - INTERVAL '14 days' AND ($lang='all' OR user_lang=$lang) AND ($region='all' OR region=$region);",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Active Alerts (오늘)",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 6},
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [
+            {"color": "green"},
+            {"color": "orange", "value": 2},
+            {"color": "red", "value": 4}
+          ]}
+        }, "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {"type": "postgres", "uid": "$ds"},
+          "format": "table",
+          "rawSql": "SELECT COUNT(*)::int AS v FROM ${schema}.alerts WHERE ts::date = CURRENT_DATE AND resolved=false AND ($lang='all' OR user_lang=$lang) AND ($region='all' OR region=$region);",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Last Option Rate (일별)",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 10},
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "datasource": {"type": "postgres", "uid": "$ds"},
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('day', ts) AS time, AVG(last_option_rate) AS value FROM ${schema}.behavior_metrics WHERE ($lang='all' OR user_lang=$lang) AND ($region='all' OR region=$region) GROUP BY 1 ORDER BY 1;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Median Latency (s)",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 10},
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "datasource": {"type": "postgres", "uid": "$ds"},
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('day', ts) AS time, PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY latency_s) AS value FROM ${schema}.latency_metrics WHERE ($lang='all' OR user_lang=$lang) AND ($region='all' OR region=$region) GROUP BY 1 ORDER BY 1;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Anchor Item Δa/Δb/Δc (7d)",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 19},
+      "options": { "showHeader": true },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green"},
+              {"color": "orange", "value": 0.25},
+              {"color": "red", "value": 0.35}
+            ]
+          }
+        }, "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {"type": "postgres", "uid": "$ds"},
+          "format": "table",
+          "rawSql": "SELECT item_id, ROUND(delta_a_7d,3) AS delta_a, ROUND(delta_b_7d,3) AS delta_b, ROUND(delta_c_7d,3) AS delta_c FROM ${schema}.irt_anchor_deltas WHERE ts >= NOW()-INTERVAL '7 days' ORDER BY GREATEST(ABS(delta_b_7d),ABS(delta_a_7d),ABS(delta_c_7d)) DESC LIMIT 50;",
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Alerts by Type (오늘)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 29},
+      "options": { "displayMode": "gradient", "reduceOptions": {"calcs": ["last"], "values": false} },
+      "targets": [
+        {
+          "datasource": {"type": "postgres", "uid": "$ds"},
+          "format": "table",
+          "rawSql": "SELECT alert_type AS metric, COUNT(*)::int AS value FROM ${schema}.alerts WHERE ts::date = CURRENT_DATE AND resolved=false GROUP BY 1 ORDER BY 2 DESC;",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "title": "조치(Workflow)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 29},
+      "options": {
+        "mode": "html",
+        "content": "<div><a href='/d/dreamseedai-admin/logs-analytics' class='btn btn-primary'>링킹 재추정 실행</a><br/><br/><a href='/d/dreamseedai-support/tickets' class='btn'>티켓 생성/에스컬레이션</a><br/><br/><small>이 버튼은 실제 운영 경로에 맞춰 수정하세요.</small></div>"
+      }
+    }
+  ]
+}

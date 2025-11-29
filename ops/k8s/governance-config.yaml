@@ -1,0 +1,50 @@
+# ============================================================================
+# Governance Configuration for Kubernetes/Helm
+# Values.yaml에 추가할 내용
+# ============================================================================
+
+# Example usage in values.yaml:
+# governance:
+#   enabled: true
+#   bundleId: "phase1"
+#   phase: 1
+#   strictMode: "soft"
+
+governance:
+  # Governance 활성화 여부
+  enabled: true
+  
+  # 정책 번들 ID (phase0, phase1, prod)
+  bundleId: "phase1"
+  
+  # Governance Phase (0-3)
+  # 0: 감사만 (차단 없음)
+  # 1: 핵심 거버넌스 (RBAC, Safety)
+  # 2: 확장 (Risk Engine, Org Overrides)
+  # 3: 성숙 (전체 기능)
+  phase: 1
+  
+  # Strict Mode (soft | enforce)
+  # soft: 위반 시 로그만 기록
+  # enforce: 위반 시 차단 (403)
+  strictMode: "soft"
+  
+  # 정책 번들 파일 경로
+  bundlePath: "/app/governance/compiled/policy_bundle_phase1.json"
+  
+  # ConfigMap으로 정책 번들 마운트 여부
+  # true: ConfigMap 생성 및 마운트
+  # false: 이미지에 포함된 번들 사용
+  useBundleConfigMap: false
+  
+  # Database 마이그레이션 (초기 배포 시)
+  migrations:
+    enabled: false  # true로 설정하면 Job으로 실행
+    image: postgres:15-alpine
+
+# ============================================================================
+# 참고: Helm 템플릿 예시는 별도 파일로 분리되었습니다.
+# - ops/k8s/templates/backend-deployment.yaml
+# - ops/k8s/templates/governance-configmap.yaml
+# - ops/k8s/templates/governance-migration-job.yaml
+# ============================================================================

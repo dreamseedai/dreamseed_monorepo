@@ -1,0 +1,618 @@
+---
+title: "Weekly Learning Report"
+subtitle: "Week of {{week_start}}"
+author: "Dreamseed AI"
+date: "`r Sys.Date()`"
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 2
+    number-sections: true
+---
+
+```{r}
+#| include: false
+library(jsonlite)
+library(dplyr)
+library(ggplot2)
+
+# Load data
+data <- fromJSON("_data.json")
+user_id <- data$user_id
+week_start <- data$week_start
+kpis <- data$kpis
+ability_trend <- as.data.frame(data$ability_trend)
+goals <- as.data.frame(data$goals)
+topic_features <- as.data.frame(data$topic_features)
+recommendations <- if(!is.null(data$recommendations)) as.data.frame(data$recommendations) else data.frame()
+
+# Advanced analytics data (optional)
+bayesian_growth <- if(!is.null(data$bayesian_growth)) data$bayesian_growth else NULL
+prophet_forecast <- if(!is.null(data$prophet_forecast)) data$prophet_forecast else NULL
+survival_risk <- if(!is.null(data$survival_risk)) data$survival_risk else NULL
+user_segment <- if(!is.null(data$user_segment)) data$user_segment else NULL
+```
+
+## Summary
+
+**Week:** `r week_start`  
+**Student ID:** `r user_id`
+
+### Key Metrics
+
+- **Improvement Index (I_t):** `r if(!is.null(kpis$I_t)) round(kpis$I_t, 3) else "N/A"`
+- **Efficiency Index (E_t):** `r if(!is.null(kpis$E_t)) round(kpis$E_t, 3) else "N/A"`
+- **Recovery Rate (R_t):** `r if(!is.null(kpis$R_t)) round(kpis$R_t, 3) else "N/A"`
+- **Engagement (A_t):** `r if(!is.null(kpis$A_t)) round(kpis$A_t, 3) else "N/A"`
+- **Goal Attainment Probability (P):** `r if(!is.null(kpis$P)) round(kpis$P, 3) else "N/A"`
+- **Churn Risk (S):** `r if(!is.null(kpis$S)) round(kpis$S, 3) else "N/A"`
+
+## IRT Ability (θ) Analysis
+
+### Ability Trend Over Time
+
+```{r}
+#| echo: false
+if(nrow(ability_trend) > 0) {
+  ability_trend$fitted_at <- as.Date(ability_trend$date)
+  
+  # Calculate growth rate
+  if(nrow(ability_trend) >= 2) {
+    theta_first <- ability_trend$theta[1]
+    theta_last <- ability_trend$theta[nrow(ability_trend)]
+    theta_change <- theta_last - theta_first
+    weeks_elapsed <- as.numeric(difftime(max(ability_trend$fitted_at), min(ability_trend$fitted_at), units = "weeks"))
+    growth_rate <- if(weeks_elapsed > 0) theta_change / weeks_elapsed else 0
+  } else {
+    theta_change <- 0
+    growth_rate <- 0
+  }
+  
+  ggplot(ability_trend, aes(x = fitted_at, y = theta)) +
+    geom_line(color = "steelblue", size = 1.2) +
+    geom_point(color = "steelblue", size = 2) +
+    geom_ribbon(aes(ymin = theta - se, ymax = theta + se), alpha = 0.2, fill = "steelblue") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", alpha = 0.5) +
+    labs(
+      title = "Ability (θ) Trend with Confidence Interval",
+      subtitle = sprintf("Growth rate: %.3f θ per week", growth_rate),
+      x = "Date",
+      y = "Ability (θ)",
+      caption = "Shaded area represents ±1 standard error"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(face = "bold", size = 14),
+      plot.subtitle = element_text(size = 11, color = "gray30")
+    )
+} else {
+  cat("No ability trend data available.")
+}
+```
+
+### Current Ability Statistics
+
+```{r}
+#| echo: false
+if(nrow(ability_trend) > 0) {
+  current_theta <- tail(ability_trend$theta, 1)
+  current_se <- tail(ability_trend$se, 1)
+  
+  # Percentile interpretation (assuming normal distribution)
+  percentile <- pnorm(current_theta) * 100
+  
+  # Ability level interpretation
+  ability_level <- case_when(
+    current_theta >= 2.0 ~ "Exceptional (Top 2%)",
+    current_theta >= 1.5 ~ "Advanced (Top 7%)",
+    current_theta >= 1.0 ~ "Above Average (Top 16%)",
+    current_theta >= 0.5 ~ "Moderately Above Average (Top 31%)",
+    current_theta >= -0.5 ~ "Average (31-69%)",
+    current_theta >= -1.0 ~ "Moderately Below Average (16-31%)",
+    current_theta >= -1.5 ~ "Below Average (7-16%)",
+    TRUE ~ "Needs Support (Bottom 7%)"
+  )
+  
+  cat(sprintf("**Current Ability (θ):** %.3f ± %.3f\n\n", current_theta, current_se))
+  cat(sprintf("**Percentile Rank:** %.1f%%\n\n", percentile))
+  cat(sprintf("**Ability Level:** %s\n\n", ability_level))
+  
+  # Growth summary
+  if(nrow(ability_trend) >= 2) {
+    cat(sprintf("**Total Growth:** %.3f θ over %d weeks\n\n", theta_change, ceiling(weeks_elapsed)))
+    
+    if(growth_rate > 0.1) {
+      cat("✓ **Strong positive growth** - Keep up the excellent work!\n\n")
+    } else if(growth_rate > 0.05) {
+      cat("✓ **Steady improvement** - You're making good progress.\n\n")
+    } else if(growth_rate > 0) {
+      cat("→ **Slow growth** - Consider increasing practice frequency.\n\n")
+    } else if(growth_rate > -0.05) {
+      cat("→ **Plateau** - Try focusing on challenging topics.\n\n")
+    } else {
+      cat("⚠ **Declining** - Review fundamentals and seek support.\n\n")
+    }
+  }
+} else {
+  cat("No ability statistics available.")
+}
+```
+
+### Item Difficulty Distribution
+
+```{r}
+#| echo: false
+#| fig-width: 8
+#| fig-height: 5
+if(exists("item_params") && !is.null(data$item_params) && length(data$item_params) > 0) {
+  item_df <- as.data.frame(data$item_params)
+  
+  if(nrow(item_df) > 0 && "difficulty" %in% names(item_df)) {
+    # Current ability line
+    current_theta <- if(nrow(ability_trend) > 0) tail(ability_trend$theta, 1) else 0
+    
+    ggplot(item_df, aes(x = difficulty)) +
+      geom_histogram(bins = 30, fill = "coral", alpha = 0.7, color = "white") +
+      geom_vline(xintercept = current_theta, color = "steelblue", size = 1.2, linetype = "dashed") +
+      annotate("text", x = current_theta, y = Inf, 
+               label = sprintf("Your ability (θ=%.2f)", current_theta),
+               vjust = 1.5, hjust = -0.1, color = "steelblue", fontface = "bold") +
+      labs(
+        title = "Item Difficulty Distribution",
+        subtitle = "Items you've attempted recently",
+        x = "Difficulty (b parameter)",
+        y = "Number of Items",
+        caption = "Blue line shows your current ability level"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(face = "bold", size = 14)
+      )
+    
+    # Summary statistics
+    cat("\n\n**Item Difficulty Summary:**\n\n")
+    cat(sprintf("- Total items: %d\n", nrow(item_df)))
+    cat(sprintf("- Mean difficulty: %.3f\n", mean(item_df$difficulty, na.rm = TRUE)))
+    cat(sprintf("- Difficulty range: [%.3f, %.3f]\n", 
+                min(item_df$difficulty, na.rm = TRUE), 
+                max(item_df$difficulty, na.rm = TRUE)))
+    
+    # Personalized recommendation
+    items_easier <- sum(item_df$difficulty < current_theta, na.rm = TRUE)
+    items_harder <- sum(item_df$difficulty > current_theta, na.rm = TRUE)
+    
+    cat(sprintf("\n**Personalized Insight:**\n"))
+    cat(sprintf("- Items easier than your level: %d (%.1f%%)\n", 
+                items_easier, items_easier/nrow(item_df)*100))
+    cat(sprintf("- Items harder than your level: %d (%.1f%%)\n", 
+                items_harder, items_harder/nrow(item_df)*100))
+    
+    if(items_harder > items_easier * 1.5) {
+      cat("\n→ You're challenging yourself well! Consider balancing with some easier items for confidence.\n")
+    } else if(items_easier > items_harder * 1.5) {
+      cat("\n→ You might benefit from more challenging items to accelerate growth.\n")
+    } else {
+      cat("\n✓ Good balance of item difficulties for optimal learning.\n")
+    }
+  }
+} else {
+  cat("Item difficulty data not available.")
+}
+```
+
+## Goals
+
+```{r}
+#| echo: false
+if(nrow(goals) > 0) {
+  knitr::kable(
+    goals %>%
+      select(subject_id, interest, target_score, target_date),
+    caption = "Learning Goals",
+    col.names = c("Subject", "Interest (1-5)", "Target Score", "Target Date")
+  )
+} else {
+  cat("No goals set.")
+}
+```
+
+## Topic Performance
+
+```{r}
+#| echo: false
+if(nrow(topic_features) > 0) {
+  topic_summary <- topic_features %>%
+    group_by(topic_id) %>%
+    summarise(
+      total_attempts = sum(attempts, na.rm = TRUE),
+      total_correct = sum(correct, na.rm = TRUE),
+      avg_theta = mean(theta_estimate, na.rm = TRUE),
+      avg_improvement = mean(improvement, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(accuracy = total_correct / total_attempts)
+  
+  knitr::kable(
+    topic_summary %>%
+      arrange(desc(total_attempts)),
+    caption = "Topic Performance Summary",
+    digits = 3
+  )
+} else {
+  cat("No topic features available.")
+}
+```
+
+## Top Recommendations
+
+```{r}
+#| echo: false
+if(exists("recommendations") && !is.null(recommendations) && nrow(as.data.frame(recommendations)) > 0) {
+  rec_df <- as.data.frame(recommendations)
+  knitr::kable(
+    rec_df %>%
+      select(topic_id, total_attempts, total_correct, avg_improvement, reason),
+    caption = "Recommended Topics for Next Week",
+    col.names = c("Topic", "Attempts", "Correct", "Avg Improvement", "Reason"),
+    digits = 3
+  )
+} else {
+  cat("No recommendations available. Continue practicing to receive personalized recommendations.")
+}
+```
+
+## General Recommendations
+
+Based on your performance this week:
+
+- Continue practicing topics where you're making progress
+- Focus on areas with lower accuracy scores  
+- Set realistic goals and track your improvement
+- Review topics with high improvement rates
+
+## Bayesian Growth Analysis (Goal Attainment Probability P)
+
+```{r}
+#| echo: false
+#| fig-width: 10
+#| fig-height: 6
+if(!is.null(bayesian_growth) && !is.null(bayesian_growth$posterior_summary)) {
+  posterior <- bayesian_growth$posterior_summary
+  
+  # Goal attainment probability (P) with credible interval
+  if("goal_probability" %in% names(posterior) || !is.null(kpis$P)) {
+    p_value <- if(!is.null(kpis$P)) kpis$P else posterior$goal_probability$mean
+    p_lower <- if(!is.null(posterior$goal_probability$l95)) posterior$goal_probability$l95 else max(0, p_value - 0.1)
+    p_upper <- if(!is.null(posterior$goal_probability$u95)) posterior$goal_probability$u95 else min(1, p_value + 0.1)
+    p_uncertainty <- if(!is.null(posterior$goal_probability$uncertainty)) posterior$goal_probability$uncertainty else (p_upper - p_lower) / 2
+    
+    cat(sprintf("**Goal Attainment Probability (P):** %.1f%% (95%% CI: [%.1f%%, %.1f%%])\n\n", 
+                p_value * 100, p_lower * 100, p_upper * 100))
+    cat(sprintf("**Uncertainty (σ):** %.3f\n\n", p_uncertainty))
+    
+    # Visual gauge for P
+    p_color <- case_when(
+      p_value >= 0.8 ~ "green",
+      p_value >= 0.6 ~ "lightgreen",
+      p_value >= 0.4 ~ "yellow",
+      p_value >= 0.2 ~ "orange",
+      TRUE ~ "red"
+    )
+    
+    ggplot(data.frame(P = p_value), aes(x = "", y = P)) +
+      geom_col(fill = p_color, alpha = 0.7, width = 0.5) +
+      geom_ribbon(aes(ymin = p_lower, ymax = p_upper), alpha = 0.2, fill = p_color) +
+      geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
+      scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+      labs(
+        title = "Goal Attainment Probability",
+        subtitle = sprintf("95%% Credible Interval: [%.1f%%, %.1f%%]", p_lower * 100, p_upper * 100),
+        y = "Probability (P)",
+        x = ""
+      ) +
+      theme_minimal() +
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+    
+    if(p_value >= 0.7) {
+      cat("\n✓ **High confidence** - You're on track to achieve your goals!\n\n")
+    } else if(p_value >= 0.5) {
+      cat("\n→ **Moderate confidence** - Keep up consistent practice to increase probability.\n\n")
+    } else {
+      cat("\n⚠ **Low confidence** - Consider adjusting goals or increasing practice frequency.\n\n")
+    }
+  }
+  
+  # Extract week effect posterior if available
+  if("week_effect" %in% names(posterior)) {
+    week_effect <- posterior$week_effect
+    mean_effect <- week_effect$mean
+    l95 <- week_effect$l95
+    u95 <- week_effect$u95
+    
+    cat(sprintf("\n**Weekly Growth Trend:** %.3f (95%% CI: [%.3f, %.3f])\n\n", 
+                mean_effect, l95, u95))
+    
+    # Visualize posterior distribution
+    if("samples" %in% names(week_effect)) {
+      ggplot(data.frame(effect = week_effect$samples), aes(x = effect)) +
+        geom_density(fill = "steelblue", alpha = 0.5) +
+        geom_vline(xintercept = mean_effect, color = "red", linetype = "dashed", size = 1) +
+        geom_vline(xintercept = l95, color = "orange", linetype = "dotted") +
+        geom_vline(xintercept = u95, color = "orange", linetype = "dotted") +
+        labs(
+          title = "Posterior Distribution of Weekly Growth Effect",
+          subtitle = "Bayesian credible interval (95%)",
+          x = "Growth Effect per Week",
+          y = "Density"
+        ) +
+        theme_minimal()
+    }
+  } else if(is.null(kpis$P)) {
+    cat("Bayesian growth model data not yet available.\n")
+  }
+} else if(!is.null(kpis$P)) {
+  # Fallback: use P from KPI if available
+  cat(sprintf("**Goal Attainment Probability (P):** %.1f%%\n\n", kpis$P * 100))
+  cat("(Bayesian posterior details not yet available)\n")
+} else {
+  cat("Bayesian growth analysis not available.\n")
+}
+```
+
+## Prophet Forecast (I_t Trend & Anomaly Detection)
+
+```{r}
+#| echo: false
+#| fig-width: 10
+#| fig-height: 6
+if(!is.null(prophet_forecast)) {
+  # Handle different data structures
+  forecast_data <- if(!is.null(prophet_forecast$forecast_data)) prophet_forecast$forecast_data else prophet_forecast$forecast
+  anomalies <- prophet_forecast$anomalies
+  
+  # Extract forecast time series
+  if(is.list(forecast_data) && "forecast" %in% names(forecast_data)) {
+    fc_df <- as.data.frame(forecast_data$forecast)
+  } else if(is.data.frame(forecast_data)) {
+    fc_df <- forecast_data
+  } else if(is.list(forecast_data) && length(forecast_data) > 0) {
+    fc_df <- as.data.frame(forecast_data)
+  } else {
+    fc_df <- NULL
+  }
+  
+  # Extract historical data if available
+  hist_data <- if(!is.null(prophet_forecast$historical)) as.data.frame(prophet_forecast$historical) else NULL
+  
+  if(!is.null(fc_df) && nrow(fc_df) > 0 && "ds" %in% names(fc_df) && "yhat" %in% names(fc_df)) {
+    # Convert dates
+    fc_df$ds <- as.Date(fc_df$ds)
+    
+    # Plot forecast with uncertainty bands
+    p <- ggplot(fc_df, aes(x = ds, y = yhat)) +
+      geom_line(color = "steelblue", size = 1.2) +
+      geom_ribbon(aes(ymin = yhat_lower, ymax = yhat_upper), 
+                  alpha = 0.2, fill = "steelblue") +
+      labs(
+        title = "Prophet Forecast: Improvement Index (I_t)",
+        subtitle = "Short-term trend prediction with 95% uncertainty bands",
+        x = "Week Start",
+        y = "I_t (Improvement Index)",
+        caption = "Shaded area represents prediction interval"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(size = 11, color = "gray30")
+      )
+    
+    # Add historical data if available
+    if(!is.null(hist_data) && nrow(hist_data) > 0 && "ds" %in% names(hist_data)) {
+      hist_data$ds <- as.Date(hist_data$ds)
+      p <- p + geom_line(data = hist_data, aes(x = ds, y = y), color = "darkgreen", size = 1, alpha = 0.7)
+    }
+    
+    print(p)
+    
+    # Model metadata
+    if(!is.null(prophet_forecast$model_meta)) {
+      meta <- prophet_forecast$model_meta
+      if(!is.null(meta$rmse)) cat(sprintf("\n**Model RMSE:** %.3f\n", meta$rmse))
+      if(!is.null(meta$mae)) cat(sprintf("**Model MAE:** %.3f\n\n", meta$mae))
+    }
+    
+    # Anomaly detection results
+    if(!is.null(anomalies) && length(anomalies) > 0) {
+      anomaly_df <- as.data.frame(anomalies)
+      if(nrow(anomaly_df) > 0 && "is_anomaly" %in% names(anomaly_df)) {
+        detected <- anomaly_df[anomaly_df$is_anomaly == TRUE, ]
+        if(nrow(detected) > 0) {
+          cat("\n\n**⚠ Anomaly Detection:**\n\n")
+          for(i in 1:nrow(detected)) {
+            week_val <- if("week_start" %in% names(detected)) detected$week_start[i] else detected$ds[i]
+            score_val <- if("anomaly_score" %in% names(detected)) detected$anomaly_score[i] else detected$score[i]
+            cat(sprintf("- Week %s: Unusual I_t value (anomaly score: %.2f)\n", 
+                       week_val, score_val))
+          }
+        } else {
+          cat("\n✓ No anomalies detected in recent I_t trend.\n")
+        }
+      }
+    }
+  } else {
+    cat("Prophet forecast data not yet available.\n")
+  }
+} else {
+  cat("Prophet forecast not available.\n")
+}
+```
+
+## Survival Analysis (Churn Risk & Survival Curve)
+
+```{r}
+#| echo: false
+#| fig-width: 10
+#| fig-height: 6
+if(!is.null(survival_risk)) {
+  # Extract risk score (support multiple data structures)
+  risk_score <- if(!is.null(survival_risk$risk_score)) survival_risk$risk_score 
+                else if(!is.null(survival_risk$churn_risk)) survival_risk$churn_risk
+                else if(!is.null(survival_risk$S)) survival_risk$S
+                else if(!is.null(kpis$S)) kpis$S
+                else NULL
+  
+  hazard_ratio <- if(!is.null(survival_risk$hazard_ratio)) survival_risk$hazard_ratio else NULL
+  rank_percentile <- if(!is.null(survival_risk$rank_percentile)) survival_risk$rank_percentile else NULL
+  
+  if(!is.null(risk_score)) {
+    # Risk level interpretation
+    risk_level <- case_when(
+      risk_score >= 0.7 ~ "High Risk (70%+)",
+      risk_score >= 0.5 ~ "Moderate Risk (50-70%)",
+      risk_score >= 0.3 ~ "Low-Moderate Risk (30-50%)",
+      TRUE ~ "Low Risk (<30%)"
+    )
+    
+    # Visual gauge
+    risk_color <- case_when(
+      risk_score >= 0.7 ~ "red",
+      risk_score >= 0.5 ~ "orange",
+      risk_score >= 0.3 ~ "yellow",
+      TRUE ~ "green"
+    )
+    
+    cat(sprintf("**14-Day Inactivity Risk:** %.1f%%\n\n", risk_score * 100))
+    cat(sprintf("**Risk Level:** %s\n\n", risk_level))
+    
+    if(!is.null(hazard_ratio)) {
+      cat(sprintf("**Hazard Ratio:** %.2f\n\n", hazard_ratio))
+    }
+    if(!is.null(rank_percentile)) {
+      cat(sprintf("**Risk Percentile:** %.1f%% (compared to cohort)\n\n", rank_percentile * 100))
+    }
+    
+    # Visual gauge chart
+    p1 <- ggplot(data.frame(risk = risk_score), aes(x = "", y = risk)) +
+      geom_col(fill = risk_color, alpha = 0.7, width = 0.5) +
+      geom_hline(yintercept = 0.7, linetype = "dashed", color = "red", alpha = 0.5) +
+      geom_hline(yintercept = 0.5, linetype = "dashed", color = "orange", alpha = 0.5) +
+      scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+      labs(
+        title = "Churn Risk Score",
+        subtitle = "Probability of 14-day inactivity",
+        y = "Risk Score (S)",
+        x = ""
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(face = "bold", size = 14),
+        axis.text.x = element_blank(), 
+        axis.ticks.x = element_blank()
+      )
+    print(p1)
+    
+    # Survival curve if available
+    survival_curve <- if(!is.null(survival_risk$survival_curve)) survival_risk$survival_curve 
+                     else if(!is.null(survival_risk$curve)) survival_risk$curve
+                     else NULL
+    
+    if(!is.null(survival_curve) && length(survival_curve) > 0) {
+      curve_df <- as.data.frame(survival_curve)
+      if(nrow(curve_df) > 0 && "t" %in% names(curve_df) && "S" %in% names(curve_df)) {
+        p2 <- ggplot(curve_df, aes(x = t, y = S)) +
+          geom_line(color = "steelblue", size = 1.2) +
+          geom_ribbon(aes(ymin = S_lower, ymax = S_upper), alpha = 0.2, fill = "steelblue") +
+          geom_vline(xintercept = 14, linetype = "dashed", color = "red", alpha = 0.5) +
+          annotate("text", x = 14, y = Inf, label = "14-day threshold", 
+                   vjust = 1.5, hjust = -0.1, color = "red", fontface = "bold") +
+          labs(
+            title = "Survival Curve",
+            subtitle = "Probability of remaining active over time",
+            x = "Days Since Last Activity",
+            y = "Survival Probability S(t)",
+            caption = "Red line indicates churn event threshold"
+          ) +
+          theme_minimal() +
+          theme(
+            plot.title = element_text(face = "bold", size = 14),
+            plot.subtitle = element_text(size = 11, color = "gray30")
+          )
+        print(p2)
+      }
+    }
+    
+    # Recommendations
+    if(risk_score >= 0.7) {
+      cat("\n⚠ **High Risk Warning:** Your engagement patterns suggest increased churn risk. ")
+      cat("Consider:\n")
+      cat("- Increasing practice frequency\n")
+      cat("- Setting achievable short-term goals\n")
+      cat("- Engaging with recommended topics\n\n")
+    } else if(risk_score >= 0.5) {
+      cat("\n→ **Moderate Risk:** Maintain current engagement levels to reduce churn risk.\n\n")
+    } else {
+      cat("\n✓ **Low Risk:** You're maintaining good engagement patterns. Keep it up!\n\n")
+    }
+  } else if(!is.null(kpis$S)) {
+    # Fallback: use S from KPI
+    cat(sprintf("**14-Day Inactivity Risk:** %.1f%%\n\n", kpis$S * 100))
+    cat("(Detailed survival analysis not yet available)\n")
+  } else {
+    cat("Churn risk score not yet available.\n")
+  }
+} else if(!is.null(kpis$S)) {
+  # Fallback: use S from KPI
+  cat(sprintf("**14-Day Inactivity Risk:** %.1f%%\n\n", kpis$S * 100))
+  cat("(Detailed survival analysis not yet available)\n")
+} else {
+  cat("Survival analysis not available.\n")
+}
+```
+
+## Learning Pattern Segment
+
+```{r}
+#| echo: false
+if(!is.null(user_segment) && !is.null(user_segment$segment_label)) {
+  seg <- user_segment
+  
+  cat(sprintf("**Your Learning Pattern:** %s\n\n", seg$segment_label))
+  
+  if(!is.null(seg$segment_description)) {
+    cat(sprintf("**Description:** %s\n\n", seg$segment_description))
+  }
+  
+  # Feature snapshot if available
+  if(!is.null(seg$features_snapshot) && length(seg$features_snapshot) > 0) {
+    cat("**Key Characteristics:**\n\n")
+    if("avg_session_duration" %in% names(seg$features_snapshot)) {
+      cat(sprintf("- Average Session Duration: %.1f minutes\n", 
+                 seg$features_snapshot$avg_session_duration / 60))
+    }
+    if("sessions_per_week" %in% names(seg$features_snapshot)) {
+      cat(sprintf("- Sessions per Week: %.1f\n", seg$features_snapshot$sessions_per_week))
+    }
+    if("hint_usage_rate" %in% names(seg$features_snapshot)) {
+      cat(sprintf("- Hint Usage Rate: %.1f%%\n", 
+                 seg$features_snapshot$hint_usage_rate * 100))
+    }
+  }
+  
+  # Segment-specific recommendations
+  if(seg$segment_label == "short_frequent") {
+    cat("\n✓ You maintain consistent practice. Consider longer sessions for deeper learning.\n")
+  } else if(seg$segment_label == "long_rare") {
+    cat("\n→ Your sessions are thorough but infrequent. Try practicing more regularly.\n")
+  } else if(seg$segment_label == "hint_heavy") {
+    cat("\n⚠ You use hints frequently. Try solving problems independently first.\n")
+  }
+} else {
+  cat("Learning pattern segment analysis not yet available.\n")
+}
+```
+
+---
+
+*Generated by Dreamseed AI Learning Analytics*
+

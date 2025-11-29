@@ -1,0 +1,335 @@
+---
+title: "Weekly Learning Report"
+author: "DreamSeed AI"
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    embed-resources: true
+    self-contained: true
+    fig-width: 8
+    fig-height: 6
+    code-fold: true
+date: today
+execute:
+  echo: false
+  warning: false
+  message: false
+params:
+  data_file: "_data.json"
+---
+
+```{r setup}
+#| include: false
+library(jsonlite)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(lubridate)
+
+# Load data from JSON
+data <- fromJSON(params$data_file)
+
+user_id <- data$user_id
+week_start <- as.Date(data$week_start)
+week_end <- week_start + days(6)
+kpis <- data$kpis
+ability_trend <- data$ability_trend
+goals <- data$goals
+topic_features <- data$topic_features
+```
+
+# Summary for Week of `r week_start`
+
+**Student ID**: `r user_id`  
+**Report Period**: `r week_start` to `r week_end`  
+**Generated**: `r Sys.Date()`
+
+---
+
+## Weekly Performance Metrics
+
+```{r kpis-table}
+# Display KPIs as a table
+kpi_df <- data.frame(
+  Metric = c("Interest (I_t)", "Engagement (E_t)", "Responsiveness (R_t)", 
+             "Adherence (A_t)", "Performance (P)", "Strength (S)"),
+  Value = c(
+    ifelse(!is.null(kpis$I_t), round(kpis$I_t, 2), NA),
+    ifelse(!is.null(kpis$E_t), round(kpis$E_t, 2), NA),
+    ifelse(!is.null(kpis$R_t), round(kpis$R_t, 2), NA),
+    ifelse(!is.null(kpis$A_t), round(kpis$A_t, 2), NA),
+    ifelse(!is.null(kpis$P), round(kpis$P, 2), NA),
+    ifelse(!is.null(kpis$S), round(kpis$S, 2), NA)
+  ),
+  Description = c(
+    "Interest level (0-1)",
+    "Engagement rate (0-1)",
+    "Session responsiveness (0-1)",
+    "Goal adherence (0-1)",
+    "Overall performance (0-1)",
+    "Learning strength (0-1)"
+  )
+)
+
+knitr::kable(kpi_df, caption = "Weekly Key Performance Indicators")
+```
+
+### KPI Visualization
+
+```{r kpis-chart}
+#| fig-cap: "Weekly KPIs Radar Chart"
+#| fig-width: 6
+#| fig-height: 6
+
+if (!all(is.na(kpi_df$Value))) {
+  # Radar chart using ggplot2
+  kpi_radar <- kpi_df %>%
+    filter(!is.na(Value)) %>%
+    mutate(
+      Metric = factor(Metric, levels = Metric),
+      Value = pmax(0, pmin(1, Value))
+    )
+  
+  ggplot(kpi_radar, aes(x = Metric, y = Value, group = 1)) +
+    geom_polygon(fill = "steelblue", alpha = 0.3, color = "steelblue", size = 1) +
+    geom_point(color = "steelblue", size = 3) +
+    coord_polar() +
+    ylim(0, 1) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(size = 10),
+      axis.title = element_blank()
+    ) +
+    labs(title = "Weekly Performance Profile")
+} else {
+  cat("No KPI data available for this week.\n")
+}
+```
+
+---
+
+## Ability (θ) Trend
+
+```{r ability-trend}
+#| fig-cap: "IRT Ability (θ) Trend Over Time"
+#| fig-width: 8
+#| fig-height: 5
+
+if (!is.null(ability_trend) && length(ability_trend) > 0) {
+  ability_df <- bind_rows(ability_trend) %>%
+    filter(!is.na(theta)) %>%
+    mutate(date = as.Date(date)) %>%
+    arrange(date)
+  
+  if (nrow(ability_df) > 0) {
+    ggplot(ability_df, aes(x = date, y = theta)) +
+      geom_line(color = "darkgreen", size = 1) +
+      geom_point(color = "darkgreen", size = 2) +
+      geom_ribbon(
+        aes(ymin = theta - se, ymax = theta + se),
+        alpha = 0.2,
+        fill = "darkgreen"
+      ) +
+      theme_minimal() +
+      labs(
+        title = "Ability Trend (θ)",
+        subtitle = "Higher values indicate stronger ability",
+        x = "Date",
+        y = "Ability (θ)"
+      ) +
+      theme(
+        plot.title = element_text(size = 14, face = "bold"),
+        axis.text = element_text(size = 10)
+      )
+  } else {
+    cat("No ability trend data available.\n")
+  }
+} else {
+  cat("No ability trend data available.\n")
+}
+```
+
+**Interpretation**:  
+- **θ (theta)** represents your estimated ability level on the IRT scale.
+- A positive value indicates above-average ability; negative indicates below-average.
+- The shaded region shows the uncertainty (standard error) of the estimate.
+
+---
+
+## Learning Goals
+
+```{r goals-table}
+if (!is.null(goals) && length(goals) > 0) {
+  goals_df <- bind_rows(goals) %>%
+    mutate(
+      interest = ifelse(!is.na(interest), paste0(interest, "/5"), "N/A"),
+      target_score = ifelse(!is.na(target_score), target_score, "N/A"),
+      target_date = ifelse(!is.na(target_date), as.character(target_date), "N/A")
+    ) %>%
+    select(subject_id, interest, target_score, target_date)
+  
+  knitr::kable(goals_df, 
+               col.names = c("Subject ID", "Interest Level", "Target Score", "Target Date"),
+               caption = "Your Learning Goals")
+} else {
+  cat("No learning goals set for this period.\n")
+}
+```
+
+---
+
+## Topic-Level Performance
+
+```{r topic-performance}
+#| fig-cap: "Topic-Level Performance: Accuracy by Topic"
+#| fig-width: 8
+#| fig-height: 6
+
+if (!is.null(topic_features) && length(topic_features) > 0) {
+  topic_df <- bind_rows(topic_features) %>%
+    filter(!is.na(attempts), attempts > 0) %>%
+    mutate(
+      date = as.Date(date),
+      accuracy = ifelse(attempts > 0, correct / attempts, NA)
+    )
+  
+  if (nrow(topic_df) > 0) {
+    # Aggregate by topic
+    topic_summary <- topic_df %>%
+      group_by(topic_id) %>%
+      summarise(
+        total_attempts = sum(attempts, na.rm = TRUE),
+        total_correct = sum(correct, na.rm = TRUE),
+        avg_accuracy = mean(accuracy, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      arrange(desc(avg_accuracy))
+    
+    ggplot(topic_summary, aes(x = reorder(topic_id, avg_accuracy), y = avg_accuracy)) +
+      geom_col(fill = "coral", alpha = 0.8) +
+      coord_flip() +
+      theme_minimal() +
+      labs(
+        title = "Topic-Level Accuracy",
+        subtitle = "Average accuracy per topic",
+        x = "Topic",
+        y = "Accuracy (0-1)"
+      ) +
+      theme(
+        plot.title = element_text(size = 14, face = "bold"),
+        axis.text = element_text(size = 10)
+      )
+    
+    # Print summary table
+    cat("\n\n")
+    knitr::kable(topic_summary, 
+                 col.names = c("Topic", "Attempts", "Correct", "Accuracy"),
+                 caption = "Topic Performance Summary",
+                 digits = 2)
+  } else {
+    cat("No topic performance data available for this week.\n")
+  }
+} else {
+  cat("No topic performance data available for this week.\n")
+}
+```
+
+---
+
+## Daily Activity
+
+```{r daily-activity}
+#| fig-cap: "Daily Activity: Number of Attempts per Day"
+#| fig-width: 8
+#| fig-height: 4
+
+if (!is.null(topic_features) && length(topic_features) > 0) {
+  daily_df <- bind_rows(topic_features) %>%
+    filter(!is.na(date)) %>%
+    mutate(date = as.Date(date)) %>%
+    group_by(date) %>%
+    summarise(
+      total_attempts = sum(attempts, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    arrange(date)
+  
+  if (nrow(daily_df) > 0) {
+    ggplot(daily_df, aes(x = date, y = total_attempts)) +
+      geom_line(color = "purple", size = 1) +
+      geom_point(color = "purple", size = 2) +
+      theme_minimal() +
+      labs(
+        title = "Daily Activity Level",
+        subtitle = "Number of attempts per day",
+        x = "Date",
+        y = "Attempts"
+      ) +
+      theme(
+        plot.title = element_text(size = 14, face = "bold"),
+        axis.text = element_text(size = 10)
+      )
+  } else {
+    cat("No daily activity data available for this week.\n")
+  }
+} else {
+  cat("No daily activity data available for this week.\n")
+}
+```
+
+---
+
+## Recommendations
+
+Based on your performance this week:
+
+```{r recommendations}
+# Generate personalized recommendations
+rec <- list()
+
+# Low engagement
+if (!is.null(kpis$E_t) && kpis$E_t < 0.5) {
+  rec <- c(rec, "- **Increase engagement**: Try setting aside more time for focused practice sessions.")
+}
+
+# Low performance
+if (!is.null(kpis$P) && kpis$P < 0.6) {
+  rec <- c(rec, "- **Improve performance**: Consider reviewing foundational concepts before attempting harder questions.")
+}
+
+# Low adherence
+if (!is.null(kpis$A_t) && kpis$A_t < 0.7) {
+  rec <- c(rec, "- **Goal adherence**: Stay on track with your learning goals. Set daily reminders if needed.")
+}
+
+# Positive improvement
+if (!is.null(kpis$S) && kpis$S > 0.1) {
+  rec <- c(rec, "- **Great progress!**: Your learning strength has improved. Keep up the good work!")
+}
+
+if (length(rec) == 0) {
+  rec <- c(rec, "- Keep up the consistent effort! Your metrics look good overall.")
+}
+
+cat(paste(rec, collapse = "\n"))
+```
+
+---
+
+## About This Report
+
+This report was automatically generated using the **DreamSeed AI** analytics pipeline. It includes:
+
+- **Weekly KPIs**: Metrics derived from your learning activity, engagement, and goal attainment.
+- **Ability Trend**: IRT-based ability estimates (θ) that track your progress over time.
+- **Topic Performance**: Accuracy and improvement metrics for each topic you studied.
+- **Recommendations**: Personalized suggestions based on your performance data.
+
+For questions or support, please contact your instructor or visit our help center.
+
+---
+
+*Report generated on `r Sys.Date()`*

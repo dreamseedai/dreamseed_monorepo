@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# cSpell:ignore mirt
 from __future__ import annotations
 
 """Ops verification: print table counts and hit key APIs for a sample user.

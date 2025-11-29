@@ -1,0 +1,38 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/pyright/schema/pyrightconfig.schema.json",
+
+  // 가상환경 고정
+  "venvPath": ".",
+  "venv": ".venv",
+
+  // 검사 범위
+  "include": ["."],
+  "exclude": [
+    "**/__pycache__",
+    ".venv",
+    "node_modules",
+    "dist",
+    "build"
+  ],
+
+  // 기본 진단 정책
+  "typeCheckingMode": "basic",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+
+  // 레포 루트를 import 루트로 — Pylance와 동일하게 유지
+  "executionEnvironments": [
+    {
+      "root": "./",
+      "extraPaths": [
+        "./",
+        "./shared",
+        "./shared/auth",
+        "./shared/db",
+        "./shared/curriculum",
+        "./shared/editor",
+        "./portal_api"
+      ]
+    }
+  ]
+}

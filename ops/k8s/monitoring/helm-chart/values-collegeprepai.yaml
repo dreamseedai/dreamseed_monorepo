@@ -1,0 +1,13 @@
+fullnameOverride: "collegeprepai-api"
+service:
+  name: "collegeprepai-api"
+  version: "canary"
+  port: 8008
+image:
+  repository: "registry.example.com/collegeprepai-api"
+  tag: "2025.11.09"
+prometheus:
+  address: "http://prometheus-server.monitoring.svc.cluster.local"
+servicemonitor:
+  labels:
+    release: kube-prometheus-stack

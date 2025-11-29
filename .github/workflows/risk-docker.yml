@@ -1,0 +1,69 @@
+name: Build & Push Risk Images
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "backend/risk_pipeline/**"
+      - ".github/workflows/risk-docker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  ORG: ${{ github.repository_owner }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [ "pipeline", "shiny" ]
+        include:
+          - component: pipeline
+            ctx: backend/risk_pipeline
+            dockerfile: backend/risk_pipeline/Dockerfile
+            image: risk-pipeline
+          - component: shiny
+            ctx: backend/risk_pipeline/shiny
+            dockerfile: backend/risk_pipeline/shiny/Dockerfile
+            image: risk-shiny
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          IMAGE=${{ env.REGISTRY }}/${{ env.ORG }}/${{ matrix.image }}
+          SHA=${{ github.sha }}
+          SHORT_SHA=${SHA:0:7}
+          echo "IMAGE=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "TAGS=${IMAGE}:${SHORT_SHA},${IMAGE}:latest" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.ctx }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.TAGS }}
+          cache-from: type=registry,ref=${{ steps.meta.outputs.IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ steps.meta.outputs.IMAGE }}:buildcache,mode=max
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}

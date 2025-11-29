@@ -1,0 +1,13 @@
+fullnameOverride: "seedtest-api"
+service:
+  name: "seedtest-api"
+  version: "canary"
+  port: 8009
+image:
+  repository: "registry.example.com/seedtest-api"
+  tag: "2025.11.09"
+prometheus:
+  address: "http://prometheus-server.monitoring.svc.cluster.local"
+servicemonitor:
+  labels:
+    release: kube-prometheus-stack

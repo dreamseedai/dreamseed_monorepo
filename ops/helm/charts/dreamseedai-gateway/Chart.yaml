@@ -1,0 +1,12 @@
+apiVersion: v2
+name: dreamseedai-gateway
+description: Single host gateway for portal/api/shiny
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - dreamseedai
+  - gateway
+  - ingress
+maintainers:
+  - name: DreamSeedAI Team
+    email: ops@dreamseedai.com

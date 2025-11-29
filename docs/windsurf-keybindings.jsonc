@@ -1,0 +1,79 @@
+// Windsurf 권장 키바인딩 설정
+// 위치: ~/.windsurf-server/data/User/keybindings.json
+// 또는: Settings → Keyboard Shortcuts → 우측 상단 파일 아이콘 클릭
+
+[
+  // ==========================================
+  // Cascade (AI Chat) 복사 관련
+  // ==========================================
+  {
+    "key": "ctrl+shift+c",
+    "mac": "cmd+shift+c",
+    "command": "cascade.copyResponse",
+    "when": "cascadeFocused"
+  },
+  {
+    "key": "ctrl+alt+c",
+    "mac": "cmd+alt+c",
+    "command": "cascade.copyCodeBlock",
+    "when": "cascadeFocused"
+  },
+  
+  // ==========================================
+  // 에디터 복사/선택
+  // ==========================================
+  {
+    "key": "ctrl+alt+a",
+    "mac": "cmd+alt+a",
+    "command": "editor.action.selectAll",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+shift+a",
+    "mac": "cmd+shift+a",
+    "command": "editor.action.clipboardCopyAction",
+    "when": "editorTextFocus && editorHasSelection"
+  },
+  
+  // ==========================================
+  // Cascade 패널 토글
+  // ==========================================
+  {
+    "key": "ctrl+shift+space",
+    "mac": "cmd+shift+space",
+    "command": "cascade.toggle"
+  },
+  
+  // ==========================================
+  // Continue 설정 리로드
+  // ==========================================
+  {
+    "key": "ctrl+shift+r",
+    "mac": "cmd+shift+r",
+    "command": "continue.reloadConfig",
+    "when": "\!editorTextFocus"
+  },
+  
+  // ==========================================
+  // 빠른 프로필 전환 (Continue)
+  // ==========================================
+  {
+    "key": "ctrl+k ctrl+1",
+    "mac": "cmd+k cmd+1",
+    "command": "continue.selectModel"
+  },
+  
+  // ==========================================
+  // 터미널 관련
+  // ==========================================
+  {
+    "key": "ctrl+`",
+    "mac": "cmd+`",
+    "command": "workbench.action.terminal.toggleTerminal"
+  },
+  {
+    "key": "ctrl+shift+`",
+    "mac": "cmd+shift+`",
+    "command": "workbench.action.terminal.new"
+  }
+]

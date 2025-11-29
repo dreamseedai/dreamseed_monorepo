@@ -14,7 +14,7 @@ from ..security.jwt import bearer, decode_token
 from ..services.analysis_service import compute_analysis
 from ..services.metrics import calculate_and_store_weekly_kpi, list_weekly_kpi
 from ..services.metrics import week_start as iso_week_start
-from ..settings import Settings, settings
+from ..settings import settings
 
 router = APIRouter(prefix=f"{settings.API_PREFIX}", tags=["analysis"])
 
@@ -36,8 +36,7 @@ async def get_analysis(
     current_user: User = Depends(get_current_user),
     _: None = Depends(require_session_access),
 ) -> Any:
-    s = Settings()
-    if not s.ENABLE_ANALYSIS:
+    if not settings.ENABLE_ANALYSIS:
         raise HTTPException(status_code=501, detail="Analysis disabled")
     uid = current_user.user_id if current_user else None
     # Parse overrides if provided
@@ -80,7 +79,7 @@ def _require_scopes_any(*scopes):
 
     async def checker(creds=Depends(bearer)):
         # LOCAL_DEV shortcut when no creds
-        is_local = Settings().LOCAL_DEV or (
+        is_local = settings.LOCAL_DEV or (
             os.getenv("LOCAL_DEV", "false").lower() == "true"
         )
         if is_local and not creds:
@@ -282,3 +281,77 @@ async def get_irt_theta(
         raise
     except Exception:
         raise HTTPException(404, "not_found")
+
+
+@router.post(
+    "/analysis/irt/update-theta",
+    summary="Trigger online theta update for a user (session completion)",
+    response_model=Dict[str, Any],
+)
+async def update_user_theta(
+    body: Dict = Body(
+        ..., description="{user_id, session_id?, lookback_days?, model?, version?}"
+    ),
+    _user: Dict = Depends(_require_scopes_any("analysis:run", "exam:write")),
+) -> Dict[str, Any]:
+    """Update user ability (θ) based on recent attempts.
+
+    This endpoint is typically called after session completion to update
+    the user's ability estimate using EAP/MI estimation via R IRT service.
+
+    Request body:
+    - user_id (required): User identifier
+    - session_id (optional): Session ID for logging
+    - lookback_days (optional): Days to look back for attempts (default: 30)
+    - model (optional): IRT model type (default: 2PL)
+    - version (optional): Parameter version (default: v1)
+
+    Returns:
+    - theta: Updated ability estimate
+    - se: Standard error
+    - updated_at: Timestamp of update
+    """
+    from ..services.irt_update_service import update_ability_async
+
+    try:
+        user_id = str(body.get("user_id") or "").strip()
+        if not user_id:
+            raise HTTPException(400, "invalid body: user_id required")
+
+        session_id = body.get("session_id")
+        lookback_days = int(body.get("lookback_days", 30))
+        model = body.get("model", "2PL")
+        version = body.get("version", "v1")
+
+        # Trigger async update
+        result = await update_ability_async(
+            user_id=user_id,
+            session_id=session_id,
+            lookback_days=lookback_days,
+            model=model,
+            version=version,
+        )
+
+        if result is None:
+            # Return 200 with status="noop" instead of 404 for better client handling
+            return {
+                "status": "noop",
+                "user_id": user_id,
+                "message": "theta_update_failed: no attempts found or R IRT service unavailable",
+            }
+
+        theta, se = result
+        return {
+            "status": "ok",
+            "user_id": user_id,
+            "theta": theta,
+            "se": se,
+            "model": model,
+            "version": version,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"theta_update_failed: {e}")

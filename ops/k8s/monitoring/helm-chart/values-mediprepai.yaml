@@ -1,0 +1,13 @@
+fullnameOverride: "mediprepai-api"
+service:
+  name: "mediprepai-api"
+  version: "canary"
+  port: 8011  # 제안 포트 (8000~8009 사용중, 충돌 회피)
+image:
+  repository: "registry.example.com/mediprepai-api"
+  tag: "2025.11.09"
+prometheus:
+  address: "http://prometheus-server.monitoring.svc.cluster.local"
+servicemonitor:
+  labels:
+    release: kube-prometheus-stack

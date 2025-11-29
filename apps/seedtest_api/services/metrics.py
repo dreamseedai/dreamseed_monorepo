@@ -6,10 +6,11 @@ import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from statistics import median
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
+import hashlib
 
 
 # --------- Data model (lightweight) ---------
@@ -48,6 +49,82 @@ def time_window(as_of: date, days: int) -> Tuple[datetime, datetime]:
 # --------- Fetchers ---------
 
 
+def _table_exists(session: Session, name: str) -> bool:
+    try:
+        q = sa.text(
+            """
+            SELECT EXISTS (
+              SELECT 1 FROM information_schema.tables
+              WHERE table_schema='public' AND table_name=:name
+            )
+            """
+        )
+        return bool(session.execute(q, {"name": name}).scalar())
+    except Exception:
+        return False
+
+
+def _view_exists(session: Session, name: str) -> bool:
+    try:
+        q = sa.text(
+            """
+            SELECT EXISTS (
+              SELECT 1 FROM information_schema.views
+              WHERE table_schema='public' AND table_name=:name
+            )
+            """
+        )
+        return bool(session.execute(q, {"name": name}).scalar())
+    except Exception:
+        return False
+
+
+def _uuid_from_user_text(user_id_text: str) -> str:
+    """Generate deterministic UUID from arbitrary user_id text (matches migration logic)."""
+    h = hashlib.md5(user_id_text.encode("utf-8")).hexdigest()
+    return f"{h[0:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}"
+
+
+def _to_float_or_none(x: Any) -> Optional[float]:
+    try:
+        if x is None:
+            return None
+        return float(x)
+    except Exception:
+        return None
+
+
+def _fetch_attempt_view_rows(
+    session: Session, user_id: str, start: datetime, end: datetime
+) -> list:
+    # student_id in attempt is UUID; if user_id is not UUID, generate deterministic UUID
+    import re
+
+    uid = user_id
+    if not re.match(r"^[0-9a-fA-F-]{36}$", str(user_id)):
+        uid = _uuid_from_user_text(str(user_id))
+    sql = sa.text(
+        """
+        SELECT 
+          item_id,
+          topic_id,
+          correct,
+          response_time_ms,
+          hint_used,
+          session_id,
+          completed_at
+        FROM attempt
+        WHERE student_id = :uid::uuid
+          AND completed_at BETWEEN :st AND :en
+        ORDER BY completed_at
+        LIMIT 1000
+        """
+    )
+    return list(
+        session.execute(sql, {"uid": str(uid), "st": start, "en": end}).mappings().all()
+    )
+
+
 def _fetch_exam_results_rows(
     session: Session, user_id: str, start: datetime, end: datetime
 ) -> list:
@@ -63,62 +140,118 @@ def _fetch_exam_results_rows(
         LIMIT 500
         """
     )
-    rows = (
+    return list(
         session.execute(sql, {"uid": user_id, "st": start, "en": end}).mappings().all()
     )
-    return list(rows)
 
 
 def load_attempts(
     session: Session, user_id: str, start: datetime, end: datetime
 ) -> List[Attempt]:
-    rows = _fetch_exam_results_rows(session, user_id, start, end)
+    """Load attempts from attempt view if available; fallback to exam_results.
+
+    Returns empty list if neither source is available.
+    """
     attempts: List[Attempt] = []
-    for r in rows:
-        ts = r.get("ts")
-        doc = r.get("result_json") or {}
-        qs = doc.get("questions") or []
-        # Derive a best-effort dwell time per session
-        dwell = 0
-        for q in qs:
-            tsec = q.get("time_spent_sec")
-            if isinstance(tsec, (int, float)):
-                dwell += int(tsec)
-        dwell = dwell or None
-        for q in qs:
-            attempts.append(
-                Attempt(
-                    question_id=(
-                        str(q.get("question_id"))
-                        if q.get("question_id") is not None
-                        else None
-                    ),
-                    topic_id=(
-                        str(q.get("topic")) if q.get("topic") is not None else None
-                    ),
-                    is_correct=(
-                        bool(q.get("is_correct") or q.get("correct"))
-                        if (
-                            q.get("is_correct") is not None
-                            or q.get("correct") is not None
-                        )
-                        else None
-                    ),
-                    responded_at=ts,
-                    response_time_ms=(
-                        int(float(q.get("time_spent_sec")) * 1000)
-                        if isinstance(q.get("time_spent_sec"), (int, float))
-                        else None
-                    ),
-                    used_hints=(
-                        int(q.get("used_hints"))
-                        if isinstance(q.get("used_hints"), (int, float))
-                        else None
-                    ),
-                    session_id=r.get("session_id"),
-                    session_duration_s=dwell,
+
+    # Try attempt view first (if present)
+    try:
+        if _view_exists(session, "attempt"):
+            rows = _fetch_attempt_view_rows(session, user_id, start, end)
+            for r in rows:
+                attempts.append(
+                    Attempt(
+                        question_id=(
+                            str(r.get("item_id"))
+                            if r.get("item_id") is not None
+                            else None
+                        ),
+                        topic_id=(
+                            str(r.get("topic_id"))
+                            if r.get("topic_id") is not None
+                            else None
+                        ),
+                        is_correct=(
+                            bool(r.get("correct"))
+                            if r.get("correct") is not None
+                            else None
+                        ),
+                        responded_at=r.get("completed_at"),
+                        response_time_ms=(
+                            int(r.get("response_time_ms"))
+                            if isinstance(r.get("response_time_ms"), (int, float))
+                            else None
+                        ),
+                        used_hints=(
+                            1
+                            if r.get("hint_used") is True
+                            else 0 if r.get("hint_used") is False else None
+                        ),
+                        session_id=r.get("session_id"),
+                        session_duration_s=None,
+                    )
                 )
-            )
+            return attempts
+    except Exception:
+        # Fall through to exam_results path
+        pass
+
+    # Fallback: exam_results table
+    try:
+        if _table_exists(session, "exam_results"):
+            rows = _fetch_exam_results_rows(session, user_id, start, end)
+            for r in rows:
+                ts = r.get("ts")
+                doc = r.get("result_json") or {}
+                qs = doc.get("questions") or []
+                # Derive a best-effort dwell time per session
+                dwell = 0
+                for q in qs:
+                    tsec = q.get("time_spent_sec")
+                    if isinstance(tsec, (int, float)):
+                        dwell += int(tsec)
+                dwell = dwell or None
+                for q in qs:
+                    attempts.append(
+                        Attempt(
+                            question_id=(
+                                str(q.get("question_id"))
+                                if q.get("question_id") is not None
+                                else None
+                            ),
+                            topic_id=(
+                                str(q.get("topic"))
+                                if q.get("topic") is not None
+                                else None
+                            ),
+                            is_correct=(
+                                bool(q.get("is_correct") or q.get("correct"))
+                                if (
+                                    q.get("is_correct") is not None
+                                    or q.get("correct") is not None
+                                )
+                                else None
+                            ),
+                            responded_at=ts,
+                            response_time_ms=(
+                                int(float(q.get("time_spent_sec")) * 1000)
+                                if isinstance(q.get("time_spent_sec"), (int, float))
+                                else None
+                            ),
+                            used_hints=(
+                                int(q.get("used_hints"))
+                                if isinstance(q.get("used_hints"), (int, float))
+                                else None
+                            ),
+                            session_id=r.get("session_id"),
+                            session_duration_s=dwell,
+                        )
+                    )
+            return attempts
+    except Exception:
+        # If exam_results is also unavailable, return empty list
+        return []
+
     return attempts
 
 
@@ -550,12 +683,9 @@ def _normal_cdf(z: float) -> float:
 def _normal_goal_prob(mu: float, sd: float, target: float) -> Optional[float]:
     if sd is None or sd <= 0:
         return None
-    try:
-        z = (target - mu) / sd
-        p = 1.0 - _normal_cdf(z)
-        return max(0.0, min(1.0, float(p)))
-    except Exception:
-        return None
+    z = (target - mu) / sd
+    p = 1.0 - _normal_cdf(z)
+    return max(0.0, min(1.0, p))
 
 
 def compute_goal_attainment_probability(
@@ -563,30 +693,78 @@ def compute_goal_attainment_probability(
 ) -> Optional[float]:
     """Compute P(goal|state) using Normal approximation by default.
 
-    If METRICS_USE_BAYESIAN=true, attempts a Bayesian client, and falls back on Normal
-    when client is unavailable or raises.
+    If METRICS_USE_BAYESIAN=true, attempts to use Bayesian posterior from growth_brms_meta,
+    and falls back on Normal approximation when unavailable.
+
+    Strategy:
+    1. If METRICS_USE_BAYESIAN=true:
+       a. Check weekly_kpi.kpis->>'P' (if already computed by fit_bayesian_growth)
+       b. Otherwise, load latest growth_brms_meta posterior and compute using R client
+       c. Fallback to Normal approximation
+    2. Otherwise: Normal approximation only
     """
     # Resolve target
     if target is None:
         target = _get_default_target()
 
-    # Optional Bayesian path (placeholder for future integration)
+    # Optional Bayesian path: check if weekly_kpi already has P from fit_bayesian_growth
     use_bayes = os.getenv("METRICS_USE_BAYESIAN", "false").lower() == "true"
     if use_bayes:
-        try:  # pragma: no cover - placeholder; will be covered when client lands
-            from ..app.clients import r_brms as rbrms  # type: ignore
-
-            mu_sd = load_user_ability_summary(session, user_id)
-            if not mu_sd:
-                return None
-            mu, sd = mu_sd
-            # Suppose r_brms client expects mu, sd, target -> probability in [0,1]
-            prob = rbrms.prob_goal(mu=mu, sd=sd, target=target)  # type: ignore[attr-defined]
-            return max(0.0, min(1.0, float(prob)))
+        # First, check if weekly_kpi already has P computed by fit_bayesian_growth
+        try:
+            stmt_kpi = sa.text(
+                """
+                SELECT kpis->>'P' AS p_value
+                FROM weekly_kpi
+                WHERE user_id = :user_id
+                  AND kpis ? 'P'
+                  AND (kpis->>'P') IS NOT NULL
+                ORDER BY week_start DESC
+                LIMIT 1
+                """
+            )
+            result = session.execute(stmt_kpi, {"user_id": user_id}).scalar()
+            if result is not None:
+                try:
+                    return max(0.0, min(1.0, float(result)))
+                except (ValueError, TypeError):
+                    pass
         except Exception:
-            # Fallback to Normal approx
-            pass
+            pass  # Continue to posterior-based computation
 
+        # Second, try to load from growth_brms_meta and compute using R client
+        try:
+            # Load latest posterior from growth_brms_meta
+            stmt_meta = sa.text(
+                """
+                SELECT posterior_summary
+                FROM growth_brms_meta
+                ORDER BY fitted_at DESC
+                LIMIT 1
+                """
+            )
+            meta_row = session.execute(stmt_meta).mappings().first()
+
+            if meta_row and meta_row.get("posterior_summary"):
+                # Get user ability summary for current state
+                mu_sd = load_user_ability_summary(session, user_id)
+                if not mu_sd:
+                    return None
+                mu, sd = mu_sd
+
+                # Use R BRMS client to compute probability from posterior
+                from ..app.clients import r_brms as rbrms  # type: ignore
+
+                prob = rbrms.prob_goal(mu=mu, sd=sd, target=target)  # type: ignore[attr-defined]
+                return max(0.0, min(1.0, float(prob)))
+        except Exception as e:
+            # Log error but continue to Normal fallback
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Bayesian path failed, using Normal fallback: {e}")
+
+    # Normal approximation fallback (default)
     mu_sd = load_user_ability_summary(session, user_id)
     if not mu_sd:
         return None
@@ -640,12 +818,8 @@ def load_topic_thetas(
                 out.append(
                     {
                         "topic_id": r.get("topic_id"),
-                        "theta": (
-                            float(r.get("theta"))
-                            if r.get("theta") is not None
-                            else None
-                        ),
-                        "se": float(r.get("se")) if r.get("se") is not None else None,
+                        "theta": _to_float_or_none(r.get("theta")),
+                        "se": _to_float_or_none(r.get("se")),
                         "model": str(r.get("model") or "mirt"),
                         "fitted_at": r.get("fitted_at"),
                     }
@@ -674,12 +848,8 @@ def load_topic_thetas(
             return [
                 {
                     "topic_id": None,  # General ability, not topic-specific
-                    "theta": (
-                        float(row.get("theta"))
-                        if row.get("theta") is not None
-                        else None
-                    ),
-                    "se": float(row.get("se")) if row.get("se") is not None else None,
+                    "theta": _to_float_or_none(row.get("theta")),
+                    "se": _to_float_or_none(row.get("se")),
                     "model": str(row.get("model") or "mirt"),
                     "fitted_at": row.get("fitted_at"),
                 }

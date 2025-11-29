@@ -1,0 +1,31 @@
+tenants:
+  - org_id: dreamseedai-seoul
+    name: DreamSeedAI Seoul
+    email_to:
+      - ops@dreamseedai.com
+      - counselor@dreamseedai.com
+    slack_webhook: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+    branding:
+      primary_color: "#0f6fff"
+      logo_path: "/assets/logo_seoul.png"
+      locale: "ko"
+    
+  - org_id: school-alpha
+    name: School Alpha
+    email_to:
+      - lead@schoolalpha.org
+    slack_webhook: null
+    branding:
+      primary_color: "#2ecc71"
+      logo_path: "/assets/logo_alpha.png"
+      locale: "en"
+  
+  - org_id: collegeprepai-demo
+    name: CollegePrepAI Demo
+    email_to:
+      - demo@collegeprepai.com
+    slack_webhook: https://hooks.slack.com/services/DEMO/WEBHOOK
+    branding:
+      primary_color: "#e74c3c"
+      logo_path: "/assets/logo_college.png"
+      locale: "en"

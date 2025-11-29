@@ -1,0 +1,159 @@
+{
+  "version": "2025-11-07",
+  "bundle_id": "prod",
+  "phase": 2,
+  "rbac": {
+    "roles": [
+      {
+        "name": "platform_admin",
+        "allows": [
+          "*"
+        ],
+        "denies": []
+      },
+      {
+        "name": "school_admin",
+        "allows": [
+          "school:read",
+          "school:write",
+          "class:read",
+          "class:write",
+          "teacher:read",
+          "student:read",
+          "assignment:read",
+          "approval:approve"
+        ],
+        "denies": [
+          "policy:write",
+          "bundle:publish"
+        ]
+      },
+      {
+        "name": "teacher",
+        "allows": [
+          "class:read",
+          "student:read",
+          "assignment:create",
+          "assignment:read",
+          "assignment:update",
+          "content:propose",
+          "approval:approve"
+        ],
+        "denies": [
+          "student:delete",
+          "class:delete",
+          "policy:write"
+        ]
+      },
+      {
+        "name": "parent",
+        "allows": [
+          "own_children:read",
+          "consent:manage",
+          "data_deletion:request"
+        ],
+        "denies": [
+          "student:write",
+          "class:write"
+        ]
+      },
+      {
+        "name": "student",
+        "allows": [
+          "self:read",
+          "tutor:use",
+          "assignment:submit"
+        ],
+        "denies": [
+          "student:write",
+          "class:write"
+        ]
+      },
+      {
+        "name": "viewer",
+        "allows": [
+          "public:read"
+        ],
+        "denies": [
+          "*:write"
+        ]
+      }
+    ]
+  },
+  "safety": {
+    "tutor": {
+      "allow_during_exam": false,
+      "disallow_topics": [
+        "self-harm",
+        "violence",
+        "adult",
+        "hate",
+        "illegal",
+        "personal_info"
+      ],
+      "response_mode": "hint-only",
+      "max_hints": 3
+    },
+    "content": {
+      "safety_score_threshold": 0.85,
+      "age_appropriate_filter": true,
+      "toxicity_threshold": 0.3
+    }
+  },
+  "privacy": {
+    "pii_redaction": true,
+    "external_llm_send_pii": false,
+    "encryption": {
+      "at_rest": "AES-256-GCM",
+      "in_transit": "TLS-1.3"
+    },
+    "retention_days": {
+      "active_student": 365,
+      "graduated_student": 730,
+      "audit_log": 1095
+    }
+  },
+  "approvals": {
+    "rules": [
+      {
+        "id": "ai_content_recommendation",
+        "approver_role": "teacher",
+        "escalation_role": "school_admin",
+        "sla_hours": 48,
+        "auto_approve_if": [
+          {
+            "condition": "safety_score > 0.95"
+          }
+        ]
+      },
+      {
+        "id": "content_creation",
+        "approver_role": "school_admin",
+        "escalation_role": "platform_admin",
+        "sla_hours": 72
+      },
+      {
+        "id": "data_deletion_request",
+        "approver_role": "school_admin",
+        "escalation_role": "platform_admin",
+        "sla_hours": 168
+      }
+    ]
+  },
+  "feature_flags": {
+    "audit_logging": true,
+    "rbac_enforcement": true,
+    "content_safety_filter": true,
+    "teacher_approval_workflow": true,
+    "risk_engine": true,
+    "exam_pipeline": true,
+    "parent_portal": true,
+    "fairness_monitoring": true,
+    "advanced_analytics": true
+  },
+  "org_overrides": {
+    "enabled": true,
+    "allow_stricter_policies": true,
+    "allow_looser_policies": false
+  }
+}

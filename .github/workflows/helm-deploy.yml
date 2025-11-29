@@ -1,0 +1,151 @@
+name: Helm Deploy (Gateway + Risk)
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Environment (staging|production)"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      ENV: ${{ github.event.inputs.env }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set kubeconfig from secret
+        run: |
+          if [ "${ENV}" = "production" ]; then
+            echo "${{ secrets.KUBE_CONFIG_PROD }}" > kubeconfig
+            echo "NAMESPACE=dreamseedai" >> $GITHUB_ENV
+          else
+            echo "${{ secrets.KUBE_CONFIG_STAGING }}" > kubeconfig
+            echo "NAMESPACE=dreamseedai-staging" >> $GITHUB_ENV
+          fi
+          chmod 600 kubeconfig
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.28.0'
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Verify kubectl context
+        run: |
+          kubectl --kubeconfig=kubeconfig get ns
+          echo "Deploying to namespace: $NAMESPACE"
+
+      - name: Create namespace if not exists
+        run: |
+          kubectl --kubeconfig=kubeconfig create namespace $NAMESPACE --dry-run=client -o yaml | \
+          kubectl --kubeconfig=kubeconfig apply -f -
+
+      - name: Deploy Risk Pipeline chart
+        run: |
+          if [ "${ENV}" = "production" ]; then
+            helm upgrade --install risk ops/helm/charts/dreamseedai-risk \
+              -f ops/helm/charts/dreamseedai-risk/values-production.yaml \
+              -n "$NAMESPACE" \
+              --kubeconfig kubeconfig \
+              --wait \
+              --timeout 5m
+          else
+            helm upgrade --install risk ops/helm/charts/dreamseedai-risk \
+              -f ops/helm/charts/dreamseedai-risk/values-staging.yaml \
+              -n "$NAMESPACE" \
+              --kubeconfig kubeconfig \
+              --wait \
+              --timeout 5m
+          fi
+
+      - name: Deploy Backend chart
+        run: |
+          helm upgrade --install backend ops/helm/charts/dreamseedai-backend \
+            -n "$NAMESPACE" \
+            --kubeconfig kubeconfig \
+            --wait \
+            --timeout 5m
+
+      - name: Deploy Gateway chart
+        run: |
+          if [ "${ENV}" = "production" ]; then
+            helm upgrade --install gateway ops/helm/charts/dreamseedai-gateway \
+              -f ops/helm/charts/dreamseedai-gateway/values-production.yaml \
+              -n "$NAMESPACE" \
+              --kubeconfig kubeconfig \
+              --wait \
+              --timeout 5m
+          else
+            helm upgrade --install gateway ops/helm/charts/dreamseedai-gateway \
+              -f ops/helm/charts/dreamseedai-gateway/values-staging.yaml \
+              -n "$NAMESPACE" \
+              --kubeconfig kubeconfig \
+              --wait \
+              --timeout 5m
+          fi
+
+      - name: Verify deployment
+        run: |
+          echo "=== Deployments ==="
+          kubectl --kubeconfig=kubeconfig get deployments -n $NAMESPACE
+          
+          echo ""
+          echo "=== Services ==="
+          kubectl --kubeconfig=kubeconfig get services -n $NAMESPACE
+          
+          echo ""
+          echo "=== Ingress ==="
+          kubectl --kubeconfig=kubeconfig get ingress -n $NAMESPACE
+          
+          echo ""
+          echo "=== CronJobs ==="
+          kubectl --kubeconfig=kubeconfig get cronjobs -n $NAMESPACE
+          
+          echo ""
+          echo "=== Pods ==="
+          kubectl --kubeconfig=kubeconfig get pods -n $NAMESPACE
+
+      - name: Check Ingress status
+        run: |
+          INGRESS_IP=$(kubectl --kubeconfig=kubeconfig get ingress dreamseedai-gateway \
+            -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          
+          if [ -z "$INGRESS_IP" ]; then
+            echo "⚠️  Ingress IP not yet assigned. Check DNS configuration."
+          else
+            echo "✓ Ingress IP: $INGRESS_IP"
+          fi
+
+      - name: Deployment summary
+        run: |
+          if [ "${ENV}" = "production" ]; then
+            HOST="app.dreamseedai.com"
+          else
+            HOST="app-staging.dreamseedai.com"
+          fi
+          
+          echo "=== Deployment Summary ==="
+          echo "Environment: ${ENV}"
+          echo "Namespace: $NAMESPACE"
+          echo "Host: $HOST"
+          echo ""
+          echo "Endpoints:"
+          echo "  - Portal: https://$HOST/"
+          echo "  - API: https://$HOST/api/health"
+          echo "  - Shiny: https://$HOST/shiny/risk/"

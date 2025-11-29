@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  template:
+    metadata:
+      annotations:
+        governance.dreamseed.ai/phase: "2"
+        governance.dreamseed.ai/mode: "enforce"
+        governance.dreamseed.ai/features: "risk_engine,exam_pipeline,parent_portal,fairness_monitoring"
+    spec:
+      containers:
+        - name: backend
+          env:
+            - name: POLICY_BUNDLE_ID
+              value: "prod"
+            - name: GOVERNANCE_PHASE
+              value: "2"
+            - name: POLICY_STRICT_MODE
+              value: "enforce"
+            - name: POLICY_BUNDLE_PATH
+              value: "/app/governance/compiled/policy_bundle_prod.json"
+            - name: LOG_LEVEL
+              value: "WARNING"
+            - name: ENVIRONMENT
+              value: "production"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"

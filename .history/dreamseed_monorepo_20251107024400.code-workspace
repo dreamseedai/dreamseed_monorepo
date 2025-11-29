@@ -1,0 +1,40 @@
+{
+  "folders": [
+    { "path": "." }
+  ],
+  "settings": {
+    "files.exclude": {
+      "dreamseed": true,
+      "**/node_modules": true,
+      "**/.git": true,
+      "**/__pycache__": true,
+      "**/.venv": true,
+      "**/venv": true
+    },
+    "search.exclude": {
+      "dreamseed": true,
+      "**/node_modules": true,
+      "**/__pycache__": true,
+      "**/.venv": true,
+      "**/venv": true,
+      "**/backup": true,
+      "/var": true,
+      "/usr": true,
+      "/lib": true,
+      "/proc": true,
+      "/sys": true,
+      "/bin": true,
+      "/sbin": true,
+      "/boot": true,
+      "/dev": true,
+      "/etc": true,
+      "/opt": true,
+      "/snap": true
+    },
+    "search.followSymlinks": false,
+    "search.useIgnoreFiles": true,
+    "search.useGlobalIgnoreFiles": true,
+    "search.maxResults": 5000,
+    "workbench.startupEditor": "none"
+  }
+}

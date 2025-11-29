@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+dreamseed_shared_etl.egg-info/PKG-INFO
+dreamseed_shared_etl.egg-info/SOURCES.txt
+dreamseed_shared_etl.egg-info/dependency_links.txt
+dreamseed_shared_etl.egg-info/requires.txt
+dreamseed_shared_etl.egg-info/top_level.txt
+shared_etl/__init__.py
+shared_etl/normalize_adapter.py
+shared_etl/types.py
+tests/test_schemas.py

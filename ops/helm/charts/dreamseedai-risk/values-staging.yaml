@@ -1,0 +1,49 @@
+# DreamSeedAI Risk Pipeline - Staging Environment
+
+image:
+  pipeline: ghcr.io/dreamseedai/risk-pipeline:latest
+  shiny: ghcr.io/dreamseedai/risk-shiny:latest
+  pullPolicy: Always
+
+env:
+  DSN: postgresql://user:pass@postgres-staging:5432/dreamseedai
+  SMTP_HOST: mail-staging
+  SMTP_PORT: "25"
+  SMTP_STARTTLS: "0"
+  SMTP_USER: ""
+  SMTP_PASS: ""
+  RISK_EMAIL_FROM: reports-staging@dreamseedai.com
+  RISK_REPORTS_DIR: /data/reports
+  RISK_SIGN_SECRET: "staging-secret-change-me"
+
+pvc:
+  name: risk-reports-pvc-staging
+  size: 5Gi
+  storageClassName: standard
+
+cronjob:
+  enabled: true
+  schedule: "0 8 * * 1"  # Monday 08:00 (staging runs later)
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
+shiny:
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "250m"
+
+ingress:
+  enabled: true
+  className: nginx
+  host: app-staging.dreamseedai.com
+  shinyPath: /shiny/risk
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+  tls:
+    enabled: true
+    secretName: dreamseedai-staging-tls

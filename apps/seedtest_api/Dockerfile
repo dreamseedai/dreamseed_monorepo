@@ -30,8 +30,11 @@ WORKDIR /app
 COPY --from=base /usr/local/lib/python3.11 /usr/local/lib/python3.11
 COPY --from=base /usr/local/bin /usr/local/bin
 
-# Copy application code into a package directory
+# Copy application code into two locations to support both import styles:
+# - seedtest_api.* (for uvicorn and direct module runs)
+# - apps.seedtest_api.* (for jobs that reference apps.*)
 COPY apps/seedtest_api/ /app/seedtest_api/
+COPY apps/ /app/apps/
 
 # Expose Cloud Run port
 EXPOSE 8080

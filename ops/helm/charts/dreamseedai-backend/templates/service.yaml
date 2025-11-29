@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dreamseedai-backend
+  labels:
+    app: dreamseedai-backend
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: dreamseedai-backend
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: 8000
+      protocol: TCP

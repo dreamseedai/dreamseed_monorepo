@@ -1,0 +1,50 @@
+# DreamSeedAI Risk Pipeline - Production Environment
+
+image:
+  pipeline: ghcr.io/dreamseedai/risk-pipeline:latest
+  shiny: ghcr.io/dreamseedai/risk-shiny:latest
+  pullPolicy: IfNotPresent
+
+env:
+  DSN: postgresql://user:pass@postgres-prod:5432/dreamseedai
+  SMTP_HOST: mail.dreamseedai.com
+  SMTP_PORT: "587"
+  SMTP_STARTTLS: "1"
+  SMTP_USER: "reports@dreamseedai.com"
+  SMTP_PASS: ""  # Set via kubectl create secret
+  RISK_EMAIL_FROM: reports@dreamseedai.com
+  RISK_REPORTS_DIR: /data/reports
+  RISK_SIGN_SECRET: ""  # Set via kubectl create secret
+
+pvc:
+  name: risk-reports-pvc-prod
+  size: 50Gi
+  storageClassName: premium-ssd
+
+cronjob:
+  enabled: true
+  schedule: "0 6 * * 1"  # Monday 06:00
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 2
+
+shiny:
+  replicas: 2
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+ingress:
+  enabled: true
+  className: nginx
+  host: app.dreamseedai.com
+  shinyPath: /shiny/risk
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  tls:
+    enabled: true
+    secretName: dreamseedai-prod-tls

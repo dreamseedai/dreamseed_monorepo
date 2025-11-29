@@ -1,0 +1,13 @@
+fullnameOverride: "majorprepai-api"
+service:
+  name: "majorprepai-api"
+  version: "canary"
+  port: 8007
+image:
+  repository: "registry.example.com/majorprepai-api"
+  tag: "2025.11.09"
+prometheus:
+  address: "http://prometheus-server.monitoring.svc.cluster.local"
+servicemonitor:
+  labels:
+    release: kube-prometheus-stack

@@ -1,0 +1,40 @@
+# ServiceMonitor for Prometheus Operator
+# =======================================
+# Prometheus가 자동으로 메트릭을 스크랩하도록 설정
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: dreamseed-api
+  namespace: default
+  labels:
+    release: kube-prometheus-stack  # Prometheus Operator 릴리스명에 맞게 수정
+    app: dreamseed-api
+spec:
+  selector:
+    matchLabels:
+      app: dreamseed-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+---
+# 다른 서비스용 템플릿
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: univprepai-api
+  namespace: default
+  labels:
+    release: kube-prometheus-stack
+    app: univprepai-api
+spec:
+  selector:
+    matchLabels:
+      app: univprepai-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

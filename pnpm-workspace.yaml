@@ -1,0 +1,6 @@
+packages:
+  - "shared/*" # @dreamseed/shared-*
+  - "math-etl" # math-etl node 하위만 pnpm 대상
+  - "apps/*" # 프론트엔드 앱
+  - "services/*" # 백엔드 서비스
+  - "portal_front" # 메인 포털

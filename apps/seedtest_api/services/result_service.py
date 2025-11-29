@@ -175,6 +175,7 @@ def finish_exam(
 
     Best-effort: if a DB is configured, mark the exam session as completed
     before computing the result; then delegate to compute_result (idempotent).
+    Also triggers IRT ability update in background.
     """
     if _has_db():
         try:
@@ -192,7 +193,20 @@ def finish_exam(
         except Exception:
             # Non-fatal; continue to compute
             pass
-    return compute_result(session_id, force=force, user_id=user_id, exam_id=exam_id)
+
+    result = compute_result(session_id, force=force, user_id=user_id, exam_id=exam_id)
+
+    # Trigger session completion hooks (including IRT theta update)
+    if user_id:
+        try:
+            from ..services.session_hooks import on_session_complete
+
+            on_session_complete(user_id, session_id)
+        except Exception:
+            # Non-fatal; hook failure should not block session completion
+            pass
+
+    return result
 
 
 def get_result_from_db(

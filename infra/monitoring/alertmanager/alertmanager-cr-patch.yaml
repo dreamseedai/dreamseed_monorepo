@@ -1,0 +1,20 @@
+---
+# Alertmanager CR Patch - Secret 마운트 보장
+# Kustomize patchesStrategicMerge용
+#
+# 이 패치는 Alertmanager CR에 필수 Secret 마운트를 보장합니다.
+# Prometheus Operator가 spec.secrets의 Secret들을 자동으로
+# /etc/alertmanager/secrets/<secret-name>/ 경로에 마운트합니다.
+
+apiVersion: monitoring.coreos.com/v1
+kind: Alertmanager
+metadata:
+  name: main
+  namespace: monitoring
+spec:
+  # 재배포/재설치 시에도 항상 Secret 마운트 보장
+  secrets:
+    - alertmanager-secrets       # Slack webhook URL
+  
+  # 마운트 경로 (Prometheus Operator 자동 처리):
+  # - /etc/alertmanager/secrets/alertmanager-secrets/slack_webhook_url

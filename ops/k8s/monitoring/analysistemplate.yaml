@@ -1,0 +1,77 @@
+# Argo Rollouts AnalysisTemplate
+# ===============================
+# Prometheus 쿼리로 카나리 배포 자동 판단
+
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: api-canary-check
+  namespace: default
+spec:
+  metrics:
+    # P95 지연시간 체크
+    - name: p95-latency
+      interval: 1m
+      count: 5
+      successCondition: result < 0.3  # 300ms 미만
+      failureLimit: 1
+      provider:
+        prometheus:
+          address: http://prometheus-server.monitoring.svc.cluster.local
+          query: |
+            histogram_quantile(0.95,
+              sum by (le) (
+                rate(http_request_duration_seconds_bucket{
+                  service="{{args.service-name}}",
+                  version="canary"
+                }[1m])
+              )
+            )
+    
+    # 에러율 체크
+    - name: error-rate
+      interval: 1m
+      count: 5
+      successCondition: result < 0.02  # 2% 미만
+      failureLimit: 1
+      provider:
+        prometheus:
+          address: http://prometheus-server.monitoring.svc.cluster.local
+          query: |
+            sum(
+              rate(http_requests_total{
+                service="{{args.service-name}}",
+                version="canary",
+                status=~"5.."
+              }[1m])
+            )
+            /
+            sum(
+              rate(http_requests_total{
+                service="{{args.service-name}}",
+                version="canary"
+              }[1m])
+            )
+    
+    # P99 지연시간 체크 (추가)
+    - name: p99-latency
+      interval: 1m
+      count: 5
+      successCondition: result < 1.0  # 1초 미만
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus-server.monitoring.svc.cluster.local
+          query: |
+            histogram_quantile(0.99,
+              sum by (le) (
+                rate(http_request_duration_seconds_bucket{
+                  service="{{args.service-name}}",
+                  version="canary"
+                }[1m])
+              )
+            )
+  
+  args:
+    - name: service-name
+      value: univprepai-api  # 기본값

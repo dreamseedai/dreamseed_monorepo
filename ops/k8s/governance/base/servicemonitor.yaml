@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: seedtest-api
+  namespace: seedtest
+  labels:
+    app: seedtest-api
+    governance: enabled
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: seedtest-api
+  namespaceSelector:
+    matchNames:
+      - seedtest
+  endpoints:
+    - port: http                 # Service 포트명과 일치
+      interval: 30s
+      scrapeTimeout: 10s
+      path: /metrics             # 앱이 /metrics 노출 시 사용
+      scheme: http

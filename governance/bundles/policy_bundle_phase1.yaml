@@ -1,0 +1,425 @@
+# DreamSeedAI Policy Bundle - Phase 1
+# 핵심 거버넌스 활성화
+
+version: "2025-11-07"
+bundle_id: "phase1"
+phase: 1
+description: "Phase 1: 핵심 거버넌스 (개인정보 보호, 안전성, 교사 승인)"
+
+# ============================================================================
+# RBAC (Role-Based Access Control)
+# ============================================================================
+rbac:
+  enabled: true
+  
+  roles:
+    # 플랫폼 관리자
+    - name: "platform_admin"
+      description: "플랫폼 최고 관리자"
+      allows:
+        - "*"  # 모든 권한
+      denies:
+        - "pii:read:emergency"  # 긴급 PII 접근은 거버넌스 위원회 승인 필요
+    
+    # 학교 관리자
+    - name: "school_admin"
+      description: "학교 관리자"
+      allows:
+        - "school:read"
+        - "school:write"
+        - "teacher:create"
+        - "teacher:read"
+        - "student:create"
+        - "student:read"
+        - "class:manage"
+      denies:
+        - "policy:write"
+        - "system:config"
+      constraints:
+        - "school_id must match user.school_id"
+    
+    # 교사
+    - name: "teacher"
+      description: "교사"
+      allows:
+        - "class:read"
+        - "student:read"
+        - "assignment:create"
+        - "assignment:read"
+        - "assignment:update"
+        - "content:propose"      # 콘텐츠 제안 (승인 필요)
+        - "content:approve"      # AI 추천 콘텐츠 승인
+        - "grade:write"
+        - "feedback:write"
+        - "analytics:read:class"
+      denies:
+        - "policy:write"
+        - "student:delete"
+        - "pii:export"
+      constraints:
+        - "class_id must be in teacher.class_ids"
+    
+    # 학부모
+    - name: "parent"
+      description: "학부모"
+      allows:
+        - "student:read:own_children"
+        - "learning_data:read:own_children"
+        - "consent:manage:own_children"
+        - "data_deletion:request"
+        - "analytics:read:own_children"
+      denies:
+        - "student:write"
+        - "grade:read:other_students"
+      constraints:
+        - "student_id must be in parent.children_ids"
+    
+    # 학생
+    - name: "student"
+      description: "학생"
+      allows:
+        - "student:read:self"
+        - "learning_data:read:self"
+        - "assignment:read:self"
+        - "assignment:submit"
+        - "tutor:use"
+        - "feedback:provide"
+      denies:
+        - "grade:write"
+        - "analytics:read:others"
+      constraints:
+        - "student_id must be user.id"
+    
+    # 게스트/뷰어
+    - name: "viewer"
+      description: "읽기 전용 뷰어"
+      allows:
+        - "content:read:public"
+      denies:
+        - "*:write"
+
+  # API 엔드포인트 → 권한 매핑
+  endpoint_mappings:
+    - path: "/api/v1/admin/**"
+      methods: ["GET", "POST", "PUT", "DELETE"]
+      required_permission: "admin:*"
+      
+    - path: "/api/v1/classes/{class_id}/students"
+      methods: ["GET"]
+      required_permission: "student:read"
+      
+    - path: "/api/v1/assignments"
+      methods: ["POST"]
+      required_permission: "assignment:create"
+      
+    - path: "/api/v1/approvals/{approval_id}/approve"
+      methods: ["POST"]
+      required_permission: "content:approve"
+      
+    - path: "/api/v1/students/{student_id}/data"
+      methods: ["GET"]
+      required_permission: "learning_data:read"
+      
+    - path: "/api/v1/students/{student_id}/consent"
+      methods: ["PUT"]
+      required_permission: "consent:manage"
+
+# ============================================================================
+# Safety (안전성 정책)
+# ============================================================================
+safety:
+  enabled: true
+  
+  # AI 튜터 안전 정책
+  tutor:
+    allow_during_exam: false
+    response_mode_during_exam: "disabled"  # disabled | hint-only | full
+    max_hints_per_problem: 3
+    
+    disallow_topics:
+      - "self-harm"
+      - "violence"
+      - "adult"
+      - "hate"
+      - "illegal"
+      - "personal_info_request"
+    
+    content_filter:
+      enabled: true
+      ml_model: "content-safety-v1"
+      keyword_filter: true
+      toxicity_threshold: 0.3
+      
+    pii_protection:
+      redact_in_prompts: true
+      redact_in_responses: true
+      allow_names: false
+      allow_locations: false
+  
+  # 콘텐츠 안전 정책
+  content:
+    require_safety_check: true
+    safety_score_threshold: 0.85
+    age_appropriate_filter: true
+    
+    prohibited_content_types:
+      - "user_generated_unsafe"
+      - "external_links_unverified"
+      - "copyrighted_material"
+
+# ============================================================================
+# Privacy (개인정보 보호)
+# ============================================================================
+privacy:
+  enabled: true
+  
+  # 데이터 수집
+  data_collection:
+    require_consent: true
+    consent_age_threshold: 14  # 만 14세 미만은 학부모 동의 필요
+    
+    essential_data_only: true
+    prohibited_data:
+      - "biometric"
+      - "health"
+      - "location_precise"
+      - "social_media_profiles"
+  
+  # 데이터 보호
+  data_protection:
+    encryption:
+      at_rest: "AES-256-GCM"
+      in_transit: "TLS-1.3"
+    
+    pii_redaction:
+      enabled: true
+      log_redaction: true
+      export_redaction: true
+    
+    anonymization:
+      analytics_data: true
+      research_data: true
+  
+  # 데이터 보유
+  data_retention:
+    active_student: 365  # 재학생: 365일
+    graduated_student: 365  # 졸업생: 졸업 후 365일
+    audit_logs: 1095  # 감사 로그: 3년
+    
+    auto_deletion: true
+    deletion_confirmation: true
+  
+  # 제3자 공유
+  third_party:
+    allow_sharing: false
+    external_llm_send_pii: false  # 외부 LLM에 PII 전송 금지
+    analytics_partners: []
+
+# ============================================================================
+# Approvals (승인 워크플로우)
+# ============================================================================
+approvals:
+  enabled: true
+  
+  rules:
+    # AI 콘텐츠 추천 승인
+    - id: "ai_content_recommendation"
+      description: "AI가 추천한 학습 콘텐츠"
+      approver_role: "teacher"
+      escalation_role: "school_admin"
+      sla_hours: 48
+      auto_approve_if:
+        - "content.safety_score > 0.95"
+        - "content.type == 'verified_curriculum'"
+      require_comment: false
+    
+    # 신규 콘텐츠 생성
+    - id: "content_creation"
+      description: "교사가 생성한 새 콘텐츠"
+      approver_role: "school_admin"
+      escalation_role: "platform_admin"
+      sla_hours: 72
+      require_comment: true
+    
+    # 데이터 삭제 요청
+    - id: "data_deletion_request"
+      description: "학부모/학생 데이터 삭제 요청"
+      approver_role: "school_admin"
+      escalation_role: "platform_admin"
+      sla_hours: 168  # 7일
+      require_comment: true
+      auto_approve_if: []
+  
+  workflow:
+    max_pending_time_hours: 168  # 7일 이상 대기 시 에스컬레이션
+    notification_enabled: true
+    reminder_hours: 24
+
+# ============================================================================
+# Feature Flags (기능 플래그)
+# ============================================================================
+feature_flags:
+  # Phase 1에서 활성화할 기능들
+  
+  # 핵심 기능
+  rbac_enforcement: true
+  content_safety_filter: true
+  teacher_approval_workflow: true
+  audit_logging: true
+  
+  # 고급 기능 (Phase 2+에서 활성화)
+  ai_tutor: true
+  ai_content_recommendation: true
+  irt_ability_estimation: true
+  
+  # 실험적 기능 (비활성)
+  risk_prediction_engine: false
+  exam_proctoring: false
+  parent_portal: false
+  advanced_analytics: false
+  fairness_monitoring: false  # Phase 2에서 활성화
+  
+  # 관리 기능
+  governance_dashboard: true
+  policy_hot_reload: true
+
+# ============================================================================
+# Monitoring & Auditing (모니터링 및 감사)
+# ============================================================================
+monitoring:
+  enabled: true
+  
+  # 감사 로그
+  audit_logging:
+    enabled: true
+    log_all_api_calls: true
+    log_pii_access: true
+    log_policy_violations: true
+    log_approvals: true
+    
+    retention_days: 1095  # 3년
+    
+    events:
+      - "data_access"
+      - "ai_decision"
+      - "policy_violation"
+      - "approval_request"
+      - "approval_decision"
+      - "consent_change"
+      - "data_deletion"
+  
+  # 메트릭
+  metrics:
+    policy_compliance_rate: true
+    safety_check_success_rate: true
+    approval_sla_compliance: true
+    api_access_denied_count: true
+  
+  # 알림
+  alerts:
+    enabled: true
+    channels: ["email", "slack"]
+    
+    triggers:
+      - event: "policy_violation"
+        severity: "high"
+        threshold: 5  # 5건 이상 시 알림
+        
+      - event: "safety_check_failure"
+        severity: "critical"
+        threshold: 1
+        
+      - event: "approval_overdue"
+        severity: "medium"
+        threshold_hours: 48
+
+# ============================================================================
+# Organization Overrides (조직별 커스터마이징)
+# ============================================================================
+org_overrides:
+  enabled: false  # Phase 1에서는 비활성 (Phase 2+에서 활성화)
+  
+  allow_stricter_policies: true   # 학교가 더 엄격한 정책 적용 가능
+  allow_looser_policies: false    # 느슨한 정책은 불가
+  
+  customizable_settings:
+    - "tutor.max_hints_per_problem"
+    - "data_retention.active_student"
+    - "feature_flags"  # 일부 기능만
+
+# ============================================================================
+# Compliance (법규 준수)
+# ============================================================================
+compliance:
+  enabled: true
+  
+  regulations:
+    - name: "COPPA"
+      description: "Children's Online Privacy Protection Act"
+      applicable: true
+      requirements:
+        - "parental_consent_under_13"
+        - "no_third_party_sharing"
+        - "data_deletion_on_request"
+    
+    - name: "FERPA"
+      description: "Family Educational Rights and Privacy Act"
+      applicable: true
+      requirements:
+        - "educational_records_protection"
+        - "parent_access_rights"
+        - "consent_for_disclosure"
+    
+    - name: "GDPR"
+      description: "General Data Protection Regulation"
+      applicable: true
+      requirements:
+        - "data_minimization"
+        - "right_to_erasure"
+        - "right_to_portability"
+        - "data_protection_by_design"
+    
+    - name: "CCPA"
+      description: "California Consumer Privacy Act"
+      applicable: false  # 미국 외 지역은 false
+      requirements: []
+
+# ============================================================================
+# Enforcement Mode (집행 모드)
+# ============================================================================
+enforcement:
+  mode: "soft"  # soft (경고만) | enforce (강제 차단)
+  
+  # soft 모드 설정
+  soft_mode:
+    log_violations: true
+    send_alerts: true
+    allow_override: false
+  
+  # enforce 모드 설정
+  enforce_mode:
+    block_violations: true
+    log_violations: true
+    send_alerts: true
+
+# ============================================================================
+# Metadata
+# ============================================================================
+metadata:
+  created_at: "2025-11-07T00:00:00Z"
+  created_by: "DreamSeedAI Governance Board"
+  approved_by:
+    - "Education Expert"
+    - "AI Ethics Expert"
+    - "Legal Expert"
+  
+  changelog:
+    - version: "2025-11-07"
+      changes:
+        - "Initial Phase 1 policy bundle"
+        - "RBAC for 6 roles"
+        - "Safety policies for AI tutor"
+        - "Teacher approval workflow"
+        - "Basic audit logging"
+  
+  next_review_date: "2026-02-07"  # 3개월 후 검토
