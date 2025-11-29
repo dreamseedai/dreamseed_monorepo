@@ -9,15 +9,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check if shiny-admin exists
+        id: check
+        run: |
+          if [ ! -d "shiny-admin" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "shiny-admin directory not found, skipping"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
       - name: Set up Docker Buildx
+        if: steps.check.outputs.skip != 'true'
         uses: docker/setup-buildx-action@v3
       - name: Auth Artifact Registry
+        if: steps.check.outputs.skip != 'true'
         uses: docker/login-action@v3
         with:
           registry: asia-northeast3-docker.pkg.dev
           username: _json_key
           password: ${{ secrets.GAR_JSON_KEY }}
       - name: Build & Push
+        if: steps.check.outputs.skip != 'true'
         run: |
           docker build -t asia-northeast3-docker.pkg.dev/univprepai/seedtest/shiny-admin:latest -f shiny-admin/Dockerfile shiny-admin
           docker push asia-northeast3-docker.pkg.dev/univprepai/seedtest/shiny-admin:latest
@@ -25,19 +37,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check if shiny-admin exists
+        id: check
+        run: |
+          if [ ! -d "shiny-admin" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "shiny-admin directory not found, skipping"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
       - name: Install kustomize/kubeconform
+        if: steps.check.outputs.skip != 'true'
         run: |
           curl -sSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.1/kustomize_v5.4.1_linux_amd64.tar.gz | sudo tar -C /usr/local/bin -xz kustomize
           curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | sudo tar -C /usr/local/bin -xz kubeconform
       - name: Render manifests
+        if: steps.check.outputs.skip != 'true'
         run: kustomize build shiny-admin/k8s > /tmp/rendered.yaml
       - name: Kubeconform
+        if: steps.check.outputs.skip != 'true'
         run: kubeconform -summary -ignore-missing-schemas -output tap < /tmp/rendered.yaml
       - name: Kyverno (dry-run)
+        if: steps.check.outputs.skip != 'true'
         run: |
           curl -sSL https://github.com/kyverno/kyverno/releases/download/v1.11.5/kyverno-cli_v1.11.5_linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xz kyverno
           kyverno apply policies/kyverno --resource /tmp/rendered.yaml --fail-on-warn || true
       - name: Conftest
+        if: steps.check.outputs.skip != 'true'
         run: |
           curl -sSL https://github.com/open-policy-agent/conftest/releases/download/v0.52.0/conftest_0.52.0_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xz conftest
           conftest test /tmp/rendered.yaml -p policies/conftest/kubernetes/policy || true

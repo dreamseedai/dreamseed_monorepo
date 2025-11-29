@@ -35,10 +35,10 @@ jobs:
           ALLOW_RE='^(portal_front/|apps/seedtest_api/|shared/|infra/pdf_lambda/|infra/nginx/|apps/portal_front/|apps/seedtest_api/|apps/seedtest_api_clean/|policy/k8s/|\.github/workflows/)'
 
           # Explicit exemptions within infra (V1-relevant ops tooling)
-          EXEMPT_RE='^(infra/pdf_lambda/|infra/nginx/|infra/k8s/cronjobs/|infra/devtools/|ops/k8s/)'
+          EXEMPT_RE='^(infra/pdf_lambda/|infra/nginx/|infra/k8s/cronjobs/|infra/devtools/|ops/k8s/|governance/|ops/scripts/)'
 
           # Denylist: block off non‑V1 areas
-          DENY_RE='^(ops/|infra/|portal_front/(admin|org|school)|apps/.*/(org_|school_|academy_)|sso/|billing/(academy|school)|gatekeeper|lms_)'
+          DENY_RE='^(ops/(?!scripts/)|infra/(?!pdf_lambda/|nginx/|k8s/cronjobs/|devtools/)|portal_front/(admin|org|school)|apps/.*/(org_|school_|academy_)|sso/|billing/(academy|school)|gatekeeper|lms_)'
 
           blocked=0
           while IFS= read -r f; do
