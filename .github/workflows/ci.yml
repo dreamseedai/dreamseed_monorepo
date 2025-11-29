@@ -109,9 +109,19 @@ jobs:
             echo "No Python file changes in PR; skipping Black"
             exit 0
           fi
-          echo "Running Black on changed files (excluding mock_api.py):\n$CHANGED"
-          # Note: Do NOT rely on --force-exclude; Black will still format explicitly passed files.
-          black --check --diff $CHANGED
+          # Filter to only existing files
+          EXISTING_FILES=""
+          for file in $CHANGED; do
+            if [ -f "$file" ]; then
+              EXISTING_FILES="$EXISTING_FILES $file"
+            fi
+          done
+          if [ -z "$EXISTING_FILES" ]; then
+            echo "No existing Python files to check; skipping Black"
+            exit 0
+          fi
+          echo "Running Black on changed files (excluding mock_api.py): $EXISTING_FILES"
+          black --check --diff $EXISTING_FILES
 
       - name: Import sorting check (isort)
         # Only run on PRs to avoid blocking main branch pushes with legacy code issues
@@ -124,8 +134,19 @@ jobs:
             echo "No Python file changes in PR; skipping isort"
             exit 0
           fi
-          echo "Running isort on changed files (excluding mock_api.py):\n$CHANGED"
-          isort --check-only --diff $CHANGED
+          # Filter to only existing files
+          EXISTING_FILES=""
+          for file in $CHANGED; do
+            if [ -f "$file" ]; then
+              EXISTING_FILES="$EXISTING_FILES $file"
+            fi
+          done
+          if [ -z "$EXISTING_FILES" ]; then
+            echo "No existing Python files to check; skipping isort"
+            exit 0
+          fi
+          echo "Running isort on changed files (excluding mock_api.py): $EXISTING_FILES"
+          isort --check-only --diff $EXISTING_FILES
 
       - name: Linting (Flake8)
         # Only run on PRs to avoid blocking main branch pushes with legacy code issues
@@ -138,8 +159,19 @@ jobs:
             echo "No Python file changes in PR; skipping flake8"
             exit 0
           fi
-          echo "Running flake8 on changed files (excluding mock_api.py):\n$CHANGED"
-          flake8 $CHANGED --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Filter to only existing files
+          EXISTING_FILES=""
+          for file in $CHANGED; do
+            if [ -f "$file" ]; then
+              EXISTING_FILES="$EXISTING_FILES $file"
+            fi
+          done
+          if [ -z "$EXISTING_FILES" ]; then
+            echo "No existing Python files to check; skipping flake8"
+            exit 0
+          fi
+          echo "Running flake8 on changed files (excluding mock_api.py): $EXISTING_FILES"
+          flake8 $EXISTING_FILES --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Type checking (MyPy)
         run: |
