@@ -18,6 +18,7 @@ Usage:
     from portal_api.routers import student_dashboard_hybrid
     app.include_router(student_dashboard_hybrid.router)
 """
+
 from __future__ import annotations
 from datetime import date, timedelta
 from typing import Optional, List
@@ -33,7 +34,7 @@ from shared.db.models.student_emotive import (
     StudentMood,
     StudentDailyLog,
     StudentGoal,
-    StudentAIMessage
+    StudentAIMessage,
 )
 from shared.auth.deps_student import require_student, UserContext
 from shared.analytics.ai_empathy_llm import make_message_llm
@@ -45,8 +46,7 @@ from shared.web.locale import pick_accept_language
 
 def get_db():
     """Placeholder for DB session dependency. Replace with actual implementation."""
-    raise NotImplementedError(
-        "Replace with actual get_db() from shared.db.session")
+    raise NotImplementedError("Replace with actual get_db() from shared.db.session")
 
 
 router = APIRouter(prefix="/api/student", tags=["student"])
@@ -56,8 +56,10 @@ router = APIRouter(prefix="/api/student", tags=["student"])
 # Response Models
 # ============================================================================
 
+
 class GoalOut(BaseModel):
     """Goal output model"""
+
     id: str
     title: str
     target_date: Optional[str] = None
@@ -66,6 +68,7 @@ class GoalOut(BaseModel):
 
 class DashboardOut(BaseModel):
     """Dashboard summary response"""
+
     week_growth: float
     today_mood: Optional[str] = None
     streak_days: int
@@ -78,14 +81,17 @@ class DashboardOut(BaseModel):
 # Request Models
 # ============================================================================
 
+
 class MoodIn(BaseModel):
     """Mood input model"""
+
     mood: str  # happy|neutral|sad
     note: Optional[str] = None
 
 
 class GoalIn(BaseModel):
     """Goal creation input model"""
+
     title: str
     target_date: Optional[date] = None
 
@@ -93,6 +99,7 @@ class GoalIn(BaseModel):
 # ============================================================================
 # Endpoints
 # ============================================================================
+
 
 @router.get("/dashboard", response_model=DashboardOut)
 async def get_dashboard(
@@ -136,26 +143,33 @@ async def get_dashboard(
     # week_growth = float(rows[0][0] or 0.0)
 
     # Get today's mood
-    mood_row = db.execute(
-        select(StudentMood)
-        .where(
-            StudentMood.tenant_id == tenant_uuid,
-            StudentMood.student_id == student_uuid,
-            StudentMood.day == today
+    mood_row = (
+        db.execute(
+            select(StudentMood).where(
+                StudentMood.tenant_id == tenant_uuid,
+                StudentMood.student_id == student_uuid,
+                StudentMood.day == today,
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     today_mood = mood_row.mood if mood_row else None
 
     # Calculate streak: consecutive days with any log
-    log_days = db.execute(
-        select(StudentDailyLog.day)
-        .where(
-            StudentDailyLog.tenant_id == tenant_uuid,
-            StudentDailyLog.student_id == student_uuid
+    log_days = (
+        db.execute(
+            select(StudentDailyLog.day)
+            .where(
+                StudentDailyLog.tenant_id == tenant_uuid,
+                StudentDailyLog.student_id == student_uuid,
+            )
+            .order_by(StudentDailyLog.day.desc())
+            .limit(30)
         )
-        .order_by(StudentDailyLog.day.desc())
-        .limit(30)
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     streak = 0
     check_date = today
@@ -167,23 +181,27 @@ async def get_dashboard(
             break
 
     # Get open goals (not done)
-    goal_rows = db.execute(
-        select(StudentGoal)
-        .where(
-            StudentGoal.tenant_id == tenant_uuid,
-            StudentGoal.student_id == student_uuid,
-            StudentGoal.done == False
+    goal_rows = (
+        db.execute(
+            select(StudentGoal)
+            .where(
+                StudentGoal.tenant_id == tenant_uuid,
+                StudentGoal.student_id == student_uuid,
+                StudentGoal.done == False,
+            )
+            .order_by(StudentGoal.created_at.desc())
+            .limit(5)
         )
-        .order_by(StudentGoal.created_at.desc())
-        .limit(5)
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     goals = [
         GoalOut(
             id=str(g.id),
             title=g.title,
             target_date=g.target_date.isoformat() if g.target_date else None,
-            done=g.done
+            done=g.done,
         )
         for g in goal_rows
     ]
@@ -192,22 +210,26 @@ async def get_dashboard(
     # 1. Accept-Language header (highest priority)
     # 2. JWT lang field
     # 3. Default 'en'
-    lang = 'en'
+    lang = "en"
     if accept_language:
         # Priority 1: Accept-Language header
         lang = pick_accept_language(accept_language)
     elif hasattr(user, "lang") and user.lang:
         # Priority 2: JWT lang field
         lang = user.lang
-    # Priority 3: Default 'en' (already set)    # Get or generate AI message (cached by day)
-    cached_msg = db.execute(
-        select(StudentAIMessage)
-        .where(
-            StudentAIMessage.tenant_id == tenant_uuid,
-            StudentAIMessage.student_id == student_uuid,
-            StudentAIMessage.day == today
+    # Priority 3: Default 'en' (already set)    # Get or generate AI message
+    # (cached by day)
+    cached_msg = (
+        db.execute(
+            select(StudentAIMessage).where(
+                StudentAIMessage.tenant_id == tenant_uuid,
+                StudentAIMessage.student_id == student_uuid,
+                StudentAIMessage.day == today,
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
 
     if cached_msg:
         msg, tone = cached_msg.message, cached_msg.tone
@@ -221,7 +243,7 @@ async def get_dashboard(
             mood=today_mood,
             streak_days=streak,
             goal_titles=goal_titles,
-            lang=lang
+            lang=lang,
         )
 
         # Cache it
@@ -237,10 +259,13 @@ async def get_dashboard(
                 "lang": lang,
                 "streak": streak,
                 "goal_count": len(goal_titles),
-                "lang_source": "header" if accept_language else (
-                    "jwt" if hasattr(
-                        user,
-                        "lang") and user.lang else "default")})
+                "lang_source": (
+                    "header"
+                    if accept_language
+                    else ("jwt" if hasattr(user, "lang") and user.lang else "default")
+                ),
+            },
+        )
         db.add(new_msg)
         db.commit()
 
@@ -250,7 +275,7 @@ async def get_dashboard(
         streak_days=streak,
         goals=goals,
         ai_message=msg,
-        ai_tone=tone
+        ai_tone=tone,
     )
 
 
@@ -270,14 +295,17 @@ def set_mood(
     student_uuid = UUID(user.user_id)
 
     # Check if mood already exists for today
-    existing = db.execute(
-        select(StudentMood)
-        .where(
-            StudentMood.tenant_id == tenant_uuid,
-            StudentMood.student_id == student_uuid,
-            StudentMood.day == today
+    existing = (
+        db.execute(
+            select(StudentMood).where(
+                StudentMood.tenant_id == tenant_uuid,
+                StudentMood.student_id == student_uuid,
+                StudentMood.day == today,
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
 
     if existing:
         # Update existing

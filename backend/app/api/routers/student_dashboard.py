@@ -11,6 +11,7 @@ Endpoints:
 
 All endpoints require 'student' or 'admin' role and valid tenant_id.
 """
+
 from __future__ import annotations
 from datetime import date, timedelta
 from typing import Optional, List
@@ -26,7 +27,7 @@ from shared.db.models.student_emotive import (
     StudentMood,
     StudentDailyLog,
     StudentGoal,
-    StudentAIMessage
+    StudentAIMessage,
 )
 from shared.auth.deps_student import require_student, UserContext
 from shared.analytics.ai_empathy import make_message
@@ -48,8 +49,10 @@ router = APIRouter(prefix="/api/student", tags=["student"])
 # Response Models
 # ============================================================================
 
+
 class GoalOut(BaseModel):
     """Goal output model"""
+
     id: str
     title: str
     target_date: Optional[str] = None
@@ -58,6 +61,7 @@ class GoalOut(BaseModel):
 
 class DashboardOut(BaseModel):
     """Dashboard summary response"""
+
     week_growth: float
     today_mood: Optional[str] = None
     streak_days: int
@@ -70,14 +74,17 @@ class DashboardOut(BaseModel):
 # Request Models
 # ============================================================================
 
+
 class MoodIn(BaseModel):
     """Mood input model"""
+
     mood: str  # happy|neutral|sad
     note: Optional[str] = None
 
 
 class GoalIn(BaseModel):
     """Goal creation input model"""
+
     title: str
     target_date: Optional[date] = None
 
@@ -85,6 +92,7 @@ class GoalIn(BaseModel):
 # ============================================================================
 # Endpoints
 # ============================================================================
+
 
 @router.get("/dashboard", response_model=DashboardOut)
 def get_dashboard(
@@ -123,26 +131,33 @@ def get_dashboard(
     # week_growth = float(rows[0][0] or 0.0)
 
     # Get today's mood
-    mood_row = db.execute(
-        select(StudentMood)
-        .where(
-            StudentMood.tenant_id == tenant_uuid,
-            StudentMood.student_id == student_uuid,
-            StudentMood.day == today
+    mood_row = (
+        db.execute(
+            select(StudentMood).where(
+                StudentMood.tenant_id == tenant_uuid,
+                StudentMood.student_id == student_uuid,
+                StudentMood.day == today,
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     today_mood = mood_row.mood if mood_row else None
 
     # Calculate streak: consecutive days with any log
-    log_days = db.execute(
-        select(StudentDailyLog.day)
-        .where(
-            StudentDailyLog.tenant_id == tenant_uuid,
-            StudentDailyLog.student_id == student_uuid
+    log_days = (
+        db.execute(
+            select(StudentDailyLog.day)
+            .where(
+                StudentDailyLog.tenant_id == tenant_uuid,
+                StudentDailyLog.student_id == student_uuid,
+            )
+            .order_by(StudentDailyLog.day.desc())
+            .limit(30)
         )
-        .order_by(StudentDailyLog.day.desc())
-        .limit(30)
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     streak = 0
     check_date = today
@@ -154,36 +169,43 @@ def get_dashboard(
             break
 
     # Get open goals (not done)
-    goal_rows = db.execute(
-        select(StudentGoal)
-        .where(
-            StudentGoal.tenant_id == tenant_uuid,
-            StudentGoal.student_id == student_uuid,
-            StudentGoal.done == False
+    goal_rows = (
+        db.execute(
+            select(StudentGoal)
+            .where(
+                StudentGoal.tenant_id == tenant_uuid,
+                StudentGoal.student_id == student_uuid,
+                StudentGoal.done == False,
+            )
+            .order_by(StudentGoal.created_at.desc())
+            .limit(5)
         )
-        .order_by(StudentGoal.created_at.desc())
-        .limit(5)
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     goals = [
         GoalOut(
             id=str(g.id),
             title=g.title,
             target_date=g.target_date.isoformat() if g.target_date else None,
-            done=g.done
+            done=g.done,
         )
         for g in goal_rows
     ]
 
     # Get or generate AI message (cached by day)
-    cached_msg = db.execute(
-        select(StudentAIMessage)
-        .where(
-            StudentAIMessage.tenant_id == tenant_uuid,
-            StudentAIMessage.student_id == student_uuid,
-            StudentAIMessage.day == today
+    cached_msg = (
+        db.execute(
+            select(StudentAIMessage).where(
+                StudentAIMessage.tenant_id == tenant_uuid,
+                StudentAIMessage.student_id == student_uuid,
+                StudentAIMessage.day == today,
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
 
     if cached_msg:
         msg, tone = cached_msg.message, cached_msg.tone
@@ -198,7 +220,7 @@ def get_dashboard(
             day=today,
             message=msg,
             tone=tone,
-            meta={"week_growth": week_growth, "mood": today_mood}
+            meta={"week_growth": week_growth, "mood": today_mood},
         )
         db.add(new_msg)
         db.commit()
@@ -209,7 +231,7 @@ def get_dashboard(
         streak_days=streak,
         goals=goals,
         ai_message=msg,
-        ai_tone=tone
+        ai_tone=tone,
     )
 
 
@@ -229,14 +251,17 @@ def set_mood(
     student_uuid = UUID(user.user_id)
 
     # Check if mood already exists for today
-    existing = db.execute(
-        select(StudentMood)
-        .where(
-            StudentMood.tenant_id == tenant_uuid,
-            StudentMood.student_id == student_uuid,
-            StudentMood.day == today
+    existing = (
+        db.execute(
+            select(StudentMood).where(
+                StudentMood.tenant_id == tenant_uuid,
+                StudentMood.student_id == student_uuid,
+                StudentMood.day == today,
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
 
     if existing:
         # Update existing
