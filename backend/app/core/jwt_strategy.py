@@ -1,4 +1,5 @@
 """Custom JWT strategy with JTI support for token blacklist."""
+
 import uuid
 from contextlib import suppress
 from datetime import datetime

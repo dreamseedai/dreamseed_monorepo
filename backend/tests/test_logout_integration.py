@@ -95,8 +95,10 @@ def test_logout_invalidates_token(sync_client, test_user_data):
     # Step 1-2: 회원가입 및 로그인
     _register_user(sync_client, test_user_data)
     print(f"✅ 회원가입 완료: {test_user_data['email']}")
-    
-    access_token = _login_user(sync_client, test_user_data["email"], test_user_data["password"])
+
+    access_token = _login_user(
+        sync_client, test_user_data["email"], test_user_data["password"]
+    )
     print("✅ 로그인 성공, 토큰 획득")
 
     # Step 3: 보호된 엔드포인트 접근 (성공해야 함)
@@ -132,10 +134,14 @@ def test_multiple_device_logout(sync_client, test_user_data):
     _register_user(sync_client, test_user_data)
     print("✅ 회원가입 완료")
 
-    token_a = _login_user(sync_client, test_user_data["email"], test_user_data["password"])
+    token_a = _login_user(
+        sync_client, test_user_data["email"], test_user_data["password"]
+    )
     print("✅ Device A 로그인 완료")
 
-    token_b = _login_user(sync_client, test_user_data["email"], test_user_data["password"])
+    token_b = _login_user(
+        sync_client, test_user_data["email"], test_user_data["password"]
+    )
     print("✅ Device B 로그인 완료")
 
     # Step 4: Device A에서 로그아웃
@@ -165,7 +171,9 @@ def test_token_expiry_and_blacklist(sync_client, test_user_data):
     """
     # Step 1: 회원가입 & 로그인
     _register_user(sync_client, test_user_data)
-    access_token = _login_user(sync_client, test_user_data["email"], test_user_data["password"])
+    access_token = _login_user(
+        sync_client, test_user_data["email"], test_user_data["password"]
+    )
 
     # Step 2: 로그아웃 (블랙리스트 등록)
     headers = _get_auth_headers(access_token)
@@ -185,7 +193,9 @@ def test_logout_performance(sync_client, test_user_data):
     """
     # 회원가입 & 로그인
     _register_user(sync_client, test_user_data)
-    access_token = _login_user(sync_client, test_user_data["email"], test_user_data["password"])
+    access_token = _login_user(
+        sync_client, test_user_data["email"], test_user_data["password"]
+    )
     headers = _get_auth_headers(access_token)
 
     # 로그아웃 성능 측정
@@ -222,7 +232,9 @@ def test_complete_auth_lifecycle(sync_client, test_user_data):
     """
     # Step 1-2: 회원가입 & 로그인
     _register_user(sync_client, test_user_data)
-    token1 = _login_user(sync_client, test_user_data["email"], test_user_data["password"])
+    token1 = _login_user(
+        sync_client, test_user_data["email"], test_user_data["password"]
+    )
     headers1 = _get_auth_headers(token1)
     print("✅ 첫 번째 로그인")
 
@@ -236,7 +248,9 @@ def test_complete_auth_lifecycle(sync_client, test_user_data):
     print("✅ 로그아웃")
 
     # Step 5: 재로그인
-    token2 = _login_user(sync_client, test_user_data["email"], test_user_data["password"])
+    token2 = _login_user(
+        sync_client, test_user_data["email"], test_user_data["password"]
+    )
     headers2 = _get_auth_headers(token2)
     print("✅ 재로그인")
 

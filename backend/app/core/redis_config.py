@@ -1,4 +1,5 @@
 """Redis configuration for token blacklist and session management."""
+
 from typing import Optional
 
 import redis.asyncio as redis

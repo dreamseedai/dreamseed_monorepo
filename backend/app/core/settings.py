@@ -1,4 +1,5 @@
 """Application settings configuration."""
+
 import os
 from typing import Optional
 
@@ -16,7 +17,9 @@ class Settings(BaseSettings):
     )
 
     # Database
-    DATABASE_URL: str = "postgresql+psycopg://postgres:DreamSeedAi0908@127.0.0.1:5432/dreamseed"
+    DATABASE_URL: str = (
+        "postgresql+psycopg://postgres:DreamSeedAi0908@127.0.0.1:5432/dreamseed"
+    )
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"

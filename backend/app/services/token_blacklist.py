@@ -1,4 +1,5 @@
 """Token blacklist service for managing invalidated JWT tokens."""
+
 from datetime import datetime, timedelta
 from typing import Optional
 
