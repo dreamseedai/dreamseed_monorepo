@@ -139,7 +139,6 @@ def test_duplicate_registration_rejected(sync_client, test_user_data):
     assert "detail" in error_data
 
 
-@pytest.mark.skip(reason="Server does not validate password complexity or role enums")
 def test_invalid_registration_data(sync_client):
     """
     Test that invalid registration data is rejected.
