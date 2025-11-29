@@ -1,5 +1,6 @@
 """Custom JWT strategy with JTI support for token blacklist."""
 import uuid
+from contextlib import suppress
 from datetime import datetime
 from typing import Optional
 
@@ -80,9 +81,8 @@ class JWTStrategyWithBlacklist(Strategy[User, int]):
             if await blacklist_service.is_user_blacklisted(int(user_id)):
                 return None
 
-            # Get user from database
-            user = await user_manager.get(int(user_id))
-            return user
+            # Get user from database and return
+            return await user_manager.get(int(user_id))
 
         except Exception:
             return None
@@ -119,8 +119,7 @@ class JWTStrategyWithBlacklist(Strategy[User, int]):
             token: JWT token to blacklist
             user: User object (for additional validation)
         """
-        try:
-            # Decode token to get JTI and expiration
+        with suppress(Exception):
             data = decode_jwt(
                 token,
                 self.secret,
@@ -131,15 +130,10 @@ class JWTStrategyWithBlacklist(Strategy[User, int]):
             if not (jti := data.get("jti")) or not (exp := data.get("exp")):
                 return
 
-            # Blacklist the token
             redis_client = await get_redis()
             blacklist_service = TokenBlacklistService(redis_client)
             expires_at = datetime.utcfromtimestamp(exp)
             await blacklist_service.blacklist_token(jti, expires_at)
-
-        except Exception:
-            # If token decoding fails, nothing to blacklist
-            pass
 
 
 def get_jwt_strategy_with_blacklist() -> JWTStrategyWithBlacklist:
