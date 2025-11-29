@@ -1,16 +1,18 @@
 """Token blacklist service for managing invalidated JWT tokens."""
 
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Optional
 
 from app.core.settings import settings
-from redis.asyncio import Redis
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 
 class TokenBlacklistService:
     """Service for managing blacklisted JWT tokens."""
 
-    def __init__(self, redis_client: Redis):
+    def __init__(self, redis_client: "Redis"):
         """Initialize blacklist service with Redis client.
 
         Args:
@@ -36,7 +38,7 @@ class TokenBlacklistService:
         key = f"{self.prefix}{jti}"
 
         # Calculate TTL: token should remain in blacklist until it expires naturally
-        ttl_seconds = int((expires_at - datetime.utcnow()).total_seconds())
+        ttl_seconds = int((expires_at - datetime.now(timezone.utc)).total_seconds())
 
         if ttl_seconds <= 0:
             # Token already expired, no need to blacklist
@@ -85,12 +87,12 @@ class TokenBlacklistService:
             True if successfully blacklisted
         """
         if expires_at is None:
-            expires_at = datetime.utcnow() + timedelta(
+            expires_at = datetime.now(timezone.utc) + timedelta(
                 minutes=settings.JWT_EXPIRE_MINUTES
             )
 
         key = f"blacklist:user:{user_id}"
-        ttl_seconds = int((expires_at - datetime.utcnow()).total_seconds())
+        ttl_seconds = int((expires_at - datetime.now(timezone.utc)).total_seconds())
 
         if ttl_seconds <= 0:
             return True

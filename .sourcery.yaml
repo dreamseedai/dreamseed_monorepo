@@ -3,9 +3,6 @@
 
 rules: []
 
-# Python version
-python_version: "3.11"
-  
 # Quality gate settings
 metrics:
   quality_threshold: 25.0
