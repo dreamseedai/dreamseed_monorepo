@@ -28,16 +28,16 @@ The AI Tutor provides personalized learning assistance using Large Language Mode
 
 ### Decision Matrix
 
-| Factor              | LangChain                   | Custom Implementation       |
-| ------------------- | --------------------------- | --------------------------- |
-| Development speed   | Fast (pre-built chains)     | Slower (build from scratch) |
-| Control             | Limited (abstraction layer) | Full control                |
-| OPA integration     | Complex (custom callbacks)  | Native integration          |
-| Token counting      | Hidden in abstraction       | Explicit tracking           |
-| Debugging           | Difficult (magic chains)    | Straightforward             |
-| Dependencies        | Heavy (100+ packages)       | Minimal (openai, tiktoken)  |
-| Performance         | Overhead from abstraction   | Optimized                   |
-| Team learning curve | Steep (LangChain API)       | Gentle (direct LLM APIs)    |
+| Factor | LangChain | Custom Implementation |
+|--------|-----------|----------------------|
+| Development speed | Fast (pre-built chains) | Slower (build from scratch) |
+| Control | Limited (abstraction layer) | Full control |
+| OPA integration | Complex (custom callbacks) | Native integration |
+| Token counting | Hidden in abstraction | Explicit tracking |
+| Debugging | Difficult (magic chains) | Straightforward |
+| Dependencies | Heavy (100+ packages) | Minimal (openai, tiktoken) |
+| Performance | Overhead from abstraction | Optimized |
+| Team learning curve | Steep (LangChain API) | Gentle (direct LLM APIs) |
 
 **Decision**: Custom implementation for educational domain requirements
 
@@ -71,7 +71,7 @@ CREATE TABLE knowledge_base (
 
 CREATE INDEX idx_kb_org_type ON knowledge_base(organization_id, doc_type);
 CREATE INDEX idx_kb_subject_grade ON knowledge_base(subject, grade_level);
-CREATE INDEX idx_kb_embedding ON knowledge_base
+CREATE INDEX idx_kb_embedding ON knowledge_base 
 USING hnsw (content_embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
 ```
@@ -88,11 +88,11 @@ from app.core.config import settings
 
 class RAGService:
     """Retrieval-Augmented Generation for AI Tutor."""
-
+    
     def __init__(self, db: AsyncSession):
         self.db = db
         openai.api_key = settings.OPENAI_API_KEY
-
+    
     async def generate_query_embedding(self, query: str) -> List[float]:
         """Generate embedding for user query."""
         response = await openai.Embedding.acreate(
@@ -100,7 +100,7 @@ class RAGService:
             input=query
         )
         return response['data'][0]['embedding']
-
+    
     async def retrieve_context(
         self,
         query: str,
@@ -112,9 +112,9 @@ class RAGService:
     ) -> List[Dict]:
         """Retrieve relevant documents for query."""
         query_embedding = await self.generate_query_embedding(query)
-
+        
         query_sql = text("""
-            SELECT
+            SELECT 
                 doc_id,
                 doc_type,
                 title,
@@ -131,7 +131,7 @@ class RAGService:
             ORDER BY content_embedding <=> :query_embedding::vector
             LIMIT :top_k
         """)
-
+        
         result = await self.db.execute(query_sql, {
             "query_embedding": str(query_embedding),
             "org_id": str(settings.CURRENT_ORG_ID),  # From middleware
@@ -141,7 +141,7 @@ class RAGService:
             "min_similarity": min_similarity,
             "top_k": top_k
         })
-
+        
         return [
             {
                 "doc_id": str(row.doc_id),
@@ -153,19 +153,19 @@ class RAGService:
             }
             for row in result
         ]
-
+    
     async def build_context(self, documents: List[Dict]) -> str:
         """Build context string from retrieved documents."""
         if not documents:
             return "No relevant reference materials found."
-
+        
         context_parts = []
         for doc in documents:
             context_parts.append(
                 f"--- {doc['doc_type'].upper()}: {doc['title']} (relevance: {doc['similarity']:.2f}) ---\n"
                 f"{doc['content']}\n"
             )
-
+        
         return "\n".join(context_parts)
 ```
 
@@ -184,7 +184,7 @@ from app.core.config import settings
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers."""
-
+    
     @abstractmethod
     async def chat_completion(
         self,
@@ -195,7 +195,7 @@ class LLMProvider(ABC):
     ) -> str:
         """Generate chat completion."""
         pass
-
+    
     @abstractmethod
     def count_tokens(self, text: str) -> int:
         """Count tokens in text."""
@@ -203,11 +203,11 @@ class LLMProvider(ABC):
 
 class OpenAIProvider(LLMProvider):
     """OpenAI GPT-4 provider."""
-
+    
     def __init__(self, model: str = "gpt-4-turbo-preview"):
         self.model = model
         openai.api_key = settings.OPENAI_API_KEY
-
+    
     async def chat_completion(
         self,
         messages: List[Dict[str, str]],
@@ -222,12 +222,12 @@ class OpenAIProvider(LLMProvider):
             max_tokens=max_tokens,
             stream=stream
         )
-
+        
         if stream:
             return response  # Return stream object
         else:
             return response.choices[0].message.content
-
+    
     def count_tokens(self, text: str) -> int:
         import tiktoken
         encoding = tiktoken.encoding_for_model(self.model)
@@ -235,12 +235,12 @@ class OpenAIProvider(LLMProvider):
 
 class GeminiProvider(LLMProvider):
     """Google Gemini provider."""
-
+    
     def __init__(self, model: str = "gemini-pro"):
         self.model = model
         genai.configure(api_key=settings.GOOGLE_API_KEY)
         self.client = genai.GenerativeModel(model)
-
+    
     async def chat_completion(
         self,
         messages: List[Dict[str, str]],
@@ -255,7 +255,7 @@ class GeminiProvider(LLMProvider):
                 "role": "user" if msg["role"] == "user" else "model",
                 "parts": [msg["content"]]
             })
-
+        
         chat = self.client.start_chat(history=history)
         response = await chat.send_message_async(
             messages[-1]["content"],
@@ -265,23 +265,23 @@ class GeminiProvider(LLMProvider):
             },
             stream=stream
         )
-
+        
         if stream:
             return response
         else:
             return response.text
-
+    
     def count_tokens(self, text: str) -> int:
         # Approximate token count (Gemini uses different tokenizer)
         return len(text.split()) * 1.3
 
 class AnthropicProvider(LLMProvider):
     """Anthropic Claude provider."""
-
+    
     def __init__(self, model: str = "claude-3-opus-20240229"):
         self.model = model
         self.client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-
+    
     async def chat_completion(
         self,
         messages: List[Dict[str, str]],
@@ -296,18 +296,18 @@ class AnthropicProvider(LLMProvider):
             max_tokens=max_tokens,
             stream=stream
         )
-
+        
         if stream:
             return response
         else:
             return response.content[0].text
-
+    
     def count_tokens(self, text: str) -> int:
         return self.client.count_tokens(text)
 
 class LLMFactory:
     """Factory for creating LLM providers."""
-
+    
     @staticmethod
     def create(provider: str = "openai", model: Optional[str] = None) -> LLMProvider:
         providers = {
@@ -315,10 +315,10 @@ class LLMFactory:
             "gemini": GeminiProvider,
             "anthropic": AnthropicProvider
         }
-
+        
         if provider not in providers:
             raise ValueError(f"Unknown provider: {provider}")
-
+        
         if model:
             return providers[provider](model=model)
         else:
@@ -375,10 +375,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 class TutorSessionService:
     """Manage tutor conversation sessions."""
-
+    
     def __init__(self, db: AsyncSession):
         self.db = db
-
+    
     async def create_session(
         self,
         user_id: UUID,
@@ -391,17 +391,17 @@ class TutorSessionService:
     ) -> UUID:
         """Create a new tutor session."""
         session_id = uuid4()
-
+        
         query = text("""
-            INSERT INTO tutor_sessions
-                (session_id, user_id, organization_id, subject, grade_level,
+            INSERT INTO tutor_sessions 
+                (session_id, user_id, organization_id, subject, grade_level, 
                  context_data, llm_provider, llm_model)
-            VALUES
+            VALUES 
                 (:session_id, :user_id, :org_id, :subject, :grade_level,
                  :context_data, :provider, :model)
             RETURNING session_id
         """)
-
+        
         await self.db.execute(query, {
             "session_id": str(session_id),
             "user_id": str(user_id),
@@ -413,9 +413,9 @@ class TutorSessionService:
             "model": llm_model
         })
         await self.db.commit()
-
+        
         return session_id
-
+    
     async def add_message(
         self,
         session_id: UUID,
@@ -426,15 +426,15 @@ class TutorSessionService:
     ) -> UUID:
         """Add a message to the session."""
         message_id = uuid4()
-
+        
         query = text("""
-            INSERT INTO tutor_messages
+            INSERT INTO tutor_messages 
                 (message_id, session_id, role, content, tokens, metadata)
-            VALUES
+            VALUES 
                 (:message_id, :session_id, :role, :content, :tokens, :metadata)
             RETURNING message_id
         """)
-
+        
         await self.db.execute(query, {
             "message_id": str(message_id),
             "session_id": str(session_id),
@@ -443,17 +443,17 @@ class TutorSessionService:
             "tokens": tokens,
             "metadata": metadata or {}
         })
-
+        
         # Update session token count
         await self.db.execute(text("""
-            UPDATE tutor_sessions
+            UPDATE tutor_sessions 
             SET total_tokens = total_tokens + :tokens
             WHERE session_id = :session_id
         """), {"session_id": str(session_id), "tokens": tokens})
-
+        
         await self.db.commit()
         return message_id
-
+    
     async def get_conversation_history(
         self,
         session_id: UUID,
@@ -467,12 +467,12 @@ class TutorSessionService:
             ORDER BY created_at DESC
             LIMIT :max_messages
         """)
-
+        
         result = await self.db.execute(query, {
             "session_id": str(session_id),
             "max_messages": max_messages
         })
-
+        
         messages = [
             {
                 "role": row.role,
@@ -483,13 +483,13 @@ class TutorSessionService:
             }
             for row in result
         ]
-
+        
         return list(reversed(messages))  # Oldest first
-
+    
     async def end_session(self, session_id: UUID):
         """End a tutor session."""
         await self.db.execute(text("""
-            UPDATE tutor_sessions
+            UPDATE tutor_sessions 
             SET ended_at = CURRENT_TIMESTAMP
             WHERE session_id = :session_id
         """), {"session_id": str(session_id)})
@@ -591,10 +591,10 @@ from app.core.config import settings
 
 class PolicyService:
     """OPA policy enforcement for AI tutor."""
-
+    
     def __init__(self):
         self.opa_url = settings.OPA_URL
-
+    
     async def check_response_safety(
         self,
         user: Dict,
@@ -615,9 +615,9 @@ class PolicyService:
                     }
                 }
             )
-
+            
             data = result.json()
-
+            
             return {
                 "allowed": data.get("result", False),
                 "violations": data.get("violations", []),
@@ -640,7 +640,7 @@ from app.services.policy_service import PolicyService
 
 class AITutorService:
     """AI Tutor with cost optimization and safety filtering."""
-
+    
     # Token pricing (per 1K tokens, as of 2024)
     PRICING = {
         "gpt-4-turbo-preview": {"input": 0.01, "output": 0.03},
@@ -648,11 +648,11 @@ class AITutorService:
         "gemini-pro": {"input": 0.00025, "output": 0.0005},
         "claude-3-opus": {"input": 0.015, "output": 0.075}
     }
-
+    
     # Token limits per session
     MAX_SESSION_TOKENS = 50000  # ~$1.50 max cost per session
     MAX_CONTEXT_TOKENS = 8000   # Keep under context window
-
+    
     def __init__(
         self,
         db,
@@ -664,7 +664,7 @@ class AITutorService:
         self.session_service = TutorSessionService(db)
         self.policy_service = PolicyService()
         self.model = llm_model
-
+    
     async def chat(
         self,
         session_id: UUID,
@@ -681,20 +681,20 @@ class AITutorService:
             top_k=3
         )
         context_str = await self.rag.build_context(context_docs)
-
+        
         # 2. Build system prompt
         system_prompt = self._build_system_prompt(session_context, context_str)
-
+        
         # 3. Get conversation history (with token budget)
         history = await self.session_service.get_conversation_history(session_id)
         messages = self._build_messages(system_prompt, history, user_message)
-
+        
         # 4. Trim to fit token budget
         messages = await self._trim_to_budget(messages)
-
+        
         # 5. Generate response
         response = await self.llm.chat_completion(messages, temperature=0.7, max_tokens=500)
-
+        
         # 6. OPA policy check
         policy_result = await self.policy_service.check_response_safety(
             user=user,
@@ -702,14 +702,14 @@ class AITutorService:
             question=user_message,
             response=response
         )
-
+        
         if not policy_result["allowed"]:
             response = "I apologize, but I cannot provide that response. Let me try to help you in a different way."
-
+        
         # 7. Save messages
         user_tokens = self.llm.count_tokens(user_message)
         assistant_tokens = self.llm.count_tokens(response)
-
+        
         await self.session_service.add_message(
             session_id, "user", user_message, user_tokens,
             metadata={"context_docs": [d["doc_id"] for d in context_docs]}
@@ -718,10 +718,10 @@ class AITutorService:
             session_id, "assistant", response, assistant_tokens,
             metadata={"policy_check": policy_result}
         )
-
+        
         # 8. Calculate cost
         cost = self._calculate_cost(user_tokens, assistant_tokens)
-
+        
         return {
             "response": response,
             "tokens": user_tokens + assistant_tokens,
@@ -729,11 +729,11 @@ class AITutorService:
             "context_docs": context_docs,
             "policy_check": policy_result
         }
-
+    
     def _build_system_prompt(self, session_context: Dict, rag_context: str) -> str:
         """Build system prompt with context."""
         exam_mode = session_context.get("exam_mode", False)
-
+        
         base_prompt = f"""You are an AI tutor helping a {session_context['grade_level']} student with {session_context['subject']}.
 
 Your role:
@@ -745,12 +745,12 @@ Your role:
 Reference materials:
 {rag_context}
 """
-
+        
         if exam_mode:
             base_prompt += "\nIMPORTANT: The student is currently taking an assessment. You may provide clarification on questions but NEVER provide answers or hints that reveal the solution."
-
+        
         return base_prompt
-
+    
     def _build_messages(
         self,
         system_prompt: str,
@@ -759,45 +759,45 @@ Reference materials:
     ) -> List[Dict]:
         """Build message list for LLM."""
         messages = [{"role": "system", "content": system_prompt}]
-
+        
         for msg in history:
             messages.append({
                 "role": msg["role"],
                 "content": msg["content"]
             })
-
+        
         messages.append({"role": "user", "content": user_message})
-
+        
         return messages
-
+    
     async def _trim_to_budget(self, messages: List[Dict]) -> List[Dict]:
         """Trim conversation history to fit token budget."""
         total_tokens = sum(self.llm.count_tokens(m["content"]) for m in messages)
-
+        
         if total_tokens <= self.MAX_CONTEXT_TOKENS:
             return messages
-
+        
         # Keep system message and recent messages
         system_msg = messages[0]
         user_msg = messages[-1]
         history = messages[1:-1]
-
+        
         # Trim from oldest
         while total_tokens > self.MAX_CONTEXT_TOKENS and history:
             removed = history.pop(0)
             total_tokens -= self.llm.count_tokens(removed["content"])
-
+        
         return [system_msg] + history + [user_msg]
-
+    
     def _calculate_cost(self, input_tokens: int, output_tokens: int) -> float:
         """Calculate cost in USD."""
         pricing = self.PRICING.get(self.model, {"input": 0.01, "output": 0.03})
-
+        
         cost = (
             (input_tokens / 1000) * pricing["input"] +
             (output_tokens / 1000) * pricing["output"]
         )
-
+        
         return round(cost, 4)
 ```
 
@@ -813,7 +813,7 @@ from app.services.tutor_service import AITutorService
 async def test_tutor_response(db_session, mock_llm):
     """Test basic tutor response generation."""
     service = AITutorService(db_session, llm_provider="mock")
-
+    
     session_id = await service.session_service.create_session(
         user_id=uuid4(),
         organization_id=uuid4(),
@@ -821,14 +821,14 @@ async def test_tutor_response(db_session, mock_llm):
         grade_level="7",
         context_data={"exam_mode": False}
     )
-
+    
     result = await service.chat(
         session_id=session_id,
         user_message="How do I solve 2x + 5 = 15?",
         user={"user_id": str(uuid4()), "age": 13, "role": "student"},
         session_context={"subject": "math", "grade_level": "7", "exam_mode": False}
     )
-
+    
     assert "response" in result
     assert result["tokens"] > 0
     assert result["cost"] >= 0
@@ -837,17 +837,17 @@ async def test_tutor_response(db_session, mock_llm):
 async def test_exam_mode_policy(db_session):
     """Test that direct answers are blocked in exam mode."""
     service = AITutorService(db_session)
-
+    
     # Mock LLM to return direct answer
     # Mock policy service to detect violation
-
+    
     result = await service.chat(
         session_id=uuid4(),
         user_message="What is 2 + 2?",
         user={"user_id": str(uuid4()), "age": 13, "role": "student"},
         session_context={"subject": "math", "grade_level": "1", "exam_mode": True}
     )
-
+    
     # Should reject direct answer
     assert "cannot provide that response" in result["response"].lower()
 
@@ -855,16 +855,16 @@ async def test_exam_mode_policy(db_session):
 async def test_token_budget_trimming(db_session):
     """Test conversation history trimming."""
     service = AITutorService(db_session)
-
+    
     # Build long message list exceeding budget
     messages = [
         {"role": "system", "content": "You are a tutor."},
         *[{"role": "user", "content": "Question " * 1000} for _ in range(20)],
         {"role": "user", "content": "Final question"}
     ]
-
+    
     trimmed = await service._trim_to_budget(messages)
-
+    
     total_tokens = sum(service.llm.count_tokens(m["content"]) for m in trimmed)
     assert total_tokens <= service.MAX_CONTEXT_TOKENS
     assert trimmed[0]["role"] == "system"  # System message preserved
@@ -882,14 +882,12 @@ The AI Tutor implementation provides:
 5. **Cost optimization**: Token budgets, conversation trimming, pricing tracking
 
 **Key Metrics**:
-
 - Response latency: <3s (including RAG retrieval)
 - Token budget: 50K per session (~$1.50 max cost)
 - Context window: 8K tokens
 - Policy check: <100ms overhead
 
 **Next Steps**:
-
 - Implement streaming responses for better UX
 - Add A/B testing framework for prompt optimization
 - Integrate content moderation API (OpenAI Moderation)

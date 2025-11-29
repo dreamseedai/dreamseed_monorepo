@@ -78,54 +78,54 @@ spec:
     spec:
       serviceAccountName: assessment-service-sa
       containers:
-        - name: assessment-service
-          image: gcr.io/dreamseed/assessment-service:latest
-          ports:
-            - containerPort: 8000
-              name: http
-          env:
-            - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: database-secrets
-                  key: url
-            - name: REDIS_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: app-config
-                  key: redis_url
-            - name: KAFKA_BOOTSTRAP_SERVERS
-              valueFrom:
-                configMapKeyRef:
-                  name: app-config
-                  key: kafka_bootstrap_servers
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "250m"
-            limits:
-              memory: "1Gi"
-              cpu: "500m"
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8000
-            initialDelaySeconds: 30
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 8000
-            initialDelaySeconds: 5
-            periodSeconds: 5
-          volumeMounts:
-            - name: config
-              mountPath: /app/config
-              readOnly: true
-      volumes:
+      - name: assessment-service
+        image: gcr.io/dreamseed/assessment-service:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: url
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: redis_url
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: kafka_bootstrap_servers
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
         - name: config
-          configMap:
-            name: app-config
+          mountPath: /app/config
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: app-config
 ---
 apiVersion: v1
 kind: Service
@@ -136,9 +136,9 @@ spec:
   selector:
     app: assessment-service
   ports:
-    - port: 80
-      targetPort: 8000
-      protocol: TCP
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
   type: ClusterIP
 ```
 
@@ -146,14 +146,14 @@ spec:
 
 ### Decision Matrix
 
-| Factor             | Helm                    | Kustomize             |
-| ------------------ | ----------------------- | --------------------- |
-| Templating         | Go templates (powerful) | YAML patches (simple) |
-| Package management | Charts, repositories    | No packaging          |
-| Learning curve     | Moderate                | Gentle                |
-| Complexity         | Can get complex         | Straightforward       |
-| Community          | Large ecosystem         | Growing               |
-| Kubernetes-native  | External tool           | Built into kubectl    |
+| Factor | Helm | Kustomize |
+|--------|------|-----------|
+| Templating | Go templates (powerful) | YAML patches (simple) |
+| Package management | Charts, repositories | No packaging |
+| Learning curve | Moderate | Gentle |
+| Complexity | Can get complex | Straightforward |
+| Community | Large ecosystem | Growing |
+| Kubernetes-native | External tool | Built into kubectl |
 
 **Decision**: **Kustomize** for simplicity and Kubernetes-native approach
 
@@ -231,13 +231,13 @@ configMapGenerator:
 
 ### Istio vs Linkerd
 
-| Factor            | Istio       | Linkerd | None    |
-| ----------------- | ----------- | ------- | ------- |
-| Features          | Extensive   | Focused | Minimal |
-| Complexity        | High        | Low     | None    |
-| Resource overhead | Significant | Minimal | None    |
-| Observability     | Excellent   | Good    | Manual  |
-| mTLS              | Yes         | Yes     | Manual  |
+| Factor | Istio | Linkerd | None |
+|--------|-------|---------|------|
+| Features | Extensive | Focused | Minimal |
+| Complexity | High | Low | None |
+| Resource overhead | Significant | Minimal | None |
+| Observability | Excellent | Good | Manual |
+| mTLS | Yes | Yes | Manual |
 
 **Decision**: **Start without service mesh**, add Linkerd if needed
 
@@ -257,34 +257,34 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   tls:
-    - hosts:
-        - api.dreamseed.ai
-      secretName: dreamseed-tls
+  - hosts:
+    - api.dreamseed.ai
+    secretName: dreamseed-tls
   rules:
-    - host: api.dreamseed.ai
-      http:
-        paths:
-          - path: /api/assessments
-            pathType: Prefix
-            backend:
-              service:
-                name: assessment-service
-                port:
-                  number: 80
-          - path: /api/content
-            pathType: Prefix
-            backend:
-              service:
-                name: content-service
-                port:
-                  number: 80
-          - path: /api/auth
-            pathType: Prefix
-            backend:
-              service:
-                name: auth-service
-                port:
-                  number: 80
+  - host: api.dreamseed.ai
+    http:
+      paths:
+      - path: /api/assessments
+        pathType: Prefix
+        backend:
+          service:
+            name: assessment-service
+            port:
+              number: 80
+      - path: /api/content
+        pathType: Prefix
+        backend:
+          service:
+            name: content-service
+            port:
+              number: 80
+      - path: /api/auth
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 80
 ```
 
 ## Secrets Management
@@ -348,15 +348,15 @@ spec:
   target:
     name: database-secrets
   data:
-    - secretKey: url
-      remoteRef:
-        key: database-url
-    - secretKey: username
-      remoteRef:
-        key: database-username
-    - secretKey: password
-      remoteRef:
-        key: database-password
+  - secretKey: url
+    remoteRef:
+      key: database-url
+  - secretKey: username
+    remoteRef:
+      key: database-username
+  - secretKey: password
+    remoteRef:
+      key: database-password
 ```
 
 ## Database Migrations
@@ -375,15 +375,15 @@ spec:
     spec:
       restartPolicy: Never
       containers:
-        - name: alembic
-          image: gcr.io/dreamseed/assessment-service:{{ .Values.version }}
-          command: ["alembic", "upgrade", "head"]
-          env:
-            - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: database-secrets
-                  key: url
+      - name: alembic
+        image: gcr.io/dreamseed/assessment-service:{{ .Values.version }}
+        command: ["alembic", "upgrade", "head"]
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: url
       backoffLimit: 3
 ```
 
@@ -423,38 +423,38 @@ spec:
   minReplicas: 3
   maxReplicas: 20
   metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 80
-    - type: Pods
-      pods:
-        metric:
-          name: http_requests_per_second
-        target:
-          type: AverageValue
-          averageValue: "1000"
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Pods
+    pods:
+      metric:
+        name: http_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "1000"
   behavior:
     scaleDown:
       stabilizationWindowSeconds: 300
       policies:
-        - type: Percent
-          value: 50
-          periodSeconds: 60
+      - type: Percent
+        value: 50
+        periodSeconds: 60
     scaleUp:
       stabilizationWindowSeconds: 0
       policies:
-        - type: Percent
-          value: 100
-          periodSeconds: 15
+      - type: Percent
+        value: 100
+        periodSeconds: 15
 ```
 
 ### Cluster Autoscaler
@@ -462,22 +462,22 @@ spec:
 ```yaml
 # For GKE
 resource "google_container_node_pool" "primary_nodes" {
-name       = "primary-node-pool"
-cluster    = google_container_cluster.primary.name
-node_count = 3
+  name       = "primary-node-pool"
+  cluster    = google_container_cluster.primary.name
+  node_count = 3
 
-autoscaling {
-min_node_count = 3
-max_node_count = 10
-}
+  autoscaling {
+    min_node_count = 3
+    max_node_count = 10
+  }
 
-node_config {
-machine_type = "n1-standard-4"
-
-oauth_scopes = [
-"https://www.googleapis.com/auth/cloud-platform"
-]
-}
+  node_config {
+    machine_type = "n1-standard-4"
+    
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+  }
 }
 ```
 
@@ -496,7 +496,7 @@ data:
   prometheus.yml: |
     global:
       scrape_interval: 15s
-
+    
     scrape_configs:
     - job_name: 'kubernetes-pods'
       kubernetes_sd_configs:
@@ -531,22 +531,22 @@ spec:
         app: prometheus
     spec:
       containers:
-        - name: prometheus
-          image: prom/prometheus:v2.45.0
-          ports:
-            - containerPort: 9090
-          volumeMounts:
-            - name: config
-              mountPath: /etc/prometheus
-            - name: storage
-              mountPath: /prometheus
-      volumes:
+      - name: prometheus
+        image: prom/prometheus:v2.45.0
+        ports:
+        - containerPort: 9090
+        volumeMounts:
         - name: config
-          configMap:
-            name: prometheus-config
+          mountPath: /etc/prometheus
         - name: storage
-          persistentVolumeClaim:
-            claimName: prometheus-pvc
+          mountPath: /prometheus
+      volumes:
+      - name: config
+        configMap:
+          name: prometheus-config
+      - name: storage
+        persistentVolumeClaim:
+          claimName: prometheus-pvc
 ```
 
 ### Grafana Dashboards
@@ -608,20 +608,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
-
+          python-version: '3.11'
+      
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
-
+      
       - name: Run tests
         run: pytest tests/ -v --cov=app
-
+      
       - name: Lint
         run: |
           ruff check app/
@@ -632,22 +632,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
+      
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
           service_account_key: ${{ secrets.GCP_SA_KEY }}
           project_id: ${{ env.GCP_PROJECT_ID }}
-
+      
       - name: Configure Docker
         run: gcloud auth configure-docker
-
+      
       - name: Build Docker image
         run: |
           docker build -t gcr.io/$GCP_PROJECT_ID/assessment-service:$GITHUB_SHA .
           docker tag gcr.io/$GCP_PROJECT_ID/assessment-service:$GITHUB_SHA \
                      gcr.io/$GCP_PROJECT_ID/assessment-service:latest
-
+      
       - name: Push to GCR
         run: |
           docker push gcr.io/$GCP_PROJECT_ID/assessment-service:$GITHUB_SHA
@@ -658,36 +658,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
+      
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
           service_account_key: ${{ secrets.GCP_SA_KEY }}
           project_id: ${{ env.GCP_PROJECT_ID }}
-
+      
       - name: Get GKE credentials
         run: |
           gcloud container clusters get-credentials $GKE_CLUSTER \
             --zone $GKE_ZONE --project $GCP_PROJECT_ID
-
+      
       - name: Run database migrations
         run: |
           kubectl apply -f k8s/jobs/db-migration.yaml
           kubectl wait --for=condition=complete --timeout=300s \
             job/db-migration-$GITHUB_SHA -n dreamseed-production
-
+      
       - name: Deploy to Kubernetes
         run: |
           cd k8s/overlays/production
           kustomize edit set image \
             assessment-service=gcr.io/$GCP_PROJECT_ID/assessment-service:$GITHUB_SHA
           kubectl apply -k .
-
+      
       - name: Wait for rollout
         run: |
           kubectl rollout status deployment/assessment-service \
             -n dreamseed-production --timeout=5m
-
+      
       - name: Smoke test
         run: |
           curl -f https://api.dreamseed.ai/health || exit 1
@@ -701,11 +701,11 @@ jobs:
 # Right-size based on actual usage (use metrics)
 resources:
   requests:
-    memory: "256Mi" # Minimum guaranteed
-    cpu: "100m" # 0.1 CPU core
+    memory: "256Mi"  # Minimum guaranteed
+    cpu: "100m"      # 0.1 CPU core
   limits:
-    memory: "512Mi" # Maximum allowed
-    cpu: "500m" # 0.5 CPU core
+    memory: "512Mi"  # Maximum allowed
+    cpu: "500m"      # 0.5 CPU core
 ```
 
 ### Cluster Autoscaler + Spot Instances
@@ -715,16 +715,16 @@ resources:
 resource "google_container_node_pool" "spot_pool" {
   name    = "spot-pool"
   cluster = google_container_cluster.primary.name
-
+  
   autoscaling {
     min_node_count = 0
     max_node_count = 10
   }
-
+  
   node_config {
     preemptible  = true  # Spot instances
     machine_type = "n1-standard-2"
-
+    
     taint {
       key    = "cloud.google.com/gke-preemptible"
       value  = "true"
@@ -763,14 +763,12 @@ Kubernetes deployment provides:
 7. **Cost optimization**: Spot instances, right-sizing, autoscaling
 
 **Key Metrics**:
-
 - Deployment time: <5 minutes
 - Rollback time: <2 minutes
 - Auto-scale response: <1 minute
 - Infrastructure cost: <$5K/month for 10K users
 
 **Next Steps**:
-
 - Implement GitOps with ArgoCD
 - Add canary deployments
 - Set up disaster recovery

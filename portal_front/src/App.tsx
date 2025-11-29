@@ -23,11 +23,10 @@ import USExamsACT from './pages/guides/USExamsACT';
 import USExamsOUAC from './pages/guides/USExamsOUAC';
 import TutorDashboard from './pages/TutorDashboard';
 import IrtDocsPage from './pages/admin/IrtDocsPage';
+import QuestionEditorPage from './pages/QuestionEditor';
 
 export const App: React.FC = () => {
   const location = useLocation();
-  const [me, setMe] = useState<string>('(anon)');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [opsOpen, setOpsOpen] = useState(false);
 
   useEffect(() => {}, []);
@@ -35,6 +34,10 @@ export const App: React.FC = () => {
   // removed noisy API health text; optional HealthBadge shows status succinctly
 
   // very light route switch for demo (react to router location)
+  // Dynamic route for question editor: /questions/:id/edit
+  if (location.pathname.match(/^\/questions\/[^\/]+\/edit$/)) {
+    return <QuestionEditorPage />;
+  }
   if (location.pathname === '/') {
     return <HomePage />;
   }
@@ -119,11 +122,9 @@ uvicorn portal_api.app:app --port 8000 --reload`}
         />
       </div>
       <LoginForm />
-      {errorMsg && <div style={{ color:'#dc2626', fontSize:12, marginTop:6 }}>{errorMsg}</div>}
       <button
         onClick={async () => {
           await api('/auth/logout', { method: 'POST' });
-          setMe('(anon)');
           window.dispatchEvent(new Event('auth:changed'));
         }}
       >

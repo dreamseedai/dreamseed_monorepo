@@ -1,7 +1,7 @@
 import React from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
-import type { RawCommands, CommandProps } from "@tiptap/core";
+import type { CommandProps } from "@tiptap/core";
 
 declare global {
   namespace JSX {
@@ -10,6 +10,8 @@ declare global {
         ref?: any;
         defaultvalue?: string;
         style?: React.CSSProperties;
+        onChange?: (e: any) => void;
+        onBlur?: (e: any) => void;
       };
     }
   }

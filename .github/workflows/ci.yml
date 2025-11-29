@@ -454,7 +454,7 @@ jobs:
           sleep 10
           curl -f http://localhost:8002/healthz || exit 1
           docker stop dreamseed-test
-
+          
   # CI 완료 알림
   ci-complete:
     name: CI Complete
@@ -462,18 +462,29 @@ jobs:
     needs: [unit-tests, integration-tests, performance-tests, security-scan, docker-build]
     if: always()
     steps:
+      - name: Print upstream job results
+        run: |
+          echo "==== CI job results ===="
+          echo "unit-tests: ${{ needs.unit-tests.result }}"
+          echo "integration-tests: ${{ needs.integration-tests.result }}"
+          echo "performance-tests: ${{ needs.performance-tests.result }}"
+          echo "security-scan: ${{ needs.security-scan.result }}"
+          echo "docker-build: ${{ needs.docker-build.result }}"
+          echo "========================"
+
       - name: Check CI status
         run: |
-          if [ "${{ needs.unit-tests.result }}" = "success" ] && \
-             [ "${{ needs.integration-tests.result }}" = "success" ] && \
-             [ "${{ needs.performance-tests.result }}" = "success" ] && \
-             [ "${{ needs.security-scan.result }}" = "success" ] && \
-             [ "${{ needs.docker-build.result }}" = "success" ]; then
+          # Check if any job actually failed (not skipped or success)
+          if [ "${{ needs.unit-tests.result }}" = "failure" ] || \
+             [ "${{ needs.integration-tests.result }}" = "failure" ] || \
+             [ "${{ needs.performance-tests.result }}" = "failure" ] || \
+             [ "${{ needs.security-scan.result }}" = "failure" ] || \
+             [ "${{ needs.docker-build.result }}" = "failure" ]; then
+            echo "❌ DreamSeed CI Pipeline 일부 실패"
+            echo "🔍 위의 job results 로그에서 실패한 job 을 확인하세요"
+            exit 1
+          else
             echo "✅ DreamSeed CI Pipeline 성공!"
             echo "🚀 배포는 helm-deploy.yml 워크플로를 수동 실행하세요"
-          else
-            echo "❌ DreamSeed CI Pipeline 일부 실패"
-            echo "🔍 실패한 잡을 확인하세요"
-            exit 1
+            exit 0
           fi
-

@@ -1,202 +1,142 @@
-# =============================================================================
-# DreamSeed Monorepo .gitignore (Optimized 2024-11-09)
-# =============================================================================
-# 원칙:
-# 1. 기본적으로 소스 코드와 문서는 추적
-# 2. 빌드 산출물, 로그, 캐시만 제외
-# 3. 명시적 예외 규칙 최소화
-# =============================================================================
+# ============================================================
+# PRIORITY 1: NEVER IGNORE THESE - Project Documentation
+# ============================================================
+# These must be at the TOP to override all other rules below
 
-# -----------------------------------------------------------------------------
-# 1. 빌드 산출물 및 캐시
-# -----------------------------------------------------------------------------
-dist/
-build/
-.next/
-.nuxt/
-.cache/
-.parcel-cache/
-*.min.js
-*.min.css
-*.bundle.js
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+# Track ALL files in these critical directories
+!ops/
+!ops/**
+!docs/
+!docs/**
+
+# Track backend documentation
+!backend/*.md
+!backend/**/*.md  
+!backend/**/*.sh
+
+# ============================================================
+# PRIORITY 2: Standard ignores (Python, Node, etc.)
+# ============================================================
+
+# Coverage / caches
+.coverage
+**/.coverage
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
-htmlcov/
-.coverage
-**/.coverage
 
-# -----------------------------------------------------------------------------
-# 2. 의존성 디렉토리
-# -----------------------------------------------------------------------------
-node_modules/
-.pnp/
-.pnp.js
-.mamba/
-venv/
+# Virtual env / tools
 .venv/
 .venv-*/
-env/
-ENV/
-db_env/
-mathml_env/
-.precommit-env/
+.venv-tools/
 
-# -----------------------------------------------------------------------------
-# 3. 로그 및 임시 파일
-# -----------------------------------------------------------------------------
+# Build / artifacts
+dist/
+build/
+.DS_Store
+
+# Infra local history
+infra/.history/
+
+# Local projects (ignore)
+CascadeProjects/
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+
+# Environments
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDEs
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
 *.log
 logs/
-*.pid
+
+# Temporary files
 *.tmp
 *.temp
 *.bak
 *.backup
-*~
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
-# 최상위 로그 파일 (특정)
-/backend.log
-/server.log
-/batch_conversion.log
-/mathml_conversion.log
-
-# -----------------------------------------------------------------------------
-# 4. 데이터베이스 파일
-# -----------------------------------------------------------------------------
+# Database files
 *.db
 *.sqlite
 *.sqlite3
 dreamseed_*.db
 mpcstudy_*.db
-/dummy.db
 
-# -----------------------------------------------------------------------------
-# 5. 환경 변수 파일
-# -----------------------------------------------------------------------------
-.env
-.env.local
-.env.*.local
-.env.prod
-.env.production
-**/.env.prod
-**/.env.production
+# Test files
+test_*.html
+*_test.*
+*_spec.*
 
-# 예외: 예시 파일은 추적
-!.env.example
-!**/.env.example
+# Admin files
+admin/*.html
+admin/*.js
+admin/*.css
+admin/doc/
+admin/lib/
 
-# -----------------------------------------------------------------------------
-# 6. IDE 및 에디터 설정
-# -----------------------------------------------------------------------------
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-.idea/
-*.swp
-*.swo
-.project
-.settings/
+# API files
+api/
+portal_api/
 
-# -----------------------------------------------------------------------------
-# 7. OS 파일
-# -----------------------------------------------------------------------------
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Static files (but allow tracking in specific cases)
+static/
+assets/
+images/
 
-# -----------------------------------------------------------------------------
-# 8. 히스토리 및 임시 디렉토리
-# -----------------------------------------------------------------------------
-.history/
-.tmp/
-.logs/
-.tools/
-.continue/
+# Allow specific asset directories
+!assets/branding/
+!assets/branding/**
 
-# -----------------------------------------------------------------------------
-# 9. 아카이브 (구조화 후 이동될 디렉토리)
-# -----------------------------------------------------------------------------
-_archive/
+# Configuration files (generated)
+.editorconfig
+.eslintrc.*
+.prettierrc*
+tsconfig.json
+babel.config.*
+webpack.config.*
+rollup.config.*
 
-# -----------------------------------------------------------------------------
-# 10. 고립된/사용하지 않는 최상위 디렉토리
-# -----------------------------------------------------------------------------
-# NOTE: admin_front는 활성 프로젝트이므로 추적 중
-/adaptive_engine/
-/dreamseed/
-/dsadmin/
-/examples/
-/frontend/
-/migrations/
-/monitoring/
-/r-plumber/
-/shiny-admin/
-/tests/
-/webtests/
-/translator.py/
-/Caddyfile/
-/alembic/
+# Version files
+=*
+version.txt
 
-# -----------------------------------------------------------------------------
-# 11. 특정 파일 제외
-# -----------------------------------------------------------------------------
-/question_editor_quill.html
+# ============================================================
+# PRIORITY 3: Generated documentation (node_modules, venv)
+# ============================================================
+# Only ignore markdown/scripts in dependency directories
 
-# -----------------------------------------------------------------------------
-# 12. 패키지 관리자 락 파일 (선택적)
-# -----------------------------------------------------------------------------
-# pnpm 사용 시 package-lock.json과 yarn.lock은 불필요
-package-lock.json
-yarn.lock
-
-# pnpm-lock.yaml은 추적 (pnpm 사용)
-!pnpm-lock.yaml
-
-# -----------------------------------------------------------------------------
-# 13. 문서 정책 (기본적으로 모든 .md 추적)
-# -----------------------------------------------------------------------------
-# 모든 마크다운 문서 추적 (이전 규칙 제거)
-# *.md 규칙 삭제됨
-
-# -----------------------------------------------------------------------------
-# 14. 스크립트 정책 (필요한 스크립트는 추적)
-# -----------------------------------------------------------------------------
-# 모든 .sh 스크립트 추적 (이전 규칙 제거)
-# *.sh 규칙 삭제됨
-
-# -----------------------------------------------------------------------------
-# 15. 설정 파일 정책
-# -----------------------------------------------------------------------------
-# tsconfig, package.json 등은 기본적으로 추적
-# 이전의 과도한 차단 규칙 제거됨
-
-# -----------------------------------------------------------------------------
-# 16. 테스트 결과
-# -----------------------------------------------------------------------------
-test-results/
-playwright-report/
-coverage/
-
-# -----------------------------------------------------------------------------
-# 끝
-# -----------------------------------------------------------------------------
-
-# Mock API data (too large for Git)
-backend/app/api/data/questions.json
-backend/app/api/data/*.json
-\!backend/app/api/data/.gitkeep
+**/node_modules/**/*.md
+**/node_modules/**/*.sh
+**/.venv/**/*.md
+**/.venv/**/*.sh
+**/.pytest_cache/**/*.md
+**/venv/**/*.md
+**/venv/**/*.sh
+**/__pycache__/**/*.md
