@@ -1,13 +1,15 @@
-# Phase 2 Security Hardening 진행 보고서
+# Security Hardening 진행 보고서 (Week 5)
 
 **작성일**: 2025년 11월 29일  
 **상태**: 🔄 진행 중 (Week 5)
 
 ---
 
-## 🎯 Phase 2 목표
+## 🎯 목표
 
 **보안 강화 및 프로덕션 준비**
+- 이것은 프로젝트 Phase 2(Growth)와는 별개입니다
+- Week 5 Sprint의 보안 강화 작업입니다
 - JWT 보안 취약점 해결
 - 안전한 세션 관리
 - API Rate Limiting
