@@ -169,3 +169,6 @@ xarray-einstats==0.9.1
 zope.event==6.0
 zope.interface==8.0.1
 zopfli==0.2.3.post1
+limits==5.6.0
+slowapi==0.1.9
+wrapt==2.0.1
