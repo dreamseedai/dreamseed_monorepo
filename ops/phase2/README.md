@@ -295,8 +295,11 @@ def item_information(theta, a, b, c):
 ### Phase 관련
 - [Phase 0](../phase0/) - 인프라 기초
 - [Phase 1](../phase1/) - MVP 출시
-- **Phase 2** (현재) - 적응형 평가
+- **Phase 2** (현재) - 적응형 평가 ✅ 완료
 - [Security Hardening](../security-hardening/) - 보안 강화 (별도)
+
+### 홈페이지 준비
+- [홈페이지 구성 가이드](./HOMEPAGE_REQUIREMENTS.md) - Phase 2 기반 홈페이지
 
 ---
 
