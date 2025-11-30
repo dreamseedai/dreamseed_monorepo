@@ -68,7 +68,7 @@ jsonschema-specifications==2025.9.1
 kiwisolver==1.4.9
 kombu==5.5.4
 locust==2.41.6
-locust-cloud==1.27.6
+locust-cloud==1.29.4
 logical-unification==0.4.7
 lxml==6.0.2
 makefun==1.16.0
