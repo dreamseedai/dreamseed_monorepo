@@ -53,5 +53,15 @@
     ]
   },
   "npm.packageManager": "pnpm",
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "yaml.schemaStore.enable": false,
+  "yaml.customTags": [
+    "!And",
+    "!If",
+    "!Not",
+    "!Or",
+    "!Equals",
+    "!Sub"
+  ],
+  "yaml.validate": false
 }
