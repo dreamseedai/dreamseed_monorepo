@@ -1,0 +1,169 @@
+name: Security Scan
+
+on:
+  schedule:
+    # 매주 월요일 오전 9시 (UTC 00:00 = KST 09:00)
+    - cron: '0 0 * * 1'
+  workflow_dispatch:  # 수동 실행 가능
+  push:
+    branches:
+      - main
+    paths:
+      - '**/requirements.txt'
+      - '**/package.json'
+      - '**/package-lock.json'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      
+      - name: Install pip-audit
+        run: pip install pip-audit
+      
+      - name: Scan Python dependencies (backend)
+        id: python-scan
+        continue-on-error: true
+        run: |
+          cd backend
+          pip-audit --format json > ../python-vulnerabilities-backend.json || true
+          pip-audit --format cyclonedx-json > ../python-sbom-backend.json || true
+      
+      - name: Scan Python dependencies (adaptive_engine)
+        continue-on-error: true
+        run: |
+          if [ -f adaptive_engine/requirements.txt ]; then
+            cd adaptive_engine
+            pip-audit --format json > ../python-vulnerabilities-adaptive.json || true
+          fi
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Scan npm dependencies (portal_front)
+        continue-on-error: true
+        run: |
+          if [ -f portal_front/package.json ]; then
+            cd portal_front
+            npm audit --json > ../npm-vulnerabilities-portal.json || true
+          fi
+      
+      - name: Scan npm dependencies (admin_front)
+        continue-on-error: true
+        run: |
+          if [ -f admin_front/package.json ]; then
+            cd admin_front
+            npm audit --json > ../npm-vulnerabilities-admin.json || true
+          fi
+      
+      - name: Upload scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results-${{ github.run_number }}
+          path: |
+            python-vulnerabilities-*.json
+            python-sbom-*.json
+            npm-vulnerabilities-*.json
+          retention-days: 90
+      
+      - name: Generate summary report
+        run: |
+          python scripts/security/scan_dependencies.py --format text || true
+      
+      - name: Check for critical vulnerabilities
+        run: |
+          python scripts/security/scan_dependencies.py --critical-only || \
+          echo "⚠️ Critical vulnerabilities found. Please review."
+      
+  weekly-report:
+    name: Generate Weekly Security Report
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'  # Only on Monday schedule
+    needs: security-scan
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: Generate weekly report
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/security/weekly_report.py \
+            --output docs/security/weekly-report-$(date +%Y-%m-%d).md
+      
+      - name: Commit weekly report
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add docs/security/
+          if git commit -m "docs(security): add weekly security report $(date +%Y-%m-%d)"; then
+            git push
+          else
+            echo "No changes to commit; skipping push."
+          fi
+      
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-security-report
+          path: docs/security/weekly-report-*.md
+          retention-days: 365
+
+  dependabot-auto-merge:
+    name: Auto-merge Dependabot PRs
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+      
+      - name: Enable auto-merge for patch updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      
+      - name: Comment on minor/major updates
+        if: steps.metadata.outputs.update-type != 'version-update:semver-patch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              body: '⚠️ This is a **' + '${{ steps.metadata.outputs.update-type }}' + '** update. Manual review required.'
+            });
