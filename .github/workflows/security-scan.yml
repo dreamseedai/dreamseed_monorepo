@@ -121,8 +121,11 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add docs/security/
-          git commit -m "docs(security): add weekly security report $(date +%Y-%m-%d)" || true
-          git push || true
+          if git commit -m "docs(security): add weekly security report $(date +%Y-%m-%d)"; then
+            git push
+          else
+            echo "No changes to commit; skipping push."
+          fi
       
       - name: Upload report
         uses: actions/upload-artifact@v4
