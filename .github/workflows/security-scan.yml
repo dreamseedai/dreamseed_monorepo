@@ -94,7 +94,7 @@ jobs:
   weekly-report:
     name: Generate Weekly Security Report
     runs-on: ubuntu-latest
-    if: github.event.schedule == '0 0 * * 1'  # Only on Monday schedule
+    if: github.event_name == 'schedule'  # Only on Monday schedule
     needs: security-scan
     
     steps:
