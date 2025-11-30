@@ -49,7 +49,7 @@ flask-cors==6.0.1
 Flask-Login==0.6.3
 fonttools==4.60.1
 gevent==25.5.1
-geventhttpclient==2.3.4
+geventhttpclient==2.3.5
 greenlet==3.2.4
 gunicorn==23.0.0
 h11==0.16.0
