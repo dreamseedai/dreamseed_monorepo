@@ -59,18 +59,32 @@ class SecurityScanner:
                 vulns = data.get("dependencies", [])
 
                 return {
-                    "total": len(vulns),
+                    "total": sum(
+                        len(v.get("vulns", [])) for v in vulns if isinstance(v.get("vulns", []), list)
+                    ),
                     "critical": sum(
-                        1 for v in vulns if v.get("vulns", [{}])[0].get("severity") == "critical"
+                        1
+                        for v in vulns
+                        for vuln in v.get("vulns", [])
+                        if vuln.get("severity") == "critical"
                     ),
                     "high": sum(
-                        1 for v in vulns if v.get("vulns", [{}])[0].get("severity") == "high"
+                        1
+                        for v in vulns
+                        for vuln in v.get("vulns", [])
+                        if vuln.get("severity") == "high"
                     ),
                     "medium": sum(
-                        1 for v in vulns if v.get("vulns", [{}])[0].get("severity") == "medium"
+                        1
+                        for v in vulns
+                        for vuln in v.get("vulns", [])
+                        if vuln.get("severity") == "medium"
                     ),
                     "low": sum(
-                        1 for v in vulns if v.get("vulns", [{}])[0].get("severity") == "low"
+                        1
+                        for v in vulns
+                        for vuln in v.get("vulns", [])
+                        if vuln.get("severity") == "low"
                     ),
                     "vulnerabilities": vulns,
                 }
