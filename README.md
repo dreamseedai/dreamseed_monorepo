@@ -223,6 +223,44 @@ python -m http.server 9000
 
 ## 🔐 Authentication & Security
 
+### Rate Limiting (slowapi + Redis)
+
+**NEW (P3)**: DreamSeed는 slowapi를 사용하여 Redis 기반 rate limiting을 구현합니다.
+
+#### Rate Limit 정책
+
+| 엔드포인트 | 제한 | 키 | 목적 |
+|-----------|------|-----|------|
+| `POST /api/auth/login` | 5/분 | IP | 브루트포스 방지 |
+| `POST /api/auth/register` | 3/시간 | IP | 스팸 계정 방지 |
+| `GET /api/*` (기타) | 100/분 | User/IP | 일반 보호 |
+
+#### 설정
+
+```bash
+# Rate Limiting 설정
+export RATE_LIMIT_ENABLED=true
+export RATE_LIMIT_LOGIN_PER_MINUTE=5
+export RATE_LIMIT_REGISTER_PER_HOUR=3
+export RATE_LIMIT_DEFAULT_PER_MINUTE=100
+```
+
+#### 429 응답 예시
+
+```json
+{
+  "detail": "Rate limit exceeded: 5 requests per 1 minute"
+}
+```
+
+**헤더**:
+- `X-RateLimit-Limit`: 제한 횟수
+- `X-RateLimit-Remaining`: 남은 횟수
+- `X-RateLimit-Reset`: 리셋 시간
+- `Retry-After`: 재시도까지 대기 시간 (초)
+
+---
+
 ### Token Blacklist (Redis)
 
 DreamSeed는 JWT 기반 인증과 함께 Redis를 사용한 토큰 블랙리스트를 구현하여 안전한 로그아웃 및 세션 관리를 제공합니다.
@@ -241,7 +279,8 @@ DreamSeed는 JWT 기반 인증과 함께 Redis를 사용한 토큰 블랙리스�
 ```bash
 # Redis 연결 (토큰 블랙리스트용)
 export REDIS_URL=redis://localhost:6379
-export REDIS_TOKEN_BLACKLIST_DB=1  # 별도 DB 사용 (기본값: 1)
+export REDIS_TOKEN_BLACKLIST_DB=1  # Token blacklist (별도 DB)
+export REDIS_RATE_LIMIT_DB=2       # Rate limiting (별도 DB)
 
 # JWT 설정
 export JWT_SECRET=your-secret-key-here
