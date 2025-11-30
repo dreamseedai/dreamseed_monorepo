@@ -225,7 +225,7 @@ class SecurityScanner:
     def save_json(self, output_file: Path):
         """Save results as JSON."""
         with open(output_file, "w") as f:
-            json.dumps(self.results, f, indent=2)
+            json.dump(self.results, f, indent=2)
         print(f"✅ Results saved to {output_file}")
 
 
