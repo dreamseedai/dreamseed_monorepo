@@ -94,8 +94,8 @@ Implements P4: CVE Monitoring
 ## 📊 통계
 - **Files changed**: 6 files
 - **Lines added**: 1333 insertions
-- **Scripts**: 2 Python scripts (534 lines total)
-- **Workflows**: 1 GitHub Actions (162 lines)
+- **Scripts**: 2 Python scripts (515 lines total)
+- **Workflows**: 1 GitHub Actions (186 lines)
 - **Documentation**: 2 docs (423 + initial report)
 
 ---
