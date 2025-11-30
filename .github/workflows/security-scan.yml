@@ -91,26 +91,6 @@ jobs:
           python scripts/security/scan_dependencies.py --critical-only || \
           echo "⚠️ Critical vulnerabilities found. Please review."
       
-      - name: Comment PR with results (if PR)
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const results = JSON.parse(fs.readFileSync('python-vulnerabilities-backend.json', 'utf8'));
-            const vulnCount = results.dependencies ? results.dependencies.length : 0;
-            
-            const comment = `## 🔒 Security Scan Results\n\n` +
-              `Python vulnerabilities found: **${vulnCount}**\n\n` +
-              `[View full report in artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.name,
-              body: comment
-            });
-
   weekly-report:
     name: Generate Weekly Security Report
     runs-on: ubuntu-latest
