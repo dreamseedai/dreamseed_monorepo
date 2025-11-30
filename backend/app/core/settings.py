@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_TOKEN_BLACKLIST_DB: int = 1  # Separate DB for token blacklist
+    REDIS_RATE_LIMIT_DB: int = 2  # Separate DB for rate limiting
     REDIS_MAX_CONNECTIONS: int = 10
 
     # JWT
@@ -31,6 +32,13 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_EXPIRE_DAYS: int = 7
+
+    # Rate Limiting
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_LOGIN_PER_MINUTE: int = 5  # Brute force protection
+    RATE_LIMIT_REGISTER_PER_HOUR: int = 3  # Spam account prevention
+    RATE_LIMIT_REFRESH_PER_HOUR: int = 10  # Token abuse prevention
+    RATE_LIMIT_DEFAULT_PER_MINUTE: int = 100  # General API protection
 
     # Security
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"

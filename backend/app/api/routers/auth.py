@@ -4,11 +4,13 @@ Provides register, login, logout, and user info endpoints
 """
 
 import time
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.users import auth_backend, fastapi_users
 from app.core.database import get_async_db
+from app.core.rate_limiter import limiter
+from app.core.settings import settings
 from app.schemas.user_schemas import UserCreate, UserRead, UserUpdate
 from app.models.user import User
 
@@ -20,15 +22,28 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 # - POST /logout
 # - GET /me (current user info)
 
+# Note: Rate limiting headers are automatically added by slowapi
+# Specific endpoints have stricter limits than the global default
+
 # Register router
-router.include_router(
-    fastapi_users.get_register_router(UserRead, UserCreate),
-)
+register_router = fastapi_users.get_register_router(UserRead, UserCreate)
+# Apply rate limit to register endpoint
+for route in register_router.routes:
+    if route.path == "/" and "POST" in route.methods:
+        route.endpoint = limiter.limit(f"{settings.RATE_LIMIT_REGISTER_PER_HOUR}/hour")(
+            route.endpoint
+        )
+router.include_router(register_router)
 
 # Auth router (login/logout)
-router.include_router(
-    fastapi_users.get_auth_router(auth_backend),
-)
+auth_router = fastapi_users.get_auth_router(auth_backend)
+# Apply rate limit to login endpoint
+for route in auth_router.routes:
+    if route.path == "/login" and "POST" in route.methods:
+        route.endpoint = limiter.limit(f"{settings.RATE_LIMIT_LOGIN_PER_MINUTE}/minute")(
+            route.endpoint
+        )
+router.include_router(auth_router)
 
 # Users router (me endpoint)
 router.include_router(

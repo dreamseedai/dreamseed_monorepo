@@ -6,6 +6,9 @@ FastAPI application with AI feedback capabilities
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.core.rate_limiter import limiter
 from app.api.ai_feedback import router as ai_router
 from app.api.payment import router as payment_router
 from app.api.questions import router as questions_router
@@ -28,6 +31,10 @@ from app.messenger.presence import presence_cleanup_task
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="DreamSeed Phase 1 Backend")
+
+# Rate Limiter 등록
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS settings - 4개 포털 + 관리자 페이지
 app.add_middleware(
