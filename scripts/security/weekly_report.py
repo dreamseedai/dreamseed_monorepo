@@ -50,15 +50,9 @@ class WeeklyReportGenerator:
             )
 
             if result.returncode == 0:
-                # Parse JSON lines
-                alerts = []
-                for line in result.stdout.strip().split("\n"):
-                    if line:
-                        alerts.append(json.loads(line))
-                return alerts
-            else:
-                print(f"⚠️  Failed to fetch Dependabot alerts: {result.stderr}")
-                return []
+                return [json.loads(line) for line in result.stdout.strip().split("\n") if line]
+            print(f"⚠️  Failed to fetch Dependabot alerts: {result.stderr}")
+            return []
 
         except Exception as e:
             print(f"❌ Error fetching Dependabot alerts: {e}")
