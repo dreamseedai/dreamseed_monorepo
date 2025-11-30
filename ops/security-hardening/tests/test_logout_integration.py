@@ -1,0 +1,1 @@
+../../../backend/tests/test_logout_integration.py
