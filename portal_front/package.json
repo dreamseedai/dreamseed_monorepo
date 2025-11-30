@@ -28,7 +28,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.13",
     "@tiptap/core": "^3.5.2",
-    "@tiptap/extension-placeholder": "^3.5.2",
+    "@tiptap/extension-placeholder": "^3.11.1",
     "@tiptap/react": "^3.5.2",
     "@tiptap/starter-kit": "^3.11.1",
     "@types/react": "^18.3.3",
